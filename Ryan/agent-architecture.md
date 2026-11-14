@@ -126,11 +126,15 @@ Three kinds of building block, held in a registry and bundled into **packs** per
 
 ## 5. What triggers the analysis loop
 
+**Decided (2026-11-14): only a person triggers it.** It runs when someone presses **Suggest rules** in the app, never on a schedule or on its own, because it is slow, costs money per run, and writes rules people have to trust. Built in the north star app: see [northstar/README.md](northstar/README.md#rules-and-the-analysis-loop-only-when-you-ask).
+
+Good moments for a person to run it, which the app could later *suggest* (never start):
+
 - **Project start:** choose and adapt a pack; pre-load the template.
 - **Phase change:** e.g. entering permitting, load the rules and skills that phase needs.
 - **A surprise:** a discovery that no rule caught, a missed deadline, a loop back to an earlier phase. The loop asks "what rule or feed would have caught this earlier?" and proposes it.
 - **Feedback signals:** rules that fire and get dismissed, nudges that are ignored, suggestions that are always edited the same way.
-- **On a schedule:** a nightly review, and a retrospective at project end that updates the pack for next time.
+- **Project end:** a retrospective that updates the pack for next time.
 
 ## 6. Guardrails
 
@@ -146,7 +150,7 @@ Building the full loop is too much for a weekend. A convincing slice:
 
 1. Hand-write the node types and a small rule engine that evaluates JSON rules.
 2. Seed the facade survey pack with 5 or 6 rules from the table above.
-3. Run the analysis loop **once, live**: give the Opus-class model the whiteboard project history and ask for new rules. Show one proposal, its dry run against the replay, and approve it on screen.
+3. Run the analysis loop **once, live** (built: the Suggest rules button): give the Opus-class model the whiteboard project history and ask for new rules. Show one proposal, its dry run against the replay, and approve it on screen.
 4. Show that rule firing later in the replay.
 
 ## 8. Open questions

@@ -9,10 +9,79 @@ the reason and the chain of nodes that led to it, so the UI can explain itself.
   constraint -about-> T        : T must be re-checked against the constraint
   anything  -supersedes-> T    : T is resolved; the flags T raised are cleared unless another open item still raises them
   anything  -evidence_for-> T  : adds evidence to T, no status change
+
+On top of these, approved JSON rules (proposed by the user-triggered analysis loop, analysis.py) are applied
+after the built-in ones. Rule shape (stored in the `rules` table, kept in ACTIVE_RULES):
+
+  {"id": "rule_ab12", "name": "...", "why": "...",
+   "when": {"new_type": "blocker" | "any", "link_types": ["about", "blocks"],
+            "target_type": "entity" | "any", "target_tags_any": ["equipment"]},
+   "then": {"flag": "target" | "dependents" | "neighbours",
+            "only_types": ["deliverable"], "only_tags_any": ["permit"],
+            "change": "needs update", "new_status": "at_risk" | "reopened" | "blocked" | null}}
 """
 from __future__ import annotations
 
 MAX_DEPTH = 3
+ACTIVE_RULES: list[dict] = []          # approved rules; refreshed by the app from the store
+RULE_STATUSES = ("at_risk", "reopened", "blocked", None)
+
+
+def _tags(n: dict) -> set[str]:
+    return {t.lower() for t in (n.get("tags") or [])}
+
+
+def _matches(n: dict, types: list[str] | str | None, tags_any: list[str] | None) -> bool:
+    if types and types != "any":
+        if n["type"] not in ([types] if isinstance(types, str) else types):
+            return False
+    if tags_any and not (_tags(n) & {t.lower() for t in tags_any}):
+        return False
+    return True
+
+
+def rule_hits(rule: dict, node_type: str, links: list[dict], nodes: list[dict], edges: list[dict]) -> list[tuple[dict, dict]]:
+    """(matched link target, node to flag) pairs this rule produces for a proposed node and its links."""
+    by_id = {n["id"]: n for n in nodes}
+    w, t = rule.get("when", {}), rule.get("then", {})
+    if w.get("new_type", "any") not in ("any", node_type):
+        return []
+    out = []
+    for l in links:
+        tgt = by_id.get(l.get("target"))
+        if not tgt or (w.get("link_types") and l.get("type") not in w["link_types"]):
+            continue
+        if not _matches(tgt, w.get("target_type"), w.get("target_tags_any")):
+            continue
+        flag = t.get("flag", "target")
+        if flag == "target":
+            cands = [tgt["id"]]
+        elif flag == "dependents":
+            cands = _dependents(tgt["id"], edges)
+        else:  # neighbours: anything linked to the target either way
+            cands = [e["src"] for e in edges if e["dst"] == tgt["id"]] + [e["dst"] for e in edges if e["src"] == tgt["id"]]
+        for cid in dict.fromkeys(cands):
+            c = by_id.get(cid)
+            if c and _matches(c, t.get("only_types"), t.get("only_tags_any")):
+                out.append((tgt, c))
+    return out
+
+
+def describe(rule: dict) -> str:
+    """Plain-language 'when ... then ...' for a rule (also stored as rules.when_expr)."""
+    w, t = rule.get("when", {}), rule.get("then", {})
+    a = lambda word: ("an " if word[:1] in "aeiou" else "a ") + word.replace("_", " ")
+    new = "anything" if w.get("new_type", "any") == "any" else a(w["new_type"])
+    tgt = "a node" if w.get("target_type", "any") == "any" else a(w["target_type"])
+    if w.get("target_tags_any"):
+        tgt += f" tagged {' or '.join(w['target_tags_any'])}"
+    via = f" ({' / '.join(w['link_types'])})" if w.get("link_types") else ""
+    who = {"target": "that node", "dependents": "whatever depends on it", "neighbours": "whatever is linked to it"}[t.get("flag", "target")]
+    if t.get("only_types"):
+        who += f", if it is {' or '.join(a(x) for x in t['only_types'])}"
+    if t.get("only_tags_any"):
+        who += f" tagged {' or '.join(t['only_tags_any'])}"
+    return f"When {new} is linked to {tgt}{via}, mark {who} as “{t.get('change', 'check')}”."
 
 
 def _dependents(target: str, edges: list[dict]) -> list[str]:
@@ -23,7 +92,7 @@ def _dependents(target: str, edges: list[dict]) -> list[str]:
 
 
 def compute(node_type: str, title: str, links: list[dict], nodes: list[dict], edges: list[dict],
-            caused: dict[str, list[str]] | None = None) -> dict:
+            caused: dict[str, list[str]] | None = None, rules: list[dict] | None = None) -> dict:
     """`caused` maps a source node id to the node ids it currently flags (open attention items)."""
     caused = caused or {}
     by_id = {n["id"]: n for n in nodes}
@@ -96,6 +165,16 @@ def compute(node_type: str, title: str, links: list[dict], nodes: list[dict], ed
             ripple(t["id"], f"“{title}”", "changes")
         elif lt == "evidence_for":
             add(t["id"], "new evidence", None, f"“{title}” is added as evidence.", [t["id"]])
+
+    # approved rules from the analysis loop, after the built-in ones
+    for rule in (ACTIVE_RULES if rules is None else rules):
+        then = rule.get("then", {})
+        for tgt, c in rule_hits(rule, node_type, links, nodes, edges):
+            if c["id"] in seen:
+                continue
+            add(c["id"], then.get("change", "check"), then.get("new_status"),
+                f"Rule “{rule.get('name', rule['id'])}”: {rule.get('why', '')}", [tgt["id"], c["id"]])
+            seen[c["id"]]["rule_id"] = rule["id"]
 
     notify = sorted({e["owner"] for e in effects if e.get("owner") and e["new_status"]})
     order = {"blocked": 0, "at risk": 1, "re-open": 2, "needs review": 3, "needs update": 4, "re-check": 5, "resolved": 6, "cleared": 7}

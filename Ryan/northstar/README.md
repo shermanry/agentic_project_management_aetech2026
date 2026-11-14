@@ -70,6 +70,17 @@ curl -G localhost:8100/api/search --data-urlencode "q=application fee" --data-ur
 
 `/api/ask` uses the same hybrid search, then has Jev answer from the top sources.
 
+## Rules and the analysis loop (only when you ask)
+
+The **Rules** button in the header opens the rules view. **Suggest rules** runs the analysis loop once: it sends the graph and the decision history to an Opus-class model (`ANALYSIS_MODEL`, default `anthropic/claude-opus-5.5` via OpenRouter) and gets back at most three rules for what the built-in effects missed. It never runs on a schedule or by itself, and it asks for confirmation first (about 20 to 60 seconds and $0.05 to $0.30 per run).
+
+- Each suggestion is a small JSON rule ("when a blocker is linked to a deliverable tagged photogrammetry, mark the linked events as *check capture settings*"), shown in plain words with the model's reason and what it would have caught.
+- **Dry run:** every suggestion is replayed against what is already in the project. Clicking it outlines on the graph the nodes it would have flagged that the built-in rules did not.
+- **Approve** makes it live: from then on `effects.py` applies it after the built-in rules, for approvals and live feeds alike, and every effect it causes names the rule. **Dismiss** (with a reason) and **Retire** keep it on record so the next run doesn't suggest it again.
+- Every run, approval and dismissal is in the decision history; runs are also in the `runs` table with tokens and cost.
+
+On the whiteboard replay, one run (19 s, $0.06) suggested: re-open decisions built on a contradicted feed, flag the next capture flight when processing is blocked, and check the client deadline when a deliverable is blocked.
+
 ## How it works
 
 ```
@@ -97,6 +108,7 @@ drop / paste / chat
 | `qa.py` | Question answering over the graph with cited sources |
 | `replay.py` | The replay scenario and the Back / Forward logic |
 | `livefeeds.py` | Runs the monitors, maps their events to feed nodes, ripples bad news, clears good news, sends discoveries to intake; demo scenarios |
+| `analysis.py` | The user-triggered analysis loop: context, prompt, validation, dry run, stored proposals |
 | `seed.py` | Example project: East Tower facade survey. Placeholder details |
 | `llm.py` | OpenRouter call that must return one JSON object |
 | `static/index.html` | The canvas UI, no build step |
@@ -149,6 +161,10 @@ Settings (environment or `.env`): `DATABASE_URL`, `FEEDS_ENABLED`, `MONITOR_SITE
 | POST | `/api/ask` | `{question}` -> answer, cited sources with quotes, timings. Saves nothing |
 | POST | `/api/nodes/{id}/resolve` | Mark a blocker, discovery or constraint resolved; clears the flags it raised |
 | POST | `/api/replay/forward`, `/api/replay/back` | Step the replay |
+| GET | `/api/rules` | Suggested, active and retired rules |
+| POST | `/api/rules/suggest` | Run the analysis loop once (body: `by`). Proposes rules; changes nothing else |
+| POST | `/api/rules/{id}/approve` | Make a suggested rule live |
+| POST | `/api/rules/{id}/dismiss` | Dismiss a suggestion or retire an active rule (body: `by`, `reason`) |
 | POST | `/api/reset` | Demo helper: reload the example project |
 
 ## Known gaps
@@ -156,7 +172,8 @@ Settings (environment or `.env`): `DATABASE_URL`, `FEEDS_ENABLED`, `MONITOR_SITE
 - **The schema is a vendored copy** of Sharare's, pinned to one commit. If hers changes, this copy must be refreshed until the branches merge.
 - **Only part of the shared schema is used.** Proposals wait in `intake_items` and become confirmed nodes on approval; they are not stored as `candidate` nodes with `proposed` edges yet. Decision versions, lineage, rules and runs are untouched.
 - **"At risk" is an attention item, not a node state.** The shared schema's per-type states have no blocked or at-risk value, so effects are written to `attention_items` and the UI shows the latest open one.
-- **Effects are hard-coded rules** in `effects.py`, not generated JSON rules.
+- **Built-in effects are still code** in `effects.py`; only rules approved from the analysis loop are JSON. The rule language is deliberately small (match a new node's type and link to a target's type or tags; flag the target, its dependents or its neighbours).
+- **Rules survive Reset demo** (they're the pack, not the project), but their dry-run evidence points at the old project.
 - **One project, no login.** "You are" is a dropdown.
 - **Slack intake is not wired.** The chat box stands in for it; `/api/intake` is what a Slack bot would call.
 - **Jev is a router,** so speed varies per call (2.7 to 6.4 seconds seen). Pin `JEV_MODEL` to one fast model if the demo needs consistency.

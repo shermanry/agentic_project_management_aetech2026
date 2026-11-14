@@ -71,7 +71,8 @@ class Store:
         """Users table id for a display name; creates the user on first use."""
         name = (name or "someone").strip()
         fixed = {"system": ("svc_northstar", "North star", "service"), "jev": ("agent_jev", "Jev", "agent"),
-                 "monitors": ("svc_monitors", "Monitors", "service")}
+                 "monitors": ("svc_monitors", "Monitors", "service"),
+                 "analysis": ("agent_analysis", "Analysis loop", "agent")}
         uid, label, kind = fixed.get(name.lower(), ("u_" + re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_"), name, "human"))
         self._q("INSERT INTO users (id, name, kind) VALUES (%s, %s, %s) ON CONFLICT (id) DO NOTHING", (uid, label, kind))
         return uid
@@ -436,6 +437,57 @@ class Store:
             c.execute("UPDATE nodes SET state = %s WHERE id = %s",
                       ("changed" if open_flags else "healthy", int(feed_id)))
         return event_id
+
+    # ---------------------------------------------------------------- rules (analysis.py, user-triggered)
+    def rules(self, statuses: tuple[str, ...] = ("proposed", "active", "retired")) -> list[dict]:
+        rows = self._q("""SELECT id, pack, applies_to, when_expr, then_actions, why, status, stats,
+                                 extract(epoch FROM created_at)::float AS created_at FROM rules
+                          WHERE status = ANY(%s) ORDER BY created_at DESC""", (list(statuses),))
+        out = []
+        for r in rows:
+            meta = r["stats"] or {}
+            out.append({"id": r["id"], "pack": r["pack"], "status": r["status"], "name": meta.get("name", r["id"]),
+                        "why": r["why"], "describe": r["when_expr"], "when": r["applies_to"],
+                        "then": (r["then_actions"] or [{}])[0], "meta": meta, "created_at": r["created_at"]})
+        return out
+
+    def put_rule(self, rule: dict, pack: str, describe: str, meta: dict) -> None:
+        self._q("""INSERT INTO rules (id, pack, applies_to, when_expr, then_actions, why, written_by, status, stats)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, 'proposed', %s)""",
+                (rule["id"], pack, Jsonb(rule["when"]), describe, Jsonb([rule["then"]]), rule["why"],
+                 self.user("analysis"), Jsonb({"fired": 0, "acted_on": 0, "dismissed": 0, "name": rule["name"], **meta})))
+
+    def set_rule_status(self, rule_id: str, status: str, by: str, reason: str) -> int:
+        """Approve (active), dismiss or retire (retired) a rule; records an approval and an event."""
+        uid = self.user(by)
+        verdict = "approved" if status == "active" else "dismissed"
+        with self.pool.connection() as c, c.transaction():
+            r = c.execute("SELECT id, status, stats, when_expr FROM rules WHERE id = %s", (rule_id,)).fetchone()
+            if r is None:
+                raise KeyError(rule_id)
+            c.execute("UPDATE rules SET status = %s WHERE id = %s", (status, rule_id))
+            approval_id = c.execute("""INSERT INTO approvals (project_id, subject_type, subject_id, verdict, reason, by_user, via)
+                                       VALUES (%s, 'rule', %s, %s, %s, %s, 'app') RETURNING id""",
+                                    (self.project["id"], rule_id, verdict, reason or None, uid)).fetchone()["id"]
+            name = (r["stats"] or {}).get("name", rule_id)
+            verb = {"active": "rule.approved", "retired": "rule.retired" if r["status"] == "active" else "rule.dismissed"}[status]
+            title = {"rule.approved": f"Approved rule “{name}”", "rule.retired": f"Retired rule “{name}”",
+                     "rule.dismissed": f"Dismissed suggested rule “{name}”"}[verb]
+            return c.execute("""INSERT INTO events (project_id, actor_id, verb, object_type, payload)
+                                VALUES (%s, %s, %s, 'rule', %s) RETURNING id""",
+                             (self.project["id"], uid, verb, Jsonb({"title": title, "reason": reason, "rule_id": rule_id,
+                                                                    "rule": r["when_expr"], "approval_id": approval_id}))).fetchone()["id"]
+
+    def start_run(self, by: str, model: str, params: dict) -> int:
+        return self._q("""INSERT INTO runs (project_id, kind, name, actor_id, model, params)
+                          VALUES (%s, 'analysis_loop', 'suggest_rules', %s, %s, %s) RETURNING id""",
+                       (self.project["id"], self.user(by), model, Jsonb(params)))[0]["id"]
+
+    def finish_run(self, run_id: int, ok: bool, error: str | None, usage: dict) -> None:
+        self._q("""UPDATE runs SET status = %s, error = %s, tokens_in = %s, tokens_out = %s, cost_usd = %s, finished_at = now()
+                   WHERE id = %s""",
+                (("succeeded" if ok else "failed"), error, usage.get("prompt_tokens"), usage.get("completion_tokens"),
+                 usage.get("cost"), run_id))
 
     # ---------------------------------------------------------------- intake items
     _ITEM = """SELECT id, status, label, author, source, proposal, timings, error, node_id::text AS node_id,

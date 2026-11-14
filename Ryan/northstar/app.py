@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import analysis
 import effects
 import livefeeds
 import pipeline
@@ -54,6 +55,7 @@ async def _startup() -> None:
     if store.empty():
         _seed_warning = await asyncio.to_thread(pipeline.seed_graph, store)
     await asyncio.to_thread(store.sweep)
+    await asyncio.to_thread(analysis.load_active, store)   # approved rules from earlier analysis runs
     replay = Replay(store, DATA, PACKAGES, notify, _approve)
     feeds = livefeeds.LiveFeeds(store, notify, submit_text, DATA)
     if os.environ.get("FEEDS_ENABLED", "1").lower() not in ("0", "false", "no"):
@@ -82,7 +84,62 @@ def state() -> dict:
     return {"project": seed.PROJECT, "people": seed.PEOPLE, "node_types": NODE_TYPES, "edge_types": EDGE_TYPES,
             "nodes": store.nodes(), "edges": store.edges(), "items": [_public_item(i) for i in store.items()],
             "events": store.events(), "replay": replay.status(), "config": {**pipeline.available(), "seed_warning": _seed_warning},
-            "feeds": feeds.snapshot() if feeds else None}
+            "feeds": feeds.snapshot() if feeds else None, "rules": store.rules(),
+            "analysis": {"model": analysis.model(), "running": _analysis_running.is_set()}}
+
+
+# ---------------------------------------------------------------- analysis loop: only when a person asks
+_analysis_running = threading.Event()
+
+
+class RuleAction(BaseModel):
+    by: str = "Sam"
+    reason: str = ""
+
+
+@app.get("/api/rules")
+def rules_list() -> dict:
+    return {"rules": store.rules(), "model": analysis.model(), "running": _analysis_running.is_set()}
+
+
+@app.post("/api/rules/suggest")
+async def rules_suggest(a: RuleAction) -> dict:
+    """Run the analysis loop once over this project's graph and history. Proposes rules; changes nothing else."""
+    if _analysis_running.is_set():
+        raise HTTPException(409, "An analysis run is already in progress")
+    _analysis_running.set()
+    notify({"type": "analysis", "status": "running", "by": a.by})
+    try:
+        out = await asyncio.to_thread(analysis.suggest, store, a.by)
+    except Exception as e:
+        notify({"type": "analysis", "status": "failed"})
+        raise HTTPException(502, f"Analysis failed: {e}")
+    finally:
+        _analysis_running.clear()
+    notify({"type": "graph", "seq": out["revision"]})
+    return out
+
+
+def _rule_status(rule_id: str, status: str, a: RuleAction) -> dict:
+    try:
+        seq = store.set_rule_status(rule_id, status, a.by, a.reason)
+    except KeyError:
+        raise HTTPException(404, "No such rule")
+    active = analysis.load_active(store)
+    notify({"type": "graph", "seq": seq})
+    return {"revision": seq, "active_rules": active}
+
+
+@app.post("/api/rules/{rule_id}/approve")
+def rule_approve(rule_id: str, a: RuleAction) -> dict:
+    """Make a proposed rule live: from now on it joins the effects checks for every approval and live feed."""
+    return _rule_status(rule_id, "active", a)
+
+
+@app.post("/api/rules/{rule_id}/dismiss")
+def rule_dismiss(rule_id: str, a: RuleAction) -> dict:
+    """Dismiss a proposal, or retire an active rule."""
+    return _rule_status(rule_id, "retired", a)
 
 
 @app.get("/api/feeds")

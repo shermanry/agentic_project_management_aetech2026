@@ -86,6 +86,13 @@ mark{background:#fde68a;color:#1f2933;border-radius:2px;padding:0 1px}
 .fx{border-left:3px solid var(--grey);padding:3px 0 3px 8px;margin-top:7px}
 .fx.red{border-color:var(--red)}.fx.amber{border-color:var(--amber)}.fx.green{border-color:var(--green)}
 .fx b{font-weight:600}.fx .why{color:var(--mute);font-size:11.5px}
+.rule{border:1px solid var(--line);border-radius:7px;padding:8px 9px;margin-top:8px}
+.rule.focus{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc-bg)}
+.rule .h{display:flex;gap:6px;align-items:baseline;cursor:pointer}.rule .h b{flex:1}
+.rule .d{margin-top:4px}.rule .w{color:var(--mute);font-size:11.5px;margin-top:4px}
+.rule ul{margin:4px 0 0;padding-left:16px;font-size:12px}
+.tag{font-size:10.5px;font-weight:700;border-radius:9px;padding:1px 7px;background:var(--bg);border:1px solid var(--line)}
+.tag.active{background:var(--green);border-color:var(--green);color:#fff}.tag.proposed{background:var(--acc-bg);border-color:var(--acc);color:var(--acc)}
 .note{background:var(--amber-bg);border-radius:6px;padding:7px 9px;margin-top:8px}
 .muted{color:var(--mute)}
 .actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
@@ -103,6 +110,7 @@ img.prev{max-width:100%;max-height:150px;border-radius:6px;margin-top:8px;border
   <h1 id="pname">Project</h1>
   <div class="meta" id="meta"></div>
   <label>You are <select id="who"></select></label>
+  <button id="rulesb" title="See rules and ask the analysis loop to suggest new ones">Rules</button>
   <button id="reset" title="Reload the example project and clear history">Reset demo</button>
 </header>
 <main>
@@ -136,7 +144,7 @@ img.prev{max-width:100%;max-height:150px;border-radius:6px;margin-top:8px;border
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const TYPE_COLOR = {decision:"#7c3aed",discovery:"#db2777",event:"#0891b2",data_feed:"#0d9488",deliverable:"#2563eb",blocker:"#dc2626",constraint:"#b45309",document:"#64748b",entity:"#16a34a"};
-let S = null, selItem = null, selNode = null, draft = null, draftFx = null, pos = {}, followed = null, busy = false, qa = null;
+let S = null, selItem = null, selNode = null, draft = null, draftFx = null, pos = {}, followed = null, busy = false, qa = null, rv = null;
 const W = 150, H = 44;
 
 async function api(path, opts) {
@@ -211,7 +219,7 @@ function renderTray() {
   document.querySelectorAll("[data-item]").forEach(el => el.onclick = () => {
     const it = S.items.find(i => i.id === el.dataset.item);
     selNode = it.status === "approved" ? it.proposal?.node_id : null;
-    selItem = ["ready","refining"].includes(it.status) ? it.id : null; qa = null;
+    selItem = ["ready","refining"].includes(it.status) ? it.id : null; qa = null; rv = null;
     draft = null; if (selItem) startDraft(it); else if (it.status === "failed") toast(it.error || "Failed");
     render();
   });
@@ -247,6 +255,9 @@ function renderGraph() {
     nodes.push({id:"__ghost", type: draft.type, title: draft.title, status:"proposed", ghost:true});
     draft.links.filter(l => l.on).forEach(l => edges.push({src:"__ghost", dst:l.target, type:l.type, ghost:true}));
     (draftFx?.effects||[]).forEach(e => { if (e.new_status || e.clears) would[e.node_id] = e.change; });
+  } else if (rv?.focus) {
+    const r = (S.rules||[]).find(x => x.id === rv.focus);
+    (r?.meta?.dry_run||[]).forEach(h => would[h.node_id] = h.change);
   }
   const {cw, ch} = layout(nodes, edges, fixed);
   const svg = $("#svg"); svg.setAttribute("viewBox", `0 0 ${cw} ${ch}`);
@@ -305,6 +316,7 @@ function renderPanel() {
     $("#dismiss").onclick = () => act("dismiss", {by: who(), reason: $("#d-reason").value.trim()});
     return;
   }
+  if (rv) { renderRules(el); return; }
   if (qa) { renderAnswer(el); return; }
   const n = selNode && node(selNode);
   if (n) {
@@ -327,6 +339,46 @@ function renderPanel() {
   }
   $("#ptitle").textContent = "Review";
   el.innerHTML = '<p class="muted">Add something on the left. When its proposed placement is ready, open it here to see what it connects to and what it would change, then approve it.</p>';
+}
+
+function renderRules(el) {
+  $("#ptitle").textContent = "Rules";
+  const rules = S.rules || [], running = rv.loading || S.analysis?.running;
+  const prop = rules.filter(r => r.status === "proposed"), act = rules.filter(r => r.status === "active");
+  const card = r => { const m = r.meta || {}, dr = m.dry_run || [];
+    return `<div class="rule ${rv.focus===r.id?"focus":""}" data-rule="${r.id}"><div class="h"><b>${esc(r.name)}</b><span class="tag ${r.status}">${r.status === "proposed" ? "suggested" : r.status}</span></div>
+      <div class="d">${esc(r.describe)}</div><div class="w">Why: ${esc(r.why)}</div>
+      ${m.would_have_caught ? `<div class="w">Would have caught: ${esc(m.would_have_caught)}</div>` : ""}
+      ${r.status === "proposed" ? `<div class="w" style="margin-top:6px"><b>Dry run on this project:</b> ${dr.length ? "" : "no past item would have triggered it."}</div>
+        ${dr.length ? `<ul>${dr.slice(0,6).map(h => `<li>adding “${esc(h.when_added)}” would also mark <b>${esc(h.would_flag)}</b> → ${esc(h.change)}</li>`).join("")}</ul>` : ""}
+        <div class="actions" style="margin-top:8px"><button class="primary" data-ra="approve" data-id="${r.id}">Approve rule</button><button data-ra="dismiss" data-id="${r.id}">Dismiss</button></div>`
+      : r.status === "active" ? `<div class="actions" style="margin-top:6px"><button data-ra="dismiss" data-id="${r.id}">Retire</button></div>` : ""}
+      <div class="w">${m.asked_by ? "Suggested for " + esc(m.asked_by) + " · " : ""}${esc(m.model||"")}</div></div>`; };
+  el.innerHTML = `<p class="muted" style="margin:4px 0 8px">Rules decide what else gets flagged when something is approved or a feed changes. The analysis loop reads this project's graph and history and suggests new ones. It only runs when you ask, and nothing changes until you approve a rule.</p>
+    <div class="actions" style="margin-top:0"><button class="primary" id="suggest" ${running?"disabled":""}>${running ? "Analysing…" : "Suggest rules"}</button><button id="rclose">Close</button></div>
+    ${running ? `<div class="s" style="display:flex;gap:8px;align-items:center;margin-top:10px"><span class="spin"></span><span class="muted">Reading the graph and decision history with ${esc(S.analysis?.model||"the analysis model")}… usually 30 to 90 seconds.</span></div>` : ""}
+    ${rv.error ? `<div class="note">${esc(rv.error)}</div>` : ""}
+    ${rv.last ? `<div class="note"><b>Last run</b> (${rv.last.seconds ?? "?"}s${rv.last.cost_usd != null ? ", $" + Number(rv.last.cost_usd).toFixed(3) : ""}): ${rv.last.rules.length} suggested${rv.last.rejected?.length ? `, ${rv.last.rejected.length} rejected as invalid` : ""}.
+      ${(rv.last.observations||[]).length ? `<ul style="margin:4px 0 0;padding-left:16px">${rv.last.observations.map(o => `<li>${esc(o)}</li>`).join("")}</ul>` : ""}</div>` : ""}
+    <h2 style="padding:14px 0 0">Suggested (${prop.length})</h2>${prop.length ? prop.map(card).join("") : '<p class="muted">None waiting. Press Suggest rules to ask for some.</p>'}
+    <h2 style="padding:14px 0 0">Active (${act.length})</h2>${act.length ? act.map(card).join("") : '<p class="muted">Only the built-in rules are in use.</p>'}`;
+  $("#rclose").onclick = () => { rv = null; render(); };
+  $("#suggest").onclick = suggestRules;
+  el.querySelectorAll(".rule .h").forEach(h => h.onclick = () => { const id = h.parentElement.dataset.rule; rv.focus = rv.focus === id ? null : id; render(); });
+  el.querySelectorAll("[data-ra]").forEach(b => b.onclick = async () => {
+    const what = b.dataset.ra, id = b.dataset.id, r = rules.find(x => x.id === id);
+    const reason = what === "approve" ? "" : (prompt(r.status === "active" ? "Why retire this rule?" : "Why dismiss it? (helps the next run)", "") ?? null);
+    if (reason === null) return;
+    try { await api(`/api/rules/${id}/${what}`, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({by: who(), reason})}); if (rv.focus === id) rv.focus = null; await refresh(); }
+    catch (e) { toast(e.message); }
+  });
+}
+async function suggestRules() {
+  if (!confirm(`Run the analysis loop now?\n\nIt sends this project's graph and decision history to ${S.analysis?.model || "the analysis model"} and suggests up to 3 rules. Takes about a minute and costs roughly $0.10 to $0.30. Nothing changes until you approve a rule.`)) return;
+  rv = {...rv, loading: true, error: null}; render();
+  try { rv.last = await api("/api/rules/suggest", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({by: who()})}); }
+  catch (e) { rv.error = e.message; }
+  rv.loading = false; await refresh();
 }
 
 function withMark(text, quote, found) {
@@ -356,7 +408,7 @@ function renderAnswer(el) {
 function closeQa() { qa = null; render(); }
 async function askQuestion() {
   const q = $("#q").value.trim(); if (!q || qa?.loading) return;
-  selItem = null; draft = null; qa = {loading: true, question: q}; render();
+  selItem = null; draft = null; rv = null; qa = {loading: true, question: q}; render();
   try { qa = await api("/api/ask", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({question: q})}); }
   catch (e) { qa = {question: q, error: e.message}; }
   render();
@@ -393,6 +445,7 @@ function toast(msg, onclick) {
 }
 
 $("#askb").onclick = askQuestion;
+$("#rulesb").onclick = () => { rv = rv ? null : {focus: null}; if (rv) { selItem = null; draft = null; qa = null; } render(); };
 $("#q").onkeydown = e => { if (e.key === "Enter") askQuestion(); };
 $("#rfwd").onclick = () => step("forward");
 $("#rback").onclick = () => step("back");
@@ -414,6 +467,7 @@ const es = new EventSource("/api/events");
 es.onmessage = async m => { const ev = JSON.parse(m.data);
   if (ev.reset) pos = {};
   await refresh();
+  if (ev.type === "analysis" && ev.status === "running" && ev.by !== who()) toast(`${ev.by} started an analysis run`);
   if (ev.type === "indexed" && ev.chunks > 3) toast(`“${ev.title}” is now searchable (${ev.chunks} passages)`);
   if (ev.type === "ready" && ev.id !== S.replay.item_id) toast(`Ready to review: ${ev.title} (${ev.seconds}s)`, () => { const it = S.items.find(i => i.id === ev.id); if (it) { selItem = it.id; selNode = null; startDraft(it); render(); } });
 };
