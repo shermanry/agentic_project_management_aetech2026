@@ -3,7 +3,37 @@
 _Answers to the drone-operations questions in [../Ryan/plan.md](../Ryan/plan.md) §12._
 _Polina Ustinova · in progress_
 
-Status: **Q1–Q5 complete · 5 of 9.**
+Status: **complete — all 9 answered.** Q7's manufacturing card is owned elsewhere
+(`ecem/manufacturing-card`).
+
+## Summary of findings that change the plan
+
+Each is argued in full below, under the question it came from.
+
+| # | Finding | Affects |
+| --- | --- | --- |
+| 1 | **Blast radius of a date change** — given a proposed new date, compute what it costs. Rescheduling is the top-ranked pain and its cost ranges from one approval to a full re-authorization cycle | proposed headline feature · Q5 |
+| 2 | **Constraints come in three classes**: hard (blocks), soft (penalizes), **derate** (date holds, a downstream estimate changes). Derates are how weather reaches the scope estimate | schema · Q1 |
+| 3 | **Permit lead time (14–30 days) far exceeds the forecast horizon (2–3 days)** — every date is committed blind. Climatological ranking of candidate windows is the concrete mitigation | scheduling · Q3A |
+| 4 | **Flight geometry, not project purpose, is the governing axis.** Vertical-near-structure vs planar-over-open-ground predicts the constraints; inspection/monitoring/manufacturing does not | example cards · Q7 |
+| 5 | **Evidence must be snapshotted, not linked.** Forecasts and NOTAMs expire; citing them is how a challenged decision is defended. Today this means digging through old emails | schema · Q4 |
+| 6 | **Revisions need `alternatives_available`.** Some approvals cannot be refused; recording them as plain approvals misstates what happened | schema · Q4 |
+| 7 | **Client visibility is a state machine, not a permission flag** — internal while unresolved, published once closed, with names and budget redacted per field | role model · Q4 |
+| 8 | **The client view needs a request action**, not read-only. Clients influence scope, schedule and frequency — never independently | client view · Q4 |
+| 9 | **Participation has four kinds**: decides / approves / **consulted** / informed | schema · Q4 |
+| 10 | **The binding constraint migrates by project shape** — permits and weather on one-off work, crew and equipment on recurrent work | scheduling · Q3B |
+| 11 | **Scope ends at takeoff.** Deliverable production is out; deliverable *requirements* and pre-flight data-quality prediction stay in | scope · Q6 |
+| 12 | **Legal-clear and operationally-clear are different states.** A presidential visit brings patrolling helicopters before any TFR is published | airspace · Q2 |
+| 13 | **Incidents need root-cause attribution** — pilot / equipment / environment. Environmental failures are the ones planning should have caught | schema · Q9 |
+| 14 | **Do not rebuild Aloft.** The gap is cross-referencing airspace against everything Aloft cannot see, not airspace visualization | scoping · Q2 |
+| 15 | **Reschedule reasons are mandatory and enumerated, and the signal is in the aggregate.** No single slip warrants investigation; a pattern across them does | schema · Q9 |
+
+### Inputs missing from the current plan
+
+Named in this interview, absent from `plan.md` §: public event calendars · construction
+activity schedules · flight logs and pilot notes · equipment availability · third-party
+document status (insurance, owner authorization) · applicant status (first-time vs frequent
+flyer)
 
 Every limit below is tagged **hard** (never fly) or **soft** (degraded, fly with mitigation),
 because that distinction is what a constraint engine actually runs on. It is not currently
@@ -635,3 +665,263 @@ It turns beat 4 from a vague cascade into a precise, legible claim:
 Same gesture, two very different answers, both derived from the graph, both currently
 produced by one expert thinking hard. It demonstrates the product thesis without anyone
 needing to explain it.
+
+---
+
+## Q6. Deliverables — and what the AI should prepare
+
+### Scope decision: deliverables are out of scope
+
+> **"I don't want our solution to do anything with drone deliverables. The goal is to help get
+> the drone up in the air, not finish the project deliverables."**
+
+The product's boundary ends when the aircraft is flying. Producing, processing, managing or
+delivering orthomosaics, 3D reconstructions, imagery and reports is out of scope — that work
+belongs to photogrammetry and deliverable software that already exists.
+
+This is a deliberate narrowing and should be respected in scoping discussions rather than
+quietly reopened.
+
+### The boundary is not absolute — two things stay in scope
+
+Applying the rule too broadly would discard two of the strongest findings in this document.
+
+**1. Deliverable *requirements* are planning inputs.**
+
+On the facade project, a single client comment — resolution insufficient — forced a camera
+change, which changed the shutter, which at least doubled flight time, which drove more
+flights, more permits and more delay. The deliverable specification reaches back and
+reshapes the flight plan, the equipment and the schedule.
+
+> Required output quality is a **constraint node** that flight planning must satisfy. The
+> system never produces the deliverable; it has to know what the deliverable demands.
+
+**2. Predicting data-quality risk before the flight is in scope.**
+
+The broken maps on the facade project were caused by weak GPS in specific areas, a function
+of the building's own geometry. The failure surfaced weeks later in processing, but it was
+**predictable at planning time** from the site model.
+
+| | In scope | Out of scope |
+| --- | --- | --- |
+| Data quality | warning that this facade geometry will degrade GPS before anyone flies | repairing corrupted metadata afterwards |
+| Deliverables | knowing the required resolution constrains standoff, camera and flight time | producing orthomosaics or 3D reconstructions |
+
+**The rule:** anything that changes what happens *before takeoff* is in scope. Anything that
+happens to the data *after landing* is not.
+
+### What the AI should take over
+
+Four things, all pre-takeoff. The system should be **both a generator and a watcher.**
+
+| Priority | Task | Kind |
+| --- | --- | --- |
+| **Top** | **Prepare the permit document package** | production |
+| Also | Constantly checking airspace status | monitoring |
+| Also | Weather | monitoring |
+| Also | Coordinating staff | chasing |
+
+### Generation: the document package remains the top priority
+
+Confirmed by the operator as still the highest-value item. The evidence from Q3A supports it:
+the NYPD package — flight path diagrams, pilot position, VO positions — was authored from
+scratch, then rebuilt entirely when the FIFA rule change introduced a DHS dependency, then
+needed again for each new set of dates under the 5-day-per-application cap.
+
+Everything in it is derivable from the flight plan, which the system already holds. This is
+the clearest case of expensive manual work that a graph can produce directly.
+
+### Monitoring: the burden is vigilance, not effort
+
+The other three are continuous rather than one-off, and the operative word is *constantly*.
+The cost is not performing an airspace check; it is having to keep performing it,
+indefinitely, because something might have changed since the last look. A human carrying that
+load is expensive and unreliable, and the thing they are watching for is rare.
+
+This connects to the T-1 decision point from Q1. The value is not in reporting the weather —
+it is in noticing, **before** the go/no-go call, that something moved. A TFR published after
+planning, a forecast that deteriorated, a crew member who became unavailable. Each is cheap
+to catch early and expensive to discover late.
+
+**Build note.** Document package generation and the attention engine (`plan.md` phase 7b, with
+the polling `worker` from §8) are both core. They are not alternatives, and the generator
+should not be deprioritised in favour of the watcher.
+
+---
+
+## Q7. Essential inputs per project card
+
+### The manufacturing card is not covered here
+
+Outside this operator's expertise. It has an owner already — see the
+`ecem/manufacturing-card` branch.
+
+### What "monitoring" actually means
+
+A correction to an assumption made during the interview. Monitoring was assumed to mean
+tracking a vertical construction project over time. It does not.
+
+> **Monitoring is most useful for flat projects — a public park, large-scale infrastructure.
+> It is usually not a vertical flight.**
+
+### The real axis is flight geometry, not project purpose
+
+Confirmed by the operator: asking **"is this vertical work close to a structure, or planar
+coverage over open ground?"** tells the system more about the operational constraints than
+knowing whether the job is an inspection or a monitoring project.
+
+This matters because the constraints follow from the geometry, not from the label. The 10 mph
+wind limit in Q1 comes from **proximity to a structure**, not from the word "inspection."
+
+| | **Vertical — close to a structure** | **Planar — open ground** |
+| --- | --- | --- |
+| Examples | facade inspection, bridge inspection | public park, large-scale infrastructure |
+| Sustained wind limit | **~10 mph, minimal gusts** | **20 mph / 25 mph gusts** |
+| Dominant risk | stability and standoff near the structure | — |
+| GPS conditions | degraded by the structure's own geometry (Q3A) | open sky |
+| Governing requirement | output resolution → standoff → camera → flight duration | area coverage |
+| Site visit findings | essential — compass interference, GPS strength, takeoff/landing positions, VO positions, blind spots | |
+
+Rows left blank are not yet confirmed by the operator and should not be treated as settled.
+
+### Build implication
+
+**Flight geometry should be an early, explicit input** — ideally the first question asked after
+the site is identified, because it selects which constraint set applies. Structuring the
+example cards around purpose labels (inspection / monitoring / manufacturing) organises them
+by what the client bought rather than by what governs the flight.
+
+A useful framing for the team: **purpose determines the deliverable; geometry determines the
+operation.** The product is scoped to the operation (Q6), so geometry is the axis it should
+be built around.
+
+---
+
+## Q8. What has to be shown when a decision is questioned later
+
+Three parties are named in the question. They have **different needs, served by different
+features**, and conflating them would inflate the decision-history work beyond what is
+justified.
+
+| Who | Has it happened? | What they need | Feature that serves it |
+| --- | --- | --- | --- |
+| **Client** | yes | the factors behind a change, with the evidence cited — the forecast as it stood, the NOTAM that was active | decision history + evidence snapshots |
+| **Regulator** | can request it | **proof of authorizations and permits** | document retention |
+| **Insurer** | **never** | — | — |
+
+### The regulator case is a filing cabinet, not a decision log
+
+A regulator asks for the authorization and the permit. They do not ask for the reasoning
+behind a date change. Retaining the issued documents, retrievable by date and site, satisfies
+this entirely.
+
+> **Scoping consequence:** "regulatory audit" should not be used to justify the decision-history
+> feature. It justifies document retention, which is a much smaller piece of work. The real
+> justifications for decision history are the **client challenge** case (Q4 B1) and the
+> **forward-looking** case — dependencies not living in one person's head (Q3A).
+
+Stating this plainly protects the feature from being over-engineered toward a compliance
+standard nobody has ever been held to.
+
+### Open
+
+- **Retention period** for authorizations and permits is unknown to the operator. This is a
+  question for the legal team, not for drone operations. It affects storage design only
+  mildly and should not block anything.
+
+---
+
+## Q9. "What should happen next" moments
+
+The question proposed three triggers: a flight slipping, a failed capture, a scope change.
+**The operator re-sorted them**, and the re-sorting is the finding.
+
+| Trigger | Operator's classification |
+| --- | --- |
+| Flight slips | **routine individually — but the reason is always recorded, and patterns are investigated** |
+| Issue during flight | **incident** |
+| Failed capture | **incident** |
+| Scope change | **not an issue** — work, not failure |
+
+### 0. A flight slips — routine, but never unrecorded
+
+> **"Flights get rescheduled very often, but the reason why it happened needs to be tracked
+> and investigated if there is a pattern or pilot error behind it."**
+
+This is neither an incident nor a non-event. The model has three parts:
+
+1. **Every reschedule records its reason.** Mandatory, and in a comparable form — otherwise
+   step 2 is impossible.
+2. **Patterns across reschedules trigger investigation.** No single slip warrants it.
+3. **Pilot error as a cause triggers investigation immediately**, regardless of pattern.
+
+**The signal is in the aggregate, not the instance.** Four reschedules in a quarter, all
+caused by crew unavailability, is a finding. Each one on its own is a Tuesday. Nobody sees
+the pattern unless the reasons were captured in a form that can be compared.
+
+> **This is a different job from alerting.** Most systems fire per event. This one has to
+> notice a *shape across events* — which is only possible if reasons are structured rather
+> than written as free text in an email.
+
+**Build implication:** reschedule reason is a required, enumerated field, and pattern
+detection over it is a genuine feature — not a report nobody runs. Candidate reasons, drawn
+from this interview: weather, permit/authorization, crew unavailable, equipment, blackout
+window, client request, pilot error.
+
+### 1. Issues during flight
+
+1. Investigate the reason
+2. Confirm safety protocols were followed
+3. **Analyse drone logs** to understand the cause of the incident
+
+### 2. Failed capture
+
+1. Investigate the reason
+2. **Attribute the cause** to one of three categories:
+   - **pilot error**
+   - **equipment malfunction**
+   - **environmental influence** — the GPS case from Q3A is the example
+
+### 3. Scope change — not an incident
+
+> **"Scope change is not an issue, it just requires re-evaluation of effort, new flight path
+> design and potentially on-site tests to verify the changes."**
+
+This is exactly the camera-change cascade from Q3A, reclassified. It was expensive — it at
+least doubled flight time and drove further permitting — but it was **normal work, not a
+failure**. Three defined steps follow a scope change:
+
+1. Re-evaluate effort
+2. Design a new flight path
+3. Possibly run on-site tests to verify the change
+
+### The common pattern: root-cause attribution
+
+Both real incidents resolve to the same move — **establish what caused it**, against a fixed
+taxonomy of pilot / equipment / environment. This is a triage classification, and it is
+useful to the system for a reason beyond record-keeping: **attribution determines whether the
+problem will recur.**
+
+- *Pilot* — addressable by briefing or crew change
+- *Equipment* — addressable by maintenance or different hardware
+- *Environment* — **often predictable in advance.** The Q3A GPS failure was environmental and
+  was foreseeable from the building's geometry at planning time
+
+> The environmental category is where this product earns its place. A failure attributed to
+> the environment is a failure the planning system should have warned about, and every such
+> attribution is a candidate rule for next time.
+
+### Build implications
+
+1. **Flight logs and pilot notes are an input stream** the current plan does not list. They
+   appear twice in this interview: as the evidence for incident investigation here, and as the
+   source data for the GPS metadata repair in Q3A. They are the operational record of what
+   actually happened in the air.
+2. **Incidents carry a required attribution field** with three values. Cheap to record, and it
+   makes the history queryable in the way that matters — *how often is it the environment?*
+3. **Scope change needs a workflow, not an alert.** Re-evaluate effort → redesign flight path →
+   verify on site. Treating it as an exception would misrepresent normal operations.
+4. **A slipped flight is not an incident, but its reason is mandatory.** Flagging every routine
+   slip as a problem would train users to ignore the flags. Failing to record why it happened
+   makes pattern detection impossible. Both failures are easy to make; the model in section 0
+   above avoids them.
