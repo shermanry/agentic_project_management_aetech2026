@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project record</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+<style>
+/* Tokens follow Grant's prototype (Grant/prototype/base-layer.html) so the two stay one visual language. */
+:root{
+  --bg:#F2F4F5;--surface:#FFFFFF;--well:#F4F6F7;--ink:#161B1F;--muted:#5F6B73;--faint:#8A959C;--line:#DCE1E4;
+  --accent:#2B5FD9;--accent-soft:#E3EAFB;--warm:#B8620F;--warm-soft:#FBEEDD;--good:#2C7A4D;--good-soft:#E2F2E8;--crit:#B23E2E;--crit-soft:#F8E5E2;
+  --shadow:0 1px 2px rgba(16,24,32,.05),0 6px 18px rgba(16,24,32,.07);
+  --sans:"Geist",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0E1215;--surface:#192026;--well:#1F272E;--ink:#E7ECEF;--muted:#9AA6AE;--faint:#6E7A82;--line:#2A333A;
+  --accent:#7DA2F5;--accent-soft:#1D2A47;--warm:#EDA25C;--warm-soft:#3A2A17;--good:#6CC08D;--good-soft:#18301F;--crit:#EE8575;--crit-soft:#3A1E1A;
+  --shadow:0 1px 2px rgba(0,0,0,.35),0 6px 18px rgba(0,0,0,.3);color-scheme:dark}}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{opacity:.55;cursor:default}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3,p{margin:0}
+
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 20px;background:var(--surface);border-bottom:1px solid var(--line)}
+header h1{font-size:15px;font-weight:600}
+header .sp{flex:1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;padding:2px;background:var(--well)}
+.seg button{border:0;background:transparent;border-radius:7px;padding:5px 12px;font-size:13px;font-weight:500;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(16,24,32,.12)}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 11px;font-size:13px;font-weight:500;text-decoration:none;color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.sm{padding:4px 9px;font-size:12.5px}
+.live{font-size:12px;color:var(--faint);display:inline-flex;align-items:center;gap:6px}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.live.on i{background:var(--good)}
+
+.clientbar{background:var(--accent-soft);color:var(--ink);font-size:13px;padding:8px 20px;border-bottom:1px solid var(--line)}
+main{max-width:1180px;margin:0 auto;padding:20px;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}
+main.single{grid-template-columns:minmax(0,720px);justify-content:center}
+@media (max-width:900px){main{grid-template-columns:1fr;padding:16px}}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+@media (max-width:560px){.stats{grid-template-columns:1fr}}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.stat .n{font-size:26px;font-weight:600;line-height:1.1}
+.stat .l{font-size:12.5px;color:var(--muted);margin-top:2px}
+.stat.crit .n{color:var(--crit)}.stat.warm .n{color:var(--warm)}.stat.good .n{color:var(--good)}
+
+section{margin-bottom:24px}
+.sh{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+.sh h2{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.sh .c{font-size:12px;color:var(--faint)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card.flat{box-shadow:none}
+.card .top{display:flex;align-items:flex-start;gap:10px}
+.card h3{font-size:15px;font-weight:600;flex:1;min-width:0}
+.card .why{margin-top:6px;color:var(--ink)}
+.card .meta{margin-top:6px;font-size:12.5px;color:var(--muted)}
+.card .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.card .hint{font-size:12px;color:var(--faint)}
+.chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--well);color:var(--muted);border:1px solid var(--line)}
+.chip.crit{background:var(--crit-soft);color:var(--crit);border-color:transparent}
+.chip.warm{background:var(--warm-soft);color:var(--warm);border-color:transparent}
+.chip.good{background:var(--good-soft);color:var(--good);border-color:transparent}
+.chip.acc{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.cause{margin-top:10px;border-left:3px solid var(--line);padding:2px 0 2px 10px;font-size:13px}
+.cause b{font-weight:600}
+.cause .r{color:var(--muted)}
+.also{margin-top:8px;font-size:12.5px;color:var(--muted)}
+.also button,.linkish{border:0;background:none;padding:0;color:var(--accent);text-decoration:underline;text-underline-offset:2px;font-size:inherit}
+.empty{color:var(--muted);font-size:13px;padding:10px 0}
+
+.tl{border-left:2px solid var(--line);margin-left:5px;padding-left:16px}
+.ev{position:relative;padding-bottom:16px}
+.ev::before{content:"";position:absolute;left:-22px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--surface);border:2px solid var(--accent)}
+.ev .m{font-size:12px;color:var(--faint)}
+.ev .t{font-weight:600}
+.ev .q{color:var(--muted)}
+.ev ul{margin:6px 0 0;padding-left:18px;font-size:13px;color:var(--muted)}
+
+aside{position:sticky;top:64px;display:flex;flex-direction:column;gap:16px}
+@media (max-width:900px){aside{position:static}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.panel h2{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.ask{display:flex;gap:8px}
+.ask input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:var(--surface)}
+.answer{margin-top:12px;font-size:13.5px}
+.answer .src{margin-top:8px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;display:block;width:100%;text-align:left;background:var(--well)}
+.answer .src b{font-weight:600}
+.answer mark{background:var(--warm-soft);color:inherit;border-radius:3px;padding:0 2px}
+.kv{display:grid;grid-template-columns:76px 1fr;gap:4px 10px;font-size:13px;margin:8px 0}
+.kv span:nth-child(odd){color:var(--muted)}
+.rel{border:1px solid var(--line);border-radius:8px;padding:7px 9px;margin-top:6px;font-size:13px;display:block;width:100%;text-align:left;background:var(--surface)}
+.rel small{display:block;color:var(--muted);font-size:12px}
+.sub{font-size:12px;font-weight:600;color:var(--muted);margin-top:14px}
+.err{background:var(--crit-soft);color:var(--crit);border-radius:8px;padding:8px 10px;font-size:13px;margin-top:10px}
+.sim{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+.sim select{border:1px solid var(--line);border-radius:7px;padding:4px 6px;background:var(--surface)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="pname">Project</h1>
+  <span class="live" id="live" title="Live updates from the project"><i></i><span>Connecting</span></span>
+  <span class="sp"></span>
+  <span class="sim" id="sim" hidden><label for="simSel">Simulate</label><select id="simSel"><option value="">a change…</option></select></span>
+  <div class="seg" role="group" aria-label="View as" id="roleSeg">
+    <button data-role="pilot" aria-pressed="false">Pilot</button>
+    <button data-role="pm" aria-pressed="false">Project manager</button>
+    <button data-role="client" aria-pressed="false">Client</button>
+  </div>
+  <a class="btn sm" id="graphLink" href="/" title="Open the graph: add files and notes, review where they go">Open graph</a>
+</header>
+<div class="clientbar" id="clientbar" hidden>This is what the client sees: what changed and why, in plain words. Nothing can be edited here.</div>
+<main id="main"><div id="col"></div><aside id="side"></aside></main>
+
+<script>
+/* Phase 1 of the front end: "what changed, what's waiting on you". Read-only over the north star API.
+   Uses GET /api/state, GET /api/events (SSE), POST /api/ask, POST /api/feeds/inject (presenter only). */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ROLE_PERSON = {pilot: "pilot", pm: "project manager", client: "client"};
+const FLAG = {blocked: ["Blocked", "crit"], at_risk: ["At risk", "crit"], reopened: ["Reopened", "warm"]};
+const DONE = new Set(["done", "delivered", "decided", "absorbed", "dismissed", "expired", "happened", "superseded", "retired"]);
+const params = new URLSearchParams(location.search);
+let S = null, sel = null, answer = null, asking = false, mineOnly = false;
+let role = params.get("role") || localStorage.getItem("role") || "pm";
+if (!ROLE_PERSON[role]) role = "pm";
+
+const api = async (path, opts) => {
+  const r = await fetch(path, opts);
+  if (!r.ok) { let m = r.statusText; try { m = (await r.json()).detail || m; } catch {} throw new Error(m); }
+  return r.json();
+};
+const node = id => S.nodes.find(n => n.id === String(id));
+const me = () => (S.people.find(p => p.role === ROLE_PERSON[role]) || {}).name;
+const words = s => String(s ?? "").replace(/_/g, " ");
+const cap = s => { s = words(s); return s.charAt(0).toUpperCase() + s.slice(1); };
+const when = t => { const d = new Date(t * 1000), s = (Date.now() - d) / 1000;
+  return s < 60 ? "just now" : s < 3600 ? Math.round(s / 60) + " min ago" : s < 86400 ? d.toLocaleTimeString([], {hour: "numeric", minute: "2-digit"}) : d.toLocaleDateString([], {month: "short", day: "numeric"}); };
+
+/* The newest change in the record that touched a node, and how. */
+function cause(id) {
+  for (const e of S.events) {
+    const fx = (e.payload?.effects || []).find(f => String(f.node_id) === String(id));
+    if (fx) return {e, fx};
+  }
+  return null;
+}
+const history = id => S.events.filter(e => String(e.payload?.node_id) === String(id)
+  || (e.payload?.effects || []).some(f => String(f.node_id) === String(id))
+  || (e.payload?.links || []).some(l => String(l.target) === String(id)));
+const changes = () => S.events.filter(e => e.kind !== "project.seeded");
+const flagged = () => S.nodes.filter(n => FLAG[n.status]);
+const isMine = n => n.owner && n.owner === me();
+
+function chip(n) {
+  const f = FLAG[n.status];
+  return f ? `<span class="chip ${f[1]}">${f[0]}</span>` : `<span class="chip${DONE.has(n.state) ? " good" : ""}">${esc(cap(n.state))}</span>`;
+}
+function causeHTML(c, selfId) {
+  if (!c) return "";
+  const e = c.e, others = (e.payload.effects || []).filter(f => String(f.node_id) !== String(selfId));
+  const url = e.payload.url ? ` · <a class="linkish" href="${esc(e.payload.url)}" target="_blank" rel="noopener">source</a>` : "";
+  return `<div class="cause"><b>${esc(e.title)}</b>${e.reason ? `<div class="r">${esc(e.reason)}</div>` : ""}
+    <div class="r">${esc(e.actor)} · ${when(e.at)}${url}</div></div>
+    ${others.length ? `<div class="also">Same change also touched: ${others.map(f => `<button data-open="${esc(f.node_id)}">${esc(f.title)}</button>`).join(", ")}</div>` : ""}`;
+}
+function flagCard(n) {
+  const c = cause(n.id), decision = n.type === "decision";
+  return `<div class="card"><div class="top"><h3>${esc(n.title)}</h3>${chip(n)}</div>
+    <div class="why">${esc(c ? c.fx.why : n.summary)}</div>
+    <div class="meta">${esc(cap(n.type))} · owner ${esc(n.owner || "none")}${isMine(n) ? ' · <span class="chip acc">Yours</span>' : ""}</div>
+    ${decision ? causeHTML(c, n.id) : c ? `<div class="also">Because of: ${esc(c.e.title)} · ${when(c.e.at)}</div>` : ""}
+    <div class="acts"><button class="btn sm" data-open="${esc(n.id)}">What it rests on</button>
+      ${decision ? '<button class="btn sm primary" disabled>Decide again</button><span class="hint">Deciding here arrives in the next phase</span>' : ""}</div></div>`;
+}
+function eventHTML(e, plain) {
+  const fx = e.payload?.effects || [];
+  return `<div class="ev"><div class="m">${plain ? "" : esc(e.actor) + " · "}${when(e.at)}</div><div class="t">${esc(e.title)}</div>
+    ${e.reason ? `<div class="q">${plain ? "" : "“"}${esc(e.reason)}${plain ? "" : "”"}</div>` : ""}
+    ${fx.length ? `<ul>${fx.map(f => `<li><button class="linkish" data-open="${esc(f.node_id)}">${esc(f.title)}</button>: ${esc(words(f.change))}</li>`).join("")}</ul>` : ""}
+    ${!plain && e.payload?.source ? `<div class="m">source: ${esc(e.payload.source)}${e.payload.added_by ? " from " + esc(e.payload.added_by) : ""}</div>` : ""}</div>`;
+}
+
+function renderHome() {
+  let fl = flagged(); if (mineOnly) fl = fl.filter(isMine);
+  const decisions = fl.filter(n => n.type === "decision"), risks = fl.filter(n => n.type !== "decision");
+  const waiting = S.items.filter(i => ["ready", "refining", "processing"].includes(i.status));
+  const ch = changes();
+  return `<div class="stats">
+      <div class="stat ${decisions.length ? "warm" : "good"}"><div class="n">${decisions.length}</div><div class="l">decision${decisions.length === 1 ? "" : "s"} to revisit</div></div>
+      <div class="stat ${risks.length ? "crit" : "good"}"><div class="n">${risks.length}</div><div class="l">item${risks.length === 1 ? "" : "s"} at risk or blocked</div></div>
+      <div class="stat"><div class="n">${waiting.length}</div><div class="l">waiting to be added</div></div></div>
+    <div class="seg" role="group" aria-label="Whose items" style="margin-bottom:16px"><button data-mine="0" aria-pressed="${!mineOnly}">Everyone's</button><button data-mine="1" aria-pressed="${mineOnly}">Mine (${esc(me() || "?")})</button></div>
+    <section><div class="sh"><h2>Decisions to revisit</h2><span class="c">something they rested on has changed</span></div>
+      ${decisions.map(flagCard).join("") || '<div class="empty">No decision is in question right now.</div>'}</section>
+    <section><div class="sh"><h2>At risk or blocked</h2></div>
+      ${risks.map(flagCard).join("") || '<div class="empty">Nothing is at risk.</div>'}</section>
+    ${waiting.length ? `<section><div class="sh"><h2>Waiting to be added</h2><span class="c">new information that needs a yes or no</span></div>
+      ${waiting.map(i => `<div class="card flat"><div class="top"><h3>${esc(i.proposal?.title || i.label)}</h3><span class="chip acc">${i.status === "ready" ? "Ready to review" : "Being read"}</span></div>
+        <div class="meta">from ${esc(i.author || "someone")} · ${when(i.created_at)}</div><div class="acts"><a class="btn sm" href="/">Review in the graph</a></div></div>`).join("")}</section>` : ""}
+    <section><div class="sh"><h2>What changed</h2><span class="c">${ch.length} change${ch.length === 1 ? "" : "s"}, newest first</span></div>
+      ${ch.length ? `<div class="tl">${ch.map(e => eventHTML(e)).join("")}</div>` : '<div class="empty">Nothing has changed since the project was set up.</div>'}</section>`;
+}
+function renderClient() {
+  const fl = flagged(), ch = changes().filter(e => (e.payload?.effects || []).length || e.reason);
+  const head = fl.length ? `${fl.length} part${fl.length === 1 ? "" : "s"} of the project ${fl.length === 1 ? "is" : "are"} being looked at again` : "Everything is on track";
+  return `<div class="card"><div class="top"><h3 style="font-size:18px">${esc(head)}</h3><span class="chip ${fl.length ? "warm" : "good"}">${fl.length ? "Under review" : "On track"}</span></div>
+      ${fl.length ? `<div class="why">${fl.map(n => esc(n.title)).join(" · ")}</div><div class="meta">The team is working through these. Updates appear below as they are decided.</div>` : ""}</div>
+    <section><div class="sh"><h2>Why things changed</h2></div>
+      ${ch.length ? `<div class="tl">${ch.map(e => eventHTML(e, true)).join("")}</div>` : '<div class="empty">No changes yet.</div>'}</section>`;
+}
+
+function renderAsk() {
+  let a = "";
+  if (asking) a = '<div class="answer" style="color:var(--muted)">Reading the project record…</div>';
+  else if (answer?.error) a = `<div class="err">${esc(answer.error)}</div>`;
+  else if (answer) a = `<div class="answer"><div>${esc(answer.answer)}</div>
+    ${(answer.citations || []).map(c => { let t = esc(c.text);
+      if (c.quote_found) { const q = esc(c.quote), i = t.toLowerCase().indexOf(q.toLowerCase()); if (i >= 0) t = t.slice(0, i) + "<mark>" + t.slice(i, i + q.length) + "</mark>" + t.slice(i + q.length); }
+      return `<button class="src" data-open="${esc(c.node_id)}"><b>[${c.n}] ${esc(c.title)}</b>${c.locator ? " · " + esc(c.locator) : ""}<br>${t}</button>`; }).join("")}</div>`;
+  return `<div class="panel"><h2>Ask about this project</h2>
+    <form class="ask" id="askForm"><input id="askIn" placeholder="Why is the permit date in question?" autocomplete="off" aria-label="Question"><button class="btn primary" ${asking ? "disabled" : ""}>Ask</button></form>${a}</div>`;
+}
+function renderDetail() {
+  const n = sel && node(sel);
+  if (!n) return "";
+  const out = S.edges.filter(e => e.src === n.id), inc = S.edges.filter(e => e.dst === n.id), hs = history(n.id);
+  const rel = (e, other, label) => { const o = node(other); return o ? `<button class="rel" data-open="${esc(o.id)}"><b>${esc(o.title)}</b> ${FLAG[o.status] ? chip(o) : ""}<small>${esc(label)}${e.reason ? " · " + esc(e.reason) : ""}</small></button>` : ""; };
+  return `<div class="panel" id="detail"><div style="display:flex;gap:8px;align-items:flex-start"><h3 style="flex:1;font-size:15px">${esc(n.title)}</h3><button class="btn sm" data-close aria-label="Close details">Close</button></div>
+    <div class="kv"><span>Kind</span><span>${esc(cap(n.type))}</span><span>Status</span><span>${chip(n)}</span><span>Owner</span><span>${esc(n.owner || "none")}</span></div>
+    <p style="font-size:13.5px">${esc(n.summary)}</p>
+    ${out.length ? `<div class="sub">Rests on</div>${out.map(e => rel(e, e.dst, words(e.type))).join("")}` : ""}
+    ${role !== "client" && inc.length ? `<div class="sub">Affects</div>${inc.map(e => rel(e, e.src, words(e.type) + " this")).join("")}` : ""}
+    <div class="sub">History</div>${hs.length ? `<div class="tl" style="margin-top:8px">${hs.map(e => eventHTML(e, role === "client")).join("")}</div>` : '<div class="empty">No changes recorded.</div>'}</div>`;
+}
+
+function render() {
+  if (!S) return;
+  const client = role === "client";
+  $("#pname").textContent = S.project.name; document.title = S.project.name;
+  document.querySelectorAll("#roleSeg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.role === role));
+  $("#clientbar").hidden = !client; $("#graphLink").hidden = client;
+  $("#col").innerHTML = client ? renderClient() : renderHome();
+  const keep = document.activeElement?.id === "askIn" ? $("#askIn").value : null, q = $("#askIn")?.value;
+  $("#side").innerHTML = renderAsk() + renderDetail();
+  if (q) $("#askIn").value = q; if (keep !== null) $("#askIn").focus();
+}
+async function refresh() { try { S = await api("/api/state"); render(); } catch (e) { $("#col").innerHTML = `<div class="err">Can't reach the project: ${esc(e.message)}</div>`; } }
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-open],[data-close],[data-role],[data-mine]"); if (!t) return;
+  if (t.dataset.role) { role = t.dataset.role; localStorage.setItem("role", role); mineOnly = false; }
+  else if (t.dataset.mine) mineOnly = t.dataset.mine === "1";
+  else if ("close" in t.dataset) sel = null;
+  else { sel = t.dataset.open; render(); $("#detail")?.scrollIntoView({block: "nearest", behavior: "smooth"}); return; }
+  render();
+});
+document.addEventListener("submit", async e => {
+  if (e.target.id !== "askForm") return; e.preventDefault();
+  const q = $("#askIn").value.trim(); if (!q || asking) return;
+  asking = true; answer = null; render();
+  try { answer = await api("/api/ask", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({question: q})}); }
+  catch (err) { answer = {error: err.message}; }
+  asking = false; render();
+});
+
+/* Presenter mode (?presenter): push a canned change through the real feed path, for rehearsal. */
+if (params.has("presenter")) api("/api/feeds").then(f => {
+  $("#sim").hidden = false;
+  $("#simSel").innerHTML += (f.scenarios || []).map(s => `<option value="${esc(s)}">${esc(words(s))}</option>`).join("");
+  $("#simSel").onchange = async ev => { const s = ev.target.value; ev.target.value = ""; if (s) { try { await api("/api/feeds/inject/" + s, {method: "POST"}); } catch (err) { alert(err.message); } refresh(); } };
+}).catch(() => {});
+
+const live = on => { $("#live").classList.toggle("on", on); $("#live span").textContent = on ? "Live" : "Reconnecting"; };
+const es = new EventSource("/api/events");
+es.onopen = () => live(true); es.onerror = () => live(false); es.onmessage = () => refresh();
+refresh();
+</script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AeroGraph</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="aero.css">
+<style>
+/* Additions to the AeroGraph design for things the live back end has and the mock-up did not:
+   flagged nodes, the cause of a flag, the dry-run effects of a proposal, cited answers. */
+html,body{color-scheme:light;background:#fff}
+#root{height:100%}
+.app.light{min-height:100%}
+.app.tab-pm{height:100%}
+.status-area select{border:0;border-bottom:1px solid var(--hair);background:none;padding:4px 0;font-size:13px;color:var(--ink-2);cursor:pointer}
+.status-area .who{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.live i{width:7px;height:7px;border-radius:50%;background:#2e9e5b}
+.live.off i{background:#c8452f}
+.flag{color:#b4541a}
+.flag.bad{color:#c8452f}
+.light .badge.t-warn{color:#b4541a}
+.light .badge.t-bad{color:#c8452f}
+.light .badge.t-ok{color:#2e7d4f}
+.light .badge.t-ai{color:#7a55c7}
+.card.flagged{border-color:#e0a070}
+.card.flagged.bad{border-color:#d98877}
+.card .why{font-size:11px;color:#b4541a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ed-row .sub{grid-column:1/-1;color:var(--ink-2);font-size:14px;line-height:1.45;max-width:78ch}
+.ed-row .fx{grid-column:1/-1;margin:4px 0 0;padding:0;list-style:none;font-size:14px;line-height:1.5}
+.ed-row .fx li{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.ed-row .fx .chg{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#b4541a;min-width:96px}
+.ed-row .fx .y{color:var(--ink-2)}
+.ed-row .fx button{border:0;background:none;padding:0;font:inherit;cursor:pointer;box-shadow:inset 0 -1px 0 var(--hair)}
+.ed-row .fx button:hover{box-shadow:inset 0 -1px 0 var(--ink)}
+.reading{color:var(--ink-3)}
+.reading:after{content:"";display:inline-block;width:1em;text-align:left;animation:dots 1.2s steps(4,end) infinite}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+.open-q{border:0;border-left:2px solid #b4541a;border-radius:0;color:var(--ink);padding:6px 0 6px 12px;margin:0;font-size:14px}
+.open-q small{display:block;color:var(--ink-2);margin-top:4px}
+.answer .cites{list-style:none;margin:10px 0 0;padding:0;font-size:13px}
+.answer .cites li{padding:6px 0;border-top:1px solid var(--hair)}
+.answer .cites button{border:0;background:none;padding:0;font:inherit;cursor:pointer;text-align:left}
+.answer .cites q{display:block;color:var(--ink-2);margin-top:2px}
+.ask-big{display:flex;gap:20px;align-items:flex-end;flex-wrap:wrap}
+.ask-big .ed-search{flex:1 1 320px}
+.ask-out{margin-top:18px;max-width:80ch;font-size:17px;line-height:1.5}
+.ask-out .answer{padding:16px 18px}
+.hist{list-style:none;margin:0;padding:0;font-size:13px}
+.hist li{padding:6px 0;border-bottom:1px solid var(--hair)}
+.hist small{display:block;color:var(--ink-3)}
+.ins-act{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.pk-drop input[type=file]{display:none}
+.pk-note select,.pm-add select{border:0;border-bottom:1px solid var(--hair);background:none;padding:6px 0}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0a0a0a;color:#fff;padding:12px 20px;font:14px Inter,sans-serif;z-index:50;max-width:80vw}
+.presenter{display:flex;gap:14px;align-items:center;padding:8px var(--gutter);border-bottom:1px solid var(--hair);background:var(--tile);font-size:13px;flex-wrap:wrap}
+.presenter b{font-weight:500;letter-spacing:.08em;text-transform:uppercase;font-size:11px}
+.presenter button,.presenter select{border:1px solid var(--hair);background:#fff;padding:5px 10px;cursor:pointer;font-size:13px}
+.chain{list-style:none;margin:0;padding:0}
+.ed-row .t .ed-glyph{margin-right:12px}
+.ed-glyph.bad{background:#c8452f;border-color:#c8452f}
+.ed-day small{color:var(--ink-2);font-size:12px;line-height:1.35}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="toast" class="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -454,4 +454,7 @@ async def reset() -> dict:
     return {"ok": True, "warning": _seed_warning}
 
 
+WEB = HERE.parent.parent / "web"            # the phased front end (repo root); this page stays as the graph and dev console
+if WEB.is_dir():
+    app.mount("/app", StaticFiles(directory=WEB, html=True), name="web")
 app.mount("/", StaticFiles(directory=HERE / "static", html=True), name="static")
