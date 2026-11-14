@@ -180,11 +180,81 @@ def markups():
     doc.save(OUT / "flight_plan_reviewed.pdf")
 
 
+def _tts(text: str, wav: Path) -> bool:
+    """Windows built-in speech synthesis (System.Speech). Returns False elsewhere."""
+    import platform
+    if platform.system() != "Windows":
+        return False
+    ps = ("Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+          f"$s.Rate = 0; $s.SetOutputToWaveFile('{wav}'); $s.Speak([Console]::In.ReadToEnd()); $s.Dispose()")
+    r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], input=text, text=True, capture_output=True)
+    return r.returncode == 0 and wav.exists()
+
+
+def media_ai():
+    """Speech, narrated site video and a scanned drawing: things only the AI media pass can read."""
+    import imageio_ffmpeg
+    import pymupdf
+    from PIL import Image, ImageDraw, ImageFont
+    ff = imageio_ffmpeg.get_ffmpeg_exe()
+    memo = ("Site visit voice note, Pier 54, November fourteenth. Wind on the pier end was gusting about twenty two "
+            "miles per hour at two p.m., stronger than the forecast. The crane on the north side is still up and the "
+            "operator says it stays until December twelfth. Two G C P targets near the south entrance were moved by "
+            "the contractor, we need to re-survey them before the next flight. Battery swap took six minutes.")
+    wav = OUT / "_memo.wav"
+    if _tts(memo, wav):
+        subprocess.run([ff, "-y", "-hide_banner", "-loglevel", "error", "-i", str(wav), str(OUT / "site_voice_note.m4a")], check=True)
+        narration = ("Starting the north facade pass. You can see the crane on the left. Moving east now along the pier deck.")
+        wav2 = OUT / "_narr.wav"
+        _tts(narration, wav2)
+        base = Path(__file__).parents[1] / "converter_output"
+        view = next(base.glob("uep_*/assets/view_axonometric.png"), None) or next(base.glob("uep_*/assets/*.png"))
+        subprocess.run([ff, "-y", "-hide_banner", "-loglevel", "error", "-loop", "1", "-i", str(view), "-i", str(wav2),
+                        "-vf", "scale=1600:-2,zoompan=z='1.0+0.0015*on':x='iw*0.1+on*2':y='ih/4':d=1:s=1280x720:fps=25",
+                        "-t", "12", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest",
+                        str(OUT / "drone_flyover_narrated.mp4")], check=True)
+        for f in (wav, wav2):
+            f.unlink(missing_ok=True)
+    else:
+        print("  (no Windows speech synthesis: skipped voice note and narrated video)")
+    # scanned drawing: text exists only as pixels
+    img = Image.new("RGB", (2200, 1550), (246, 244, 236))
+    d = ImageDraw.Draw(img)
+    try:
+        f_big, f_med = ImageFont.truetype("arial.ttf", 44), ImageFont.truetype("arial.ttf", 30)
+    except OSError:
+        f_big = f_med = ImageFont.load_default()
+    d.rectangle([80, 120, 1500, 1150], outline=(40, 40, 40), width=5)            # elevation outline
+    for i in range(7):
+        y = 1150 - i * 140
+        d.line([80, y, 1500, y], fill=(120, 120, 120), width=2)
+        d.text((1520, y - 18), f"L{i + 1}  +{3.6 * i:.1f}m", fill=(30, 30, 30), font=f_med)
+    d.rectangle([600, 120, 900, 260], outline=(200, 30, 30), width=4)
+    d.text((620, 280), "PARAPET HT. 1100 MIN - VERIFY ON SITE", fill=(200, 30, 30), font=f_med)
+    d.text((100, 60), "NORTH ELEVATION - FACADE SURVEY ZONES", fill=(20, 20, 20), font=f_big)
+    d.text((120, 1180), "Zone N1: levels 1-3, scaffold until Dec 12. Zone N2: levels 4-7, drone pass OK.", fill=(20, 20, 20), font=f_med)
+    d.rectangle([1700, 1250, 2150, 1520], outline=(20, 20, 20), width=3)          # title block
+    for i, t in enumerate(["PROJECT: PIER 54", "DWG No: A-201", "REV: C   DATE: 2026-11-10", "SCALE 1:200   DRAWN: MN"]):
+        d.text((1720, 1270 + i * 60), t, fill=(20, 20, 20), font=f_med)
+    img = img.rotate(0.6, expand=True, fillcolor=(250, 250, 250))                  # a slightly crooked scan
+    buf = io.BytesIO(); img.save(buf, "JPEG", quality=80)
+    doc = pymupdf.open()
+    page = doc.new_page(width=img.width * 0.36, height=img.height * 0.36)
+    page.insert_image(page.rect, stream=buf.getvalue())
+    doc.save(OUT / "scanned_north_elevation.pdf")
+
+
 if __name__ == "__main__":
     import sys
     OUT.mkdir(parents=True, exist_ok=True)
     if "--markups" in sys.argv:
         markups()
+        raise SystemExit
+    if "--media-ai" in sys.argv:
+        media_ai()
+        for n in ("site_voice_note.m4a", "drone_flyover_narrated.mp4", "scanned_north_elevation.pdf"):
+            p = OUT / n
+            print(f"{p.stat().st_size if p.exists() else 0:>10,}  {n}")
         raise SystemExit
     rhino(); pdf(); image_with_gps(OUT / "drone_photo.jpg"); email_with_attachments(); office(); media(); archive()
     for p in sorted(OUT.iterdir()):

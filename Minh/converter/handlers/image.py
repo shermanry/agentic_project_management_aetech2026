@@ -132,7 +132,7 @@ def convert_image(pkg: Package, ctx: Context) -> None:
             pkg.kind = "markup"
             pkg.metadata["markup"] = summary
             pkg.tags.update({"markup", "change-request"})
-            if summary.get("marks_up"):
-                pkg.title = f"Markup on {summary['marks_up'].get('title', 'image')} - {pkg.title}"
+            if summary.get("drawn_on"):
+                pkg.title = f"Markup on {summary['drawn_on'].get('title', 'image')} - {pkg.title}"
             caption = chunk.text
     pkg.description = caption

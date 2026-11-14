@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Knowledge Tree Intake</title>
+<title>Converter</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23ff7a3d'/%3E%3Cg fill='none' stroke='%23111' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='6' r='2'/%3E%3Ccircle cx='6.5' cy='17.5' r='2'/%3E%3Ccircle cx='17.5' cy='17.5' r='2'/%3E%3Cpath d='M12 8v3.5l-4.5 4M12 11.5l4.5 4'/%3E%3C/g%3E%3C/svg%3E">
 <style>
 :root {
@@ -242,11 +242,11 @@ details pre { font: 11.5px ui-monospace, Consolas, monospace; white-space: pre-w
 </head>
 <body>
 <nav class="rail" aria-label="Main">
-  <div class="logo" title="Knowledge Tree Intake"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#111" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="5" r="2.2"/><circle cx="5.5" cy="18" r="2.2"/><circle cx="18.5" cy="18" r="2.2"/><path d="M12 7.2v4.3M12 11.5l-5.2 4.6M12 11.5l5.2 4.6"/></svg></div>
-  <button class="ic on" data-go="new" aria-label="New intake"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M12 8v8M8 12h8"/></svg><span class="tip">New intake</span></button>
+  <div class="logo" title="Converter"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#111" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="5" r="2.2"/><circle cx="5.5" cy="18" r="2.2"/><circle cx="18.5" cy="18" r="2.2"/><path d="M12 7.2v4.3M12 11.5l-5.2 4.6M12 11.5l5.2 4.6"/></svg></div>
+  <button class="ic on" data-go="new" aria-label="New"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M12 8v8M8 12h8"/></svg><span class="tip">New</span></button>
   <button class="ic" data-go="library" aria-label="Library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg><span class="tip">Library</span></button>
-  <button class="ic" data-go="decision" aria-label="Decisions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="2"/><path d="M16.75 13.5v6.5M13.5 16.75H20"/></svg><span class="badge" id="decCount"></span><span class="tip">Needs a decision</span></button>
-  <button class="ic" data-go="markup" aria-label="Markups"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 4 20 18H4z"/><circle cx="7" cy="18" r="2.2"/><circle cx="17" cy="18" r="2.2"/></svg><span class="tip">Markups</span></button>
+  <button class="ic" data-go="model" aria-label="Models"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M12 12 20 7.5M12 12 4 7.5M12 12v9"/></svg><span class="tip">Models</span></button>
+  <button class="ic" data-go="image" aria-label="Images and markups"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4 4 3 3-2 4 3"/></svg><span class="tip">Images &amp; markups</span></button>
   <button class="ic" data-go="feed" aria-label="Agent activity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8.5A1.5 1.5 0 0 1 19 17h-7l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5V7A1.5 1.5 0 0 1 5 5.5z"/></svg><span class="tip">Agent activity</span></button>
   <span class="grow"></span>
   <button class="ic" data-go="settings" aria-label="Details and formats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span class="tip">Manual details · formats</span></button>
@@ -257,7 +257,7 @@ details pre { font: 11.5px ui-monospace, Consolas, monospace; white-space: pre-w
 <div class="wrap">
   <section class="hero" id="top">
     <div class="banner" id="banner"><div class="aurora"></div><div class="stat" id="bannerStat"></div></div>
-    <h1 id="greet">What goes into the tree?</h1>
+    <h1 id="greet">What are we converting?</h1>
 
     <section id="composer">
       <div id="tray"></div>
@@ -269,7 +269,7 @@ details pre { font: 11.5px ui-monospace, Consolas, monospace; white-space: pre-w
           <button id="modeBtn" type="button" aria-haspopup="true"><b id="modeName">Agent</b><span class="lbl muted" id="modeSub">Sonnet 5.5</span>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg></button>
           <div class="menu" id="modeMenu" role="menu">
-            <div class="opt" data-mode="agent" role="menuitem"><b>Agent</b><span id="optAgentSub">Reads the files, extracts what matters, links it. You approve.</span></div>
+            <div class="opt" data-mode="agent" role="menuitem"><b>Agent</b><span id="optAgentSub">Reads the files and pulls out the meaningful content.</span></div>
             <div class="opt" data-mode="local" role="menuitem"><b>Convert only</b><span>Local extraction, no AI, nothing leaves this machine.</span></div>
           </div>
         </div>
@@ -300,12 +300,12 @@ details pre { font: 11.5px ui-monospace, Consolas, monospace; white-space: pre-w
     </section>
 
     <div class="starters" id="starters">
-      <button class="starter" data-p="Client markup: they want a change. Find what it marks up and what decision it needs.">✎ Client markup</button>
-      <button class="starter" data-p="Email thread: pull out the ask, the decision, who owns it and the deadline.">✉ Email → decisions</button>
-      <button class="starter" data-p="Report or drawing set: keep only the key statements, constraints and the figures worth keeping.">▤ Long document → key points</button>
+      <button class="starter" data-p="Client markup: read what they wrote and what they circled.">✎ Client markup</button>
+      <button class="starter" data-p="Email thread: pull out what was asked, by whom, and any dates.">✉ Email thread</button>
+      <button class="starter" data-p="Report or drawing set: keep only the key statements and the figures worth keeping.">▤ Long document → key points</button>
       <button class="starter" data-p="Rhino model update: describe the design and what changed.">◇ Model update</button>
-      <button class="starter" data-p="Site photos / drone footage: what do they show, any defects or risks?">◉ Site capture</button>
-      <button class="starter" data-p="Research: FAA rules for flying a drone near a heliport in Manhattan, and what permits we need for Pier 54.">⌕ Research</button>
+      <button class="starter" data-p="Site photos / drone footage: describe what they show.">◉ Site capture</button>
+      <button class="starter" data-p="Look up: FAA rules for flying a drone near a heliport in Manhattan.">⌕ Look something up</button>
     </div>
   </section>
 
@@ -339,7 +339,7 @@ const toast = msg => { const t = $("#toast"); t.textContent = msg; t.classList.a
 
 // ---------- greeting
 (() => { const h = new Date().getHours(); const part = h < 5 ? "tonight" : h < 12 ? "this morning" : h < 18 ? "this afternoon" : "this evening";
-  $("#greet").textContent = `What goes into the tree ${part}?`; })();
+  $("#greet").textContent = `What are we converting ${part}?`; })();
 
 // ---------- formats
 fetch("/api/formats").then(r => r.json()).then(f => {
@@ -360,7 +360,7 @@ function setMode(m) {
 fetch("/api/agent").then(r => r.json()).then(a => {
   agentOn = a.available;
   window._agentShort = (a.agent_model || "").split("/").pop().replace(/^claude-/, "").replace(/-(\d)/, " $1").replace(/^./, c => c.toUpperCase());
-  $("#optAgentSub").textContent = a.available ? `Reads the files, extracts what matters, links it. ${a.agent_model} via OpenRouter.`
+  $("#optAgentSub").textContent = a.available ? `Reads the files and pulls out the meaningful content. ${a.agent_model} via OpenRouter.`
     : "Unavailable: add OPENROUTER_API_KEY to .env";
   document.querySelector('.opt[data-mode="agent"]').classList.toggle("off", !a.available);
   setMode(mode);
@@ -437,7 +437,7 @@ async function send(packageIds = [], promptOverride = null) {
   run.innerHTML = `<div class="you"><div class="av">${esc(initials())}</div><div><div class="p">${esc(prompt || "(no prompt)")}</div><div class="f">${esc(what)}</div></div></div>
     <div class="status"><div class="spin"></div><div class="steps">
       <div class="s on">Understanding your prompt…</div><div class="s">${n ? `Extracting ${n} file(s) locally…` : (/https?:\/\//.test(prompt) ? "Fetching the link(s)…" : "Saving the note or researching the web…")}</div>
-      <div class="s">Reading text and images, picking what matters…</div><div class="s">Linking to the tree…</div></div></div>`;
+      <div class="s">Reading text and images, picking what matters…</div><div class="s">Writing it up…</div></div></div>`;
   $("#feed").prepend(run);
   run.scrollIntoView({ behavior: "smooth", block: "center" });
   const steps = [...run.querySelectorAll(".s")]; let k = 0;
@@ -455,48 +455,42 @@ async function send(packageIds = [], promptOverride = null) {
     (res.errors || []).forEach(e => run.insertAdjacentHTML("beforeend", `<div class="res"><div></div><div style="color:var(--err)" class="small">${esc(e)}</div></div>`));
     if (!res.items.length && !(res.errors || []).length) run.insertAdjacentHTML("beforeend", `<div class="res"><div></div><div class="muted">Nothing to add.</div></div>`);
     res.items.forEach(it => run.insertAdjacentHTML("beforeend", resultHtml(it)));
-    run.insertAdjacentHTML("beforeend", `<div class="foot">${res.items.length} node(s) added · $${(res.cost_usd || 0).toFixed(3)}${res.models ? ` · ${esc(res.models.router)} → ${esc(res.models.agent)}` : ""}</div>`);
+    run.insertAdjacentHTML("beforeend", `<div class="foot">${res.items.length} file(s) converted · $${(res.cost_usd || 0).toFixed(3)}${res.models ? ` · ${esc(res.models.router)} → ${esc(res.models.agent)}` : ""}</div>`);
     wireResults(run);
     refresh();
   } catch (err) {
     run.querySelector(".status").innerHTML = `<span style="color:var(--err)">Failed: ${esc(err.message || err)}</span>`;
   } finally { clearInterval(tick); $("#send").disabled = false; }
 }
-const ntc = t => `<span class="chip nt nt-${esc(t)}">${esc(String(t).replace("_", " "))}</span>`;
-const imp = a => `<span class="chip imp-${esc(a.importance)}">${esc(a.importance)}</span>`;
-const stc = s => `<span class="chip st-${esc(s)}">${esc(s)}</span>`;
+const kindChip = k => `<span class="chip">${esc(String(k || "").replace("_", " "))}</span>`;
 function resultHtml(it) {
   const a = it.agent;
   const th = it.thumbnail ? `<img src="/files/${it.id}/${it.thumbnail}" alt="">` : esc((it.filename.split(".").pop() || "").toUpperCase());
   if (!a) return `<div class="res" data-id="${it.id}"><div class="th" data-open="${it.id}">${th}</div><div><div class="t">${esc(it.filename)}</div>
-    <div style="color:var(--err)" class="sum">Extracted locally, but the agent failed: ${esc(it.error || "unknown")}</div>
+    <div style="color:var(--err)" class="sum">Extracted locally, but the AI reading failed: ${esc(it.error || "unknown")}</div>
     <div class="acts"><button class="btn" data-open="${it.id}">Open</button></div></div></div>`;
-  const links = (it.links || []).map(l => `<div class="lk">→ ${esc(l.type.replace("_", " "))} <a data-open="${l.target}">${esc(parentName(l.target))}</a>${l.why ? ` · ${esc(l.why)}` : ""}</div>`).join("");
+  const c = a.counts || {};
+  const counts = [c.key_points ?? c.insights, c.figures, c.markup_text].map((n, i) => n ? `${n} ${["key points", "figures", "markup notes"][i]}` : "").filter(Boolean).join(" · ");
   return `<div class="res" data-id="${it.id}"><div class="th" data-open="${it.id}">${th}</div><div>
     <div class="t">${esc(a.title)}</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${ntc(a.node_type)}${imp(a)}${a.needs_decision ? `<span class="chip imp-high">needs decision</span>` : ""}<span class="muted small">${esc(it.kind)} · ${esc(it.filename)}</span></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${kindChip(it.kind)}<span class="muted small">${esc(it.filename)}</span></div>
     <div class="sum">${esc(a.summary)}</div>
-    ${a.decision_question ? `<div class="quote">${esc(a.decision_question)}</div>` : ""}
-    ${links}
-    <div class="acts"><span class="muted small">${a.counts ? `${a.counts.insights} key points · ${a.counts.figures} figures · ${a.counts.links} links` : ""}</span>
-      <span class="grow"></span><span data-st>${stc(a.status)}</span>
-      <button class="btn" data-act="undo">Undo</button><button class="btn" data-open="${it.id}">Open</button><button class="btn primary" data-act="accept">Accept</button></div>
+    ${(a.markup_text || []).slice(0, 2).map(t => `<div class="quote">${esc(t.text)}</div>`).join("")}
+    <div class="acts"><span class="muted small">${counts}</span><span class="grow"></span>
+      <button class="btn" data-undo>Undo AI</button><button class="btn primary" data-open="${it.id}">Open</button></div>
   </div></div>`;
 }
 function wireResults(root) {
   root.querySelectorAll("[data-open]").forEach(b => b.onclick = e => { e.preventDefault(); openPkg(b.dataset.open); });
-  root.querySelectorAll(".res [data-act]").forEach(b => b.onclick = async () => {
-    const res = b.closest(".res"), id = res.dataset.id;
-    const m = await agentAction(id, b.dataset.act);
-    if (b.dataset.act === "undo") {
-      res.querySelector(".sum").textContent = "Agent additions removed. The local extraction is kept.";
-      res.querySelectorAll(".lk, .quote, [data-act]").forEach(x => x.remove()); res.querySelector("[data-st]").innerHTML = ""; toast("Undone");
-    } else { res.querySelector("[data-st]").innerHTML = stc(m.agent?.status || "accepted"); res.querySelector('[data-act="accept"]')?.remove(); toast("Accepted into the tree"); }
+  root.querySelectorAll(".res [data-undo]").forEach(b => b.onclick = async () => {
+    const res = b.closest(".res");
+    await undoAgent(res.dataset.id);
+    res.querySelector(".sum").textContent = "AI reading removed. The local extraction is kept.";
+    res.querySelectorAll(".quote, [data-undo]").forEach(x => x.remove()); toast("AI reading removed");
   });
 }
-async function agentAction(id, action) {
-  const fd = new FormData(); fd.append("action", action);
-  const r = await fetch(`/api/packages/${id}/agent`, { method: "POST", body: fd });
+async function undoAgent(id) {
+  const r = await fetch(`/api/packages/${id}/agent/undo`, { method: "POST" });
   const m = await r.json(); refresh(); return m;
 }
 
@@ -566,15 +560,15 @@ function pump() {
 }
 
 // ---------- library
-const ICONS = {"all": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><rect x=\"4\" y=\"4\" width=\"6.5\" height=\"6.5\" rx=\"1.8\"/><rect x=\"13.5\" y=\"4\" width=\"6.5\" height=\"6.5\" rx=\"1.8\"/><rect x=\"4\" y=\"13.5\" width=\"6.5\" height=\"6.5\" rx=\"1.8\"/><rect x=\"13.5\" y=\"13.5\" width=\"6.5\" height=\"6.5\" rx=\"1.8\"/></svg>", "decision": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M12 3v5M12 8l-6 5v6M12 8l6 5v6\"/></svg>", "markup": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"m4 20 4-1 11-11-3-3L5 16z\"/></svg>", "document": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20z\"/><path d=\"M14 3.5V8h4M9.5 12.5h5M9.5 16h5\"/></svg>", "model": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M12 3 20 7.5v9L12 21l-8-4.5v-9z\"/><path d=\"M12 12 20 7.5M12 12 4 7.5M12 12v9\"/></svg>", "media": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2.5\"/><circle cx=\"9\" cy=\"10\" r=\"1.6\"/><path d=\"m4 17 5-4 4 3 3-2 4 3\"/></svg>", "suggested": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"m8.5 12 2.5 2.5 4.5-5\"/></svg>"};
+const ICONS = {"email": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><rect x=\"3.5\" y=\"5.5\" width=\"17\" height=\"13\" rx=\"2\"/><path d=\"m4 7 8 6 8-6\"/></svg>", "image": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"m4 20 4-1 11-11-3-3L5 16z\"/></svg>", "text": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M5 6h14M5 10h14M5 14h9M5 18h6\"/></svg>", "all": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><rect x=\"4\" y=\"4\" width=\"6.5\" height=\"6.5\" rx=\"1.8\"/><rect x=\"13.5\" y=\"4\" width=\"6.5\" height=\"6.5\" rx=\"1.8\"/><rect x=\"4\" y=\"13.5\" width=\"6.5\" height=\"6.5\" rx=\"1.8\"/><rect x=\"13.5\" y=\"13.5\" width=\"6.5\" height=\"6.5\" rx=\"1.8\"/></svg>", "decision": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M12 3v5M12 8l-6 5v6M12 8l6 5v6\"/></svg>", "markup": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"m4 20 4-1 11-11-3-3L5 16z\"/></svg>", "document": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20z\"/><path d=\"M14 3.5V8h4M9.5 12.5h5M9.5 16h5\"/></svg>", "model": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M12 3 20 7.5v9L12 21l-8-4.5v-9z\"/><path d=\"M12 12 20 7.5M12 12 4 7.5M12 12v9\"/></svg>", "media": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2.5\"/><circle cx=\"9\" cy=\"10\" r=\"1.6\"/><path d=\"m4 17 5-4 4 3 3-2 4 3\"/></svg>", "suggested": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"m8.5 12 2.5 2.5 4.5-5\"/></svg>"};
 const FILTERS = [
   ["all", "All", () => true],
-  ["decision", "Decisions", p => p.agent?.node_type === "decision" || p.agent?.needs_decision],
-  ["markup", "Markups", p => p.kind === "markup" || (p.links || []).some(l => l.type === "marks_up")],
-  ["document", "Documents", p => ["document", "presentation", "spreadsheet", "text", "web", "data", "email"].includes(p.kind)],
   ["model", "Models", p => p.kind === "rhino_model"],
-  ["media", "Media", p => ["image", "video", "audio"].includes(p.kind)],
-  ["suggested", "To review", p => p.agent?.status === "suggested"],
+  ["document", "Documents", p => ["document", "presentation", "spreadsheet"].includes(p.kind)],
+  ["email", "Emails", p => p.kind === "email"],
+  ["image", "Images & markups", p => ["image", "markup"].includes(p.kind)],
+  ["media", "Video & audio", p => ["video", "audio"].includes(p.kind)],
+  ["text", "Notes & web", p => ["text", "web", "data", "table", "archive"].includes(p.kind)],
 ];
 let filter = "all";
 function refresh() {
@@ -584,8 +578,6 @@ function refresh() {
     sel.innerHTML = `<option value="">auto-detect the original</option>` + rows.filter(r => r.kind !== "markup" && r.thumbnail)
       .map(r => `<option value="${r.id}">${esc(r.agent?.title || r.title)} (${esc(r.kind)})</option>`).join("");
     sel.value = keep;
-    const dec = rows.filter(FILTERS[1][2]).filter(p => p.agent?.status !== "accepted" || p.agent?.needs_decision).length;
-    $("#decCount").textContent = dec || "";
   });
 }
 function paintBanner() {
@@ -597,8 +589,8 @@ function paintBanner() {
     tiles.innerHTML = imgs.concat(imgs).slice(0, 6).map(p => `<div style="background-image:url('/files/${p.id}/${p.thumbnail}')"></div>`).join("");
     b.querySelector(".aurora").style.opacity = .55;
   }
-  const n = library.length, dec = library.filter(FILTERS[1][2]).length, rev = library.filter(FILTERS[6][2]).length;
-  $("#bannerStat").innerHTML = n ? `<span>${n} nodes</span><span>${dec} decisions</span>${rev ? `<span>${rev} to review</span>` : ""}` : "";
+  const n = library.length, read = library.filter(p => p.agent).length, files = library.filter(p => !p.parent_id).length;
+  $("#bannerStat").innerHTML = n ? `<span>${files} files dropped</span><span>${n} packages</span><span>${read} read by AI</span>` : "";
 }
 function card(p) {
   const ext = (p.filename.split(".").pop() || "").toUpperCase();
@@ -606,8 +598,8 @@ function card(p) {
   const th = p.thumbnail ? `<img loading="lazy" src="/files/${p.id}/${p.thumbnail}" alt="">` : `<span class="ext">${esc(ext)}</span>`;
   const dots = p.modalities.map(m => `<span class="dot d-${m}" title="${m}"></span>`).join("");
   const who = p.author || p.author_role;
-  return `<div class="card ${a ? `imp-${esc(a.importance)}-c` : ""}" data-id="${p.id}" tabindex="0">
-    <div class="tag">${a ? ntc(a.node_type) : `<span class="chip">${esc(p.kind.replace("_", " "))}</span>`}${a?.status === "suggested" ? stc("suggested") : (a ? imp(a) : "")}</div>
+  return `<div class="card" data-id="${p.id}" tabindex="0">
+    <div class="tag">${kindChip(p.kind)}${a ? `<span class="chip" title="read by AI">✦ AI</span>` : ""}</div>
     <div class="th k-${esc(p.kind)}">${th}</div>
     <div class="over"><div class="t" title="${esc(p.filename)}">${esc(a?.title || p.title)}</div>
       <div class="m">${dots}<span>${esc(p.kind.replace("_", " "))}</span>${who ? `<span>· ${esc(who)}</span>` : ""}${p.parent_id ? `<span>· in ${esc(parentName(p.parent_id))}</span>` : ""}${p.warnings ? `<span title="warnings">· ⚠ ${p.warnings}</span>` : ""}</div></div>
@@ -622,7 +614,7 @@ function render() {
     return (k === "all" || n) ? `<button class="pill ${filter === k ? "on" : ""}" data-f="${k}">${ICONS[k] || ""}${label}<span class="n">${n}</span></button>` : ""; }).join("");
   document.querySelectorAll("[data-f]").forEach(b => b.onclick = () => { filter = b.dataset.f; render(); });
   const fn = (FILTERS.find(f => f[0] === filter) || FILTERS[0])[2];
-  const rows = base.filter(fn).filter(p => !q || [p.title, p.filename, p.kind, p.author, p.author_role, p.agent?.title, p.agent?.summary, p.agent?.node_type]
+  const rows = base.filter(fn).filter(p => !q || [p.title, p.filename, p.kind, p.author, p.author_role, p.agent?.title, p.agent?.summary]
     .join(" ").toLowerCase().includes(q));
   $("#grid").innerHTML = rows.length ? rows.map(card).join("") : `<div class="empty">${library.length ? "Nothing matches." : "Nothing here yet. Drop a file into the box above."}</div>`;
   document.querySelectorAll(".card").forEach(c => { c.onclick = () => openPkg(c.dataset.id); c.onkeydown = e => { if (e.key === "Enter") openPkg(c.dataset.id); }; });
@@ -652,17 +644,13 @@ async function openPkg(id) {
 function closeDrawer() { $("#drawer").classList.remove("open"); $("#scrim").classList.remove("open"); }
 $("#scrim").onclick = closeDrawer;
 function drawDetail() {
-  const { manifest: m, chunks, backlinks = [] } = current;
+  const { manifest: m, chunks } = current;
   const ag = m.agent;
   const base = `/files/${m.id}/`;
   const regions = chunks.filter(c => c.role === "markup_region");
   const imgs = chunks.filter(c => c.modality === "image" && !["markup_region", "figure"].includes(c.role));
   const ctx = m.context || {};
   const ents = Object.entries(m.metadata.entities || {});
-  const linkBtns = [
-    ...(m.links || []).filter(l => !["part_of", "contains"].includes(l.type) && !(l.suggested_by || "").startsWith("agent")).map(l =>
-      `<button class="btn" data-open="${l.target}">${l.type === "marks_up" ? "✎ marks up" : esc(l.type.replace("_", " "))}: ${esc(parentName(l.target))}${l.confidence != null && l.confidence < 1 ? ` <span class="muted">${Math.round(l.confidence * 100)}%</span>` : ""}</button>`),
-    ...backlinks.map(b => `<button class="btn" data-open="${b.source}">${b.type === "marks_up" ? "✎ marked up by" : "← " + esc(b.type.replace("_", " "))}: ${esc(parentName(b.source))}</button>`)].join("");
   const counts = chunks.reduce((a, c) => (a[c.modality] = (a[c.modality] || 0) + 1, a), {});
   const shown = chunks.filter(c => tab === "all" || c.modality === tab);
   const rel = [
@@ -676,7 +664,8 @@ function drawDetail() {
     ${ctx.note || ctx.author ? `<div class="sec"><h4>Context</h4>
       <div class="muted">${esc([ctx.author, ctx.author_role && "(" + ctx.author_role + ")", ctx.channel && "via " + ctx.channel, ctx.date && "on " + ctx.date, ctx.project && "· project " + ctx.project].filter(Boolean).join(" "))}</div>
       ${ctx.note ? `<div class="quote">${esc(ctx.note)}</div>` : ""}</div>` : ""}
-    ${linkBtns || rel ? `<div class="sec"><h4>Links</h4><div style="display:flex;gap:6px;flex-wrap:wrap">${linkBtns}${rel}</div></div>` : ""}
+    ${rel ? `<div class="sec"><h4>Inside / contains</h4><div style="display:flex;gap:6px;flex-wrap:wrap">${rel}</div></div>` : ""}
+    ${m.metadata.markup?.drawn_on ? `<div class="sec"><h4>Drawn on</h4><button class="btn" data-open="${m.metadata.markup.drawn_on.package_id}">${esc(m.metadata.markup.drawn_on.title || m.metadata.markup.drawn_on.package_id)}</button></div>` : ""}
     ${regions.length ? `<div class="sec"><h4>Marked areas · ${regions.length}</h4>${regions.map(c => `<div class="region">
       ${c.asset ? `<img loading="lazy" src="${base}${c.asset}" alt="">` : "<div></div>"}
       <div><div class="muted small">${esc([c.locator.position, c.meta.colour, c.locator.page && "page " + c.locator.page, c.meta.author].filter(Boolean).join(" · "))}</div>
@@ -701,37 +690,39 @@ function drawDetail() {
   document.querySelectorAll("#drawer [data-ag]").forEach(b => b.onclick = async () => {
     const act = b.dataset.ag;
     if (act === "run") { b.disabled = true; b.textContent = "Reading…"; await send([m.id], $("#agprompt").value); }
-    else { await agentAction(m.id, act); toast(act === "accept" ? "Accepted into the tree" : "Agent additions removed"); }
+    else { await undoAgent(m.id); toast("AI reading removed"); }
     openPkg(m.id);
   });
   document.querySelectorAll("#drawer [data-tab]").forEach(b => b.onclick = () => { tab = b.dataset.tab; drawDetail(); });
   document.querySelectorAll("#drawer [data-open]").forEach(b => b.onclick = e => { e.preventDefault(); openPkg(b.dataset.open); });
   document.querySelectorAll("#drawer .gallery img, #drawer .chunk img, #drawer .region img").forEach(i => i.onclick = () => { $("#lightbox img").src = i.src; $("#lightbox").style.display = "grid"; });
 }
+const fmtT = s => { s = Math.round(+s || 0); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 function agentSection(m, chunks, base) {
   const ag = m.agent;
-  const ask = `<div style="display:flex;gap:8px;margin-top:14px"><input id="agprompt" class="field" placeholder="${ag ? "Re-read with a different focus…" : "Optional: what should the agent focus on?"}">
-     <button class="btn ${ag ? "" : "primary"}" data-ag="run" ${agentOn ? "" : "disabled"} style="flex-shrink:0">${ag ? "Re-read" : "Ask the agent"}</button></div>`;
-  if (!ag) return `<div class="sec agentbox"><h4>Agent</h4><div class="muted">Not read by the agent yet. It can pull out the meaning, figures and links.</div>${ask}</div>`;
+  const ask = `<div style="display:flex;gap:8px;margin-top:14px"><input id="agprompt" class="field" placeholder="${ag ? "Re-read with a different focus…" : "Optional: what should the AI focus on?"}">
+     <button class="btn ${ag ? "" : "primary"}" data-ag="run" ${agentOn ? "" : "disabled"} style="flex-shrink:0">${ag ? "Re-read" : "Read with AI"}</button></div>`;
+  if (!ag) return `<div class="sec agentbox"><h4>AI reading</h4><div class="muted">Not read by AI yet. It pulls out the summary, key points, figures worth keeping and any handwriting on markups.</div>${ask}</div>`;
   const by = c => (c.meta?.suggested_by || "").startsWith("agent");
-  const ins = chunks.filter(c => by(c) && c.role === "insight");
+  const media = chunks.filter(c => (c.meta?.suggested_by || "").startsWith("agent-media"));
+  const ts = c => c.locator.t_start != null ? `<span class="muted small">${fmtT(c.locator.t_start)}–${fmtT(c.locator.t_end)}</span> ` : "";
+  const mediaHtml = [
+    ["transcript", "Transcript"], ["clip_description", "What's in the video"], ["page_text", "Text read from scanned pages"]]
+    .map(([role, label]) => { const cs = media.filter(c => c.role === role); return cs.length ? `<div class="sub"><h4>${label} · ${cs.length}</h4>${cs.map(c =>
+      `<div class="insight">${ts(c)}${c.locator.page ? `<span class="muted small">page ${c.locator.page}</span> ` : ""}<span style="white-space:pre-wrap">${esc(c.text)}</span></div>`).join("")}</div>` : ""; }).join("");
+  const kps = chunks.filter(c => by(c) && ["key_point", "insight"].includes(c.role));
   const figs = chunks.filter(c => by(c) && c.role === "figure");
-  const agLinks = (m.links || []).filter(l => (l.suggested_by || "").startsWith("agent"));
-  return `<div class="sec agentbox"><h4>Agent reading · <span style="text-transform:none;letter-spacing:0">${esc(ag.model)}</span></h4>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${ntc(ag.node_type)}${imp(ag)}${stc(ag.status)}
-      ${ag.needs_decision ? `<span class="chip imp-high">needs decision</span>` : ""}${(m.tags.agent_values || []).map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>
+  return `<div class="sec agentbox"><h4>AI reading · <span style="text-transform:none;letter-spacing:0">${esc(ag.model)}</span></h4>
     <div style="font-size:15px">${esc(ag.summary)}</div>
-    ${ag.decision_question ? `<div class="quote">${esc(ag.decision_question)}</div>` : ""}
-    ${ag.importance_reason ? `<div class="muted small">Why ${esc(ag.importance)}: ${esc(ag.importance_reason)}</div>` : ""}
-    ${(ag.owner || ag.due) ? `<div class="muted small">${ag.owner ? "Owner: " + esc(ag.owner) : ""} ${ag.due ? "· Due: " + esc(ag.due) : ""}</div>` : ""}
-    ${ins.length ? `<div class="sub"><h4>Key points · ${ins.length}</h4>${ins.map(c => `<div class="insight">${ntc(c.meta.node_type)} ${esc(c.text)}
-      ${c.meta.why ? `<div class="why">${esc(c.meta.why)}${c.locator.page ? ` · page ${c.locator.page}` : ""}</div>` : ""}</div>`).join("")}</div>` : ""}
+    ${(m.tags.agent_values || []).length ? `<div class="ent">${m.tags.agent_values.map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>` : ""}
+    ${kps.length ? `<div class="sub"><h4>Key points · ${kps.length}</h4>${kps.map(c => `<div class="insight">${esc(c.text)}
+      ${c.locator.page ? `<div class="why">page ${c.locator.page}</div>` : ""}</div>`).join("")}</div>` : ""}
     ${figs.length ? `<div class="sub"><h4>Figures worth keeping · ${figs.length}</h4><div class="gallery">${figs.map(c =>
       `<figure><img loading="lazy" src="${base}${c.asset}" alt=""><figcaption>${esc(c.text)}</figcaption></figure>`).join("")}</div></div>` : ""}
     ${(ag.markup_text || []).length ? `<div class="sub"><h4>Written on the markup</h4>${ag.markup_text.map(t => `<div class="quote">${esc(t.text)}</div>`).join("")}</div>` : ""}
-    ${agLinks.length ? `<div class="sub"><h4>Suggested links</h4>${agLinks.map(l => `<div class="lk">→ ${esc(l.type.replace("_", " "))}
-      <a data-open="${l.target}">${esc(parentName(l.target))}</a> <span>${Math.round((l.confidence || 0) * 100)}% · ${esc(l.why || "")}</span></div>`).join("")}</div>` : ""}
-    <div class="acts">${ag.status !== "accepted" ? `<button class="btn primary" data-ag="accept">Accept</button>` : ""}<button class="btn" data-ag="undo">Undo agent</button></div>
+    ${mediaHtml}
+    ${m.media_pass ? `<div class="muted small" style="margin-top:8px">Audio / video / scans read by ${esc(m.media_pass.model)}${(m.media_pass.errors || []).length ? ` · ${m.media_pass.errors.length} item(s) failed` : ""}</div>` : ""}
+    <div class="acts"><button class="btn" data-ag="undo">Undo AI reading</button></div>
     ${ask}</div>`;
 }
 function chunkHtml(c, base) {
