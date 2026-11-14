@@ -53,6 +53,7 @@ svg{width:100%;height:100%;display:block}
 .node.st-reopened rect.box{stroke:var(--amber);stroke-width:2.5;fill:var(--amber-bg)}
 .node.ghost rect.box{stroke:var(--acc);stroke-dasharray:6 4;stroke-width:2;fill:var(--acc-bg)}
 .node.would rect.box{stroke:var(--red);stroke-dasharray:4 3;stroke-width:2.5}
+.node.clear rect.box{stroke:var(--green);stroke-dasharray:4 3;stroke-width:2.5;fill:var(--panel);animation:none}
 @keyframes pulse{50%{stroke-opacity:.25}}
 @media (prefers-reduced-motion:reduce){.node.st-blocked rect.box,.spin{animation:none}}
 #replay{display:flex;align-items:center;gap:10px;margin:0 12px 8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
@@ -70,7 +71,7 @@ svg{width:100%;height:100%;display:block}
 .link{border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin-top:6px}
 .link .why{color:var(--mute);font-size:11.5px;margin-top:2px}
 .fx{border-left:3px solid var(--grey);padding:3px 0 3px 8px;margin-top:7px}
-.fx.red{border-color:var(--red)}.fx.amber{border-color:var(--amber)}
+.fx.red{border-color:var(--red)}.fx.amber{border-color:var(--amber)}.fx.green{border-color:var(--green)}
 .fx b{font-weight:600}.fx .why{color:var(--mute);font-size:11.5px}
 .note{background:var(--amber-bg);border-radius:6px;padding:7px 9px;margin-top:8px}
 .muted{color:var(--mute)}
@@ -106,7 +107,7 @@ img.prev{max-width:100%;max-height:150px;border-radius:6px;margin-top:8px;border
       <div class="cap"><b id="rtitle">Replay</b><span id="rstory"></span><div class="bar"><i id="rbar" style="width:0"></i></div></div>
       <button id="rfwd" class="primary" title="Next step (right arrow)">Forward ▶</button></div>
     <div id="canvas"><svg id="svg"></svg>
-      <div class="legend"><span><i style="background:var(--red)"></i>blocked / at risk</span><span><i style="background:var(--amber)"></i>re-opened</span><span><i style="border:1.5px dashed var(--acc)"></i>proposed, not saved</span></div>
+      <div class="legend"><span><i style="background:var(--red)"></i>blocked / at risk</span><span><i style="background:var(--amber)"></i>re-opened</span><span><i style="border:1.5px dashed var(--acc)"></i>proposed, not saved</span><span><i style="border:1.5px dashed var(--green)"></i>would be cleared</span></div>
     </div>
   </section>
   <section>
@@ -186,8 +187,8 @@ function renderTray() {
   const label = {processing:"Working out where this goes…", refining:"First guess ready · agent is reading it…", ready:"Ready to review", approved:"Added to the graph", dismissed:"Dismissed", failed:"Couldn't process"};
   $("#tray").innerHTML = S.items.length ? S.items.map(it => {
     const busy = it.status === "processing" || it.status === "refining";
-    const lvl = it.proposal?.effects?.level;
-    const dot = busy ? '<span class="spin"></span>' : `<span class="dot ${it.status==="ready" ? (lvl==="red"?"red":lvl==="amber"?"amber":"acc") : it.status==="approved"?"green":""}"></span>`;
+    const lvl = it.proposal?.effects?.level === "green" ? "ok" : it.proposal?.effects?.level;
+    const dot = busy ? '<span class="spin"></span>' : `<span class="dot ${it.status==="ready" ? (lvl==="red"?"red":lvl==="amber"?"amber":lvl==="ok"?"green":"acc") : it.status==="approved"?"green":""}"></span>`;
     const t = it.timings?.total ? ` · ${it.timings.total}s` : "";
     return `<div class="card ${it.status} ${it.id===selItem?"sel":""}" data-item="${it.id}"><div class="t">${esc(it.proposal?.title || it.label)}</div>
       <div class="s">${dot}<span>${esc(label[it.status]||it.status)}${it.status==="ready"?esc(t):""}</span></div>
@@ -231,7 +232,7 @@ function renderGraph() {
     if (Object.keys(pos).length < nodes.length) layout(nodes, edges);
     nodes.push({id:"__ghost", type: draft.type, title: draft.title, status:"proposed", ghost:true});
     draft.links.filter(l => l.on).forEach(l => edges.push({src:"__ghost", dst:l.target, type:l.type, ghost:true}));
-    (draftFx?.effects||[]).forEach(e => { if (e.new_status) would[e.node_id] = e.change; });
+    (draftFx?.effects||[]).forEach(e => { if (e.new_status || e.clears) would[e.node_id] = e.change; });
   }
   const {cw, ch} = layout(nodes, edges, fixed);
   const svg = $("#svg"); svg.setAttribute("viewBox", `0 0 ${cw} ${ch}`);
@@ -242,7 +243,7 @@ function renderGraph() {
     const risky = selItem && hl.has(e.src) && hl.has(e.dst);
     out += `<line class="edge ${e.ghost?"ghost":""} ${risky?"hl":""}" x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" marker-end="url(#arr)"/>`;
     if (e.ghost || selNode===e.src || selNode===e.dst) out += `<text class="elabel" x="${(sx+ex)/2}" y="${(sy+ey)/2-4}">${esc(e.type.replace("_"," "))}</text>`; });
-  nodes.forEach(n => { const p = pos[n.id], cls = ["node", n.ghost?"ghost":"st-"+n.status, n.id===selNode?"sel":"", would[n.id]?"would":""].join(" ");
+  nodes.forEach(n => { const p = pos[n.id], cls = ["node", n.ghost?"ghost":"st-"+n.status, n.id===selNode?"sel":"", would[n.id] ? (["cleared","resolved"].includes(would[n.id]) ? "clear" : "would") : ""].join(" ");
     const t = n.title.length > 23 ? n.title.slice(0,22)+"…" : n.title;
     const sub = n.ghost ? "proposed · not saved" : would[n.id] ? "would be: "+would[n.id] : n.type.replace("_"," ")+" · "+String(n.status).replace("_"," ");
     out += `<g class="${cls}" data-node="${esc(n.id)}" transform="translate(${p.x-W/2},${p.y-H/2})"><title>${esc(n.title)}</title>
@@ -274,7 +275,7 @@ function renderPanel() {
           <div class="why">${esc(l.reason)}${l.origin==="jev" ? ` · ${Math.round(l.confidence*100)}%` : " · added by you"}</div></div>`).join("") : '<p class="muted">No connections proposed.</p>'}
       <div class="row"><select id="add-t" style="flex:1"><option value="">+ connect to another node…</option>${others.map(n => `<option value="${esc(n.id)}">${esc(n.title)}</option>`).join("")}</select></div>
       <h2 style="padding:14px 0 0">If you approve this</h2>
-      ${(draftFx?.effects||[]).length ? draftFx.effects.map(e => `<div class="fx ${e.new_status==="reopened"?"amber":e.new_status?"red":""}"><b>${esc(e.title)}</b> → ${esc(e.change)}<div class="why">${esc(e.why)}</div></div>`).join("") + (draftFx.notify.length ? `<p class="muted" style="margin-top:8px">Would notify: ${draftFx.notify.map(esc).join(", ")}</p>` : "")
+      ${(draftFx?.effects||[]).length ? draftFx.effects.map(e => `<div class="fx ${e.clears||e.change==="resolved"?"green":e.new_status==="reopened"?"amber":e.new_status?"red":""}"><b>${esc(e.title)}</b> → ${esc(e.change)}<div class="why">${esc(e.why)}</div></div>`).join("") + (draftFx.notify.length ? `<p class="muted" style="margin-top:8px">Would notify: ${draftFx.notify.map(esc).join(", ")}</p>` : "")
         : '<p class="muted">Nothing else changes. It is added as a linked record.</p>'}
       <div class="row" style="margin-top:12px"><input type="text" id="d-reason" placeholder="Reason or details (optional)" style="flex:1"></div>
       <div class="actions"><button class="primary" id="approve" ${refining?"disabled":""}>${refining?"Still reading…":"Approve and add"}</button><button id="dismiss">Dismiss</button></div>`;
@@ -299,7 +300,11 @@ function renderPanel() {
       ${n.data?.source ? `<div class="muted" style="margin-top:6px">Source: ${esc(n.data.source)} · added by ${esc(n.data.added_by||"")}</div>` : ""}
       <h2 style="padding:14px 0 0">Connections</h2>
       ${out.map(e => `<div class="link">${esc(e.type.replace("_"," "))} → <b>${esc(node(e.dst)?.title)}</b><div class="why">${esc(e.reason)}</div></div>`).join("")}
-      ${inc.map(e => `<div class="link"><b>${esc(node(e.src)?.title)}</b> ${esc(e.type.replace("_"," "))} → this<div class="why">${esc(e.reason)}</div></div>`).join("")}`;
+      ${inc.map(e => `<div class="link"><b>${esc(node(e.src)?.title)}</b> ${esc(e.type.replace("_"," "))} → this<div class="why">${esc(e.reason)}</div></div>`).join("")}
+      ${["blocker","discovery","constraint"].includes(n.type) && !["done","absorbed","expired","dismissed"].includes(n.state) ? `
+        <h2 style="padding:14px 0 0">Resolve</h2><p class="muted" style="margin:4px 0">Clears the flags this raised on other nodes, unless something else still flags them.</p>
+        <div class="row"><input type="text" id="r-reason" placeholder="What resolved it?" style="flex:1"><button class="primary" id="r-go">Mark resolved</button></div>` : ""}`;
+    const go = $("#r-go"); if (go) go.onclick = async () => { try { await api(`/api/nodes/${n.id}/resolve`, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({by: who(), reason: $("#r-reason").value.trim()})}); await refresh(); } catch (e) { toast(e.message); } };
     return;
   }
   $("#ptitle").textContent = "Review";

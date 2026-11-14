@@ -113,6 +113,47 @@ class Store:
               AND n.project_id = %s AND n.status = 'confirmed'""", (_vec(vector), model, self.project["id"]))
         return {r["id"]: float(r["sim"]) for r in rows}
 
+    def caused(self) -> dict[str, list[str]]:
+        """source node id -> node ids it currently flags (open attention items raised when it was approved)."""
+        out: dict[str, list[str]] = {}
+        for r in self._q("""SELECT e.object_id::text AS source, a.touches FROM attention_items a JOIN events e ON e.id = a.event_id
+                            WHERE a.project_id = %s AND a.state = 'open' AND e.object_id IS NOT NULL""", (self.project["id"],)):
+            out.setdefault(r["source"], []).extend(str(t) for t in r["touches"])
+        return out
+
+    _RESOLVED_STATE = {"blocker": "done", "discovery": "absorbed", "constraint": "expired", "decision": "superseded"}
+
+    def _resolve(self, c, node_id: int) -> list[int]:
+        """Close every open flag this node raised and move it to its resolved state. Returns the node ids cleared."""
+        rows = c.execute("""UPDATE attention_items SET state = 'done' WHERE state = 'open' AND event_id IN
+                            (SELECT id FROM events WHERE object_type = 'node' AND object_id = %s) RETURNING touches""", (node_id,)).fetchall()
+        c.execute("UPDATE attention_items SET state = 'done' WHERE state = 'open' AND %s = ANY (touches) AND 'effect:superseded' = ANY (matched_by)", (node_id,))
+        typ = c.execute("SELECT type FROM nodes WHERE id = %s", (node_id,)).fetchone()
+        if typ and typ["type"] in self._RESOLVED_STATE:
+            c.execute("UPDATE nodes SET state = %s WHERE id = %s", (self._RESOLVED_STATE[typ["type"]], node_id))
+        return sorted({t for r in rows for t in r["touches"]})
+
+    def resolve_node(self, node_id: str, by: str, reason: str) -> int:
+        """A person marks a blocker, discovery or constraint as resolved."""
+        n = self.node(node_id)
+        with self.pool.connection() as c, c.transaction():
+            cleared = self._resolve(c, int(node_id))
+            titles = {str(x["id"]): x["title"] for x in c.execute("SELECT id, title FROM nodes WHERE id = ANY (%s::bigint[])", (cleared,)).fetchall()}
+            still = {str(t) for r in c.execute("SELECT touches FROM attention_items WHERE state = 'open' AND touches && %s::bigint[]", (cleared,)).fetchall() for t in r["touches"]}
+            payload = {"title": f"Resolved “{n['title']}”", "reason": reason, "node_id": str(node_id),
+                       "effects": [{"node_id": k, "title": v, "change": "still flagged" if k in still else "cleared"} for k, v in titles.items()]}
+            return c.execute("""INSERT INTO events (project_id, actor_id, verb, object_type, object_id, payload)
+                                VALUES (%s, %s, 'node.resolved', 'resolution', %s, %s) RETURNING id""",
+                             (self.project["id"], self.user(by), int(node_id), Jsonb(payload))).fetchone()["id"]
+
+    def sweep(self) -> None:
+        """Repair older data: anything already superseded should not still be raising flags."""
+        with self.pool.connection() as c, c.transaction():
+            for r in c.execute("""SELECT DISTINCT unnest(touches) AS id FROM attention_items
+                                  WHERE project_id = %s AND state = 'open' AND 'effect:superseded' = ANY (matched_by)""",
+                               (self.project["id"],)).fetchall():
+                self._resolve(c, r["id"])
+
     def empty(self) -> bool:
         return not self._q("SELECT 1 FROM nodes WHERE project_id = %s LIMIT 1", (self.project["id"],))
 
@@ -174,6 +215,9 @@ class Store:
                                     VALUES (%s, %s, 'candidate.confirmed', 'node', %s, %s) RETURNING id""",
                                  (self.project["id"], uid, node_id, Jsonb(payload))).fetchone()["id"]
             for e in fx["effects"]:
+                if e["new_status"] == "superseded":          # the new item resolves this one: clear what it flagged
+                    self._resolve(c, int(e["node_id"]))
+                    continue
                 if not e["new_status"]:
                     continue
                 c.execute("""INSERT INTO attention_items (project_id, event_id, type, touches, matched_by, reason, suggested_action, levels)

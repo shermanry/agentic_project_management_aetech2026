@@ -107,7 +107,7 @@ class Replay:
         cached = self.cache.get(self._key(step))
         if cached:
             prop = dict(cached)
-            prop["effects"] = effects.compute(prop["type"], prop["title"], prop["links"], self.store.nodes(), self.store.edges())
+            prop["effects"] = effects.compute(prop["type"], prop["title"], prop["links"], self.store.nodes(), self.store.edges(), self.store.caused())
             it.update(status="ready", proposal=prop, timings={"total": 0, "cached": True})
             self.store.put_item(it)
             self.notify({"type": "item", "id": item_id, "status": "ready"})
@@ -171,7 +171,7 @@ class Replay:
         pipeline.seed_graph(self.store)
         for step in SCENARIO[:approved]:
             prop = dict(self.cache[self._key(step)])
-            prop["effects"] = effects.compute(prop["type"], prop["title"], prop["links"], self.store.nodes(), self.store.edges())
+            prop["effects"] = effects.compute(prop["type"], prop["title"], prop["links"], self.store.nodes(), self.store.edges(), self.store.caused())
             it = {"id": new_id("it"), "status": "ready", "label": step["title"], "author": step["author"],
                   "source": {"kind": "text", "text": step["text"], "replay_step": step["id"]}, "proposal": prop,
                   "timings": {"total": 0, "cached": True}}

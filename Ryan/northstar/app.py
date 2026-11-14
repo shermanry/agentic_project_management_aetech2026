@@ -52,6 +52,7 @@ async def _startup() -> None:
     _loop = asyncio.get_running_loop()
     if store.empty():
         _seed_warning = await asyncio.to_thread(pipeline.seed_graph, store)
+    await asyncio.to_thread(store.sweep)
     replay = Replay(store, DATA, PACKAGES, notify, _approve)
     feeds = livefeeds.LiveFeeds(store, notify, submit_text, DATA)
     if os.environ.get("FEEDS_ENABLED", "1").lower() not in ("0", "false", "no"):
@@ -212,13 +213,13 @@ def _checked(p: Placement) -> list[dict]:
 def preview(item_id: str, p: Placement) -> dict:
     """Dry run of the effects for an edited placement. Saves nothing."""
     it = _ready_item(item_id)
-    return effects.compute(p.type, p.title or it["proposal"]["title"], _checked(p), store.nodes(), store.edges())
+    return effects.compute(p.type, p.title or it["proposal"]["title"], _checked(p), store.nodes(), store.edges(), store.caused())
 
 
 def _approve(it: dict, type_: str, title: str, links: list[dict], by: str, reason: str, quiet: bool = False) -> dict:
     """Turn a reviewed proposal into a node, edges, an approval, an event and attention flags."""
     prop, src, item_id = it["proposal"], it["source"], it["id"]
-    fx = effects.compute(type_, title, links, store.nodes(), store.edges())
+    fx = effects.compute(type_, title, links, store.nodes(), store.edges(), store.caused())
     edited = type_ != prop["type"] or {(l["target"], l["type"]) for l in links} != {(l["target"], l["type"]) for l in prop["links"]}
     node = {"type": type_, "title": title, "summary": prop["summary"], "owner": it.get("author"), "tags": prop["tags"],
             "importance": IMPORTANCE.get(prop["importance"]), "text": src.get("text") or src.get("note") or prop["summary"],
@@ -268,6 +269,19 @@ class Dismiss(BaseModel):
 def dismiss(item_id: str, d: Dismiss) -> dict:
     it = _ready_item(item_id)
     seq = store.dismiss(it, d.by, d.reason)
+    notify({"type": "graph", "seq": seq})
+    return {"revision": seq}
+
+
+@app.post("/api/nodes/{node_id}/resolve")
+def resolve(node_id: str, d: Dismiss) -> dict:
+    """Mark a blocker, discovery or constraint as resolved by hand. Clears the flags it raised."""
+    n = store.node(node_id)
+    if not n:
+        raise HTTPException(404, "No such node")
+    if n["type"] not in ("blocker", "discovery", "constraint"):
+        raise HTTPException(400, "Only blockers, discoveries and constraints can be marked resolved")
+    seq = store.resolve_node(node_id, d.by, d.reason)
     notify({"type": "graph", "seq": seq})
     return {"revision": seq}
 

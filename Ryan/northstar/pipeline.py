@@ -59,7 +59,9 @@ Return ONE JSON object with exactly these keys:
     "reason": <max 12 words, concrete>, "confidence": 0-1}}
     blocks = the new item stops the target from proceeding (use for faults, unavailability, missing things)
     about = it concerns the target without stopping it; depends_on = the new item needs the target
-    evidence_for = it supports the target; supersedes = it replaces the target; derived_from; similar_to
+    evidence_for = it supports the target; derived_from; similar_to
+    supersedes = it replaces OR RESOLVES the target: a fix, completion or correction that ends an existing blocker,
+      discovery or constraint (e.g. "maintenance is done" supersedes the node saying maintenance is needed)
   Link to the most specific node. If equipment or a person is unavailable, link "blocks" to that entity node only;
   the system works out what depends on it. Never invent ids.
 - "confidence": 0-1, how sure you are about type and links overall
@@ -214,7 +216,7 @@ def process(item_id: str, store: Store, out_root: Path, notify) -> None:
         prop["by"] = info["model"]
 
         def finish(prop: dict) -> dict:
-            prop["effects"] = effects.compute(prop["type"], prop["title"], prop["links"], store.nodes(), store.edges())
+            prop["effects"] = effects.compute(prop["type"], prop["title"], prop["links"], store.nodes(), store.edges(), store.caused())
             prop["candidates"] = [{k: c[k] for k in ("id", "title", "type", "similarity", "name_match")} for c in cands]
             prop["kind"] = material["kind"]
             prop["package_id"] = material["package_id"]

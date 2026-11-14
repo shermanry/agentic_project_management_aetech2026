@@ -7,7 +7,7 @@ the reason and the chain of nodes that led to it, so the UI can explain itself.
   discovery -about/blocks-> T  : T needs review (a decision is re-opened); dependents are at risk or re-opened.
                                  'about' an entity, document or feed is context only: no status change
   constraint -about-> T        : T must be re-checked against the constraint
-  decision  -supersedes-> T    : T is superseded
+  anything  -supersedes-> T    : T is resolved; the flags T raised are cleared unless another open item still raises them
   anything  -evidence_for-> T  : adds evidence to T, no status change
 """
 from __future__ import annotations
@@ -22,7 +22,10 @@ def _dependents(target: str, edges: list[dict]) -> list[str]:
     return out
 
 
-def compute(node_type: str, title: str, links: list[dict], nodes: list[dict], edges: list[dict]) -> dict:
+def compute(node_type: str, title: str, links: list[dict], nodes: list[dict], edges: list[dict],
+            caused: dict[str, list[str]] | None = None) -> dict:
+    """`caused` maps a source node id to the node ids it currently flags (open attention items)."""
+    caused = caused or {}
     by_id = {n["id"]: n for n in nodes}
     effects: list[dict] = []
     seen: dict[str, dict] = {}
@@ -78,7 +81,16 @@ def compute(node_type: str, title: str, links: list[dict], nodes: list[dict], ed
             add(t["id"], "re-check", "at_risk", f"Must be checked against “{title}”.", [t["id"]])
             ripple(t["id"], f"“{title}”", "constrains")
         elif lt == "supersedes":
-            add(t["id"], "superseded", "superseded", f"Replaced by “{title}”.", [t["id"]])
+            # Superseding a blocker, discovery or constraint resolves it: the flags it raised are cleared,
+            # unless another open item is still flagging the same node.
+            add(t["id"], "resolved", "superseded", f"“{title}” resolves or replaces it.", [t["id"]])
+            for nid in caused.get(t["id"], []):
+                others = [by_id[s]["title"] for s, touched in caused.items() if s != t["id"] and nid in touched and s in by_id]
+                if others:
+                    add(nid, "still flagged", None, f"Also flagged by “{others[0]}”.", [t["id"], nid])
+                else:
+                    add(nid, "cleared", None, f"It was only flagged because of “{t['title']}”.", [t["id"], nid])
+                    seen[nid]["clears"] = True
         elif lt == "blocks":
             add(t["id"], "blocked", "blocked", f"“{title}” blocks it.", [t["id"]])
             ripple(t["id"], f"“{title}”", "changes")
@@ -86,7 +98,8 @@ def compute(node_type: str, title: str, links: list[dict], nodes: list[dict], ed
             add(t["id"], "new evidence", None, f"“{title}” is added as evidence.", [t["id"]])
 
     notify = sorted({e["owner"] for e in effects if e.get("owner") and e["new_status"]})
-    order = {"blocked": 0, "at risk": 1, "re-open": 2, "needs review": 3, "needs update": 4, "re-check": 5}
+    order = {"blocked": 0, "at risk": 1, "re-open": 2, "needs review": 3, "needs update": 4, "re-check": 5, "resolved": 6, "cleared": 7}
     effects.sort(key=lambda e: order.get(e["change"], 9))
-    worst = "red" if any(e["new_status"] in ("blocked", "at_risk") for e in effects) else ("amber" if effects else "none")
+    worst = ("red" if any(e["new_status"] in ("blocked", "at_risk") for e in effects)
+             else "green" if any(e.get("clears") for e in effects) else ("amber" if effects else "none"))
     return {"effects": effects, "notify": notify, "level": worst}
