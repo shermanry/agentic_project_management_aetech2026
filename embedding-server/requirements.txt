@@ -1,0 +1,10 @@
+# Versions tested on Ryan's M4 MacBook Air, 2026-11-14.
+# NVIDIA GPU: install torch first from https://pytorch.org (CUDA build), then this file.
+torch>=2.15
+transformers>=5.19
+sentence-transformers[image,video]>=6.1
+torchcodec>=0.17
+fastapi>=0.163
+uvicorn[standard]>=0.54
+pillow>=13.0
+python-multipart>=0.0.33
