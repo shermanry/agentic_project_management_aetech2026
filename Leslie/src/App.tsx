@@ -125,6 +125,10 @@ function Shell() {
           openPM={(id) => (dispatch({ type: 'select', id }), setView('pm'))}
           openClient={(c) => (setClientComp(c), setView('client'))}
           openPilot={(id) => (dispatch({ type: 'select', id }), setView('pilot'))}
+          goTo={(s) => {
+            if (s.question) dispatch({ type: 'setQuery', query: s.question })
+            setView(s.tab)
+          }}
         />
       )}
       {view === 'client' && <ClientView key={clientComp} initial={clientComp} />}

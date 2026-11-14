@@ -4,6 +4,7 @@ import { useState } from 'react'
 import BuildingScene from '../components/BuildingScene'
 import { CATEGORIES, COMPONENTS, PROJECT, SAMPLE_WINDOW, type ComponentId } from '../data/sampleProject'
 import { needsAttention, useGraph } from '../model/graph'
+import Onboarding, { startFor, type Start } from './Onboarding'
 import north from '../assets/comp-north.jpg'
 import east from '../assets/comp-east.jpg'
 import roof from '../assets/comp-roof.jpg'
@@ -16,17 +17,33 @@ interface Props {
   openPM: (id: string) => void
   openClient: (c?: ComponentId) => void
   openPilot: (id?: string) => void
+  /** Go to a tab, optionally asking the guide a question on arrival. */
+  goTo: (s: Start) => void
 }
 
 const two = (n: number) => String(n).padStart(2, '0')
 
-export default function OverviewView({ openPM, openClient, openPilot }: Props) {
+export default function OverviewView({ openPM, openClient, openPilot, goTo }: Props) {
   const { state, dispatch, byId } = useGraph()
   const [comp, setComp] = useState<ComponentId>('roof')
   const { nodes, edges, candidates } = state
   const pending = candidates.filter((c) => c.state === 'pending')
   const open = nodes.filter((n) => needsAttention(n) && n.openQuestion)
   const current = COMPONENTS.find((c) => c.id === comp)!
+  const [skipped, setSkipped] = useState(false)
+  const start = state.onboarding ? startFor(state.onboarding) : undefined
+
+  // First visit: a short questionnaire before the board.
+  if (!state.onboarding && !skipped)
+    return (
+      <Onboarding
+        onSkip={() => setSkipped(true)}
+        onDone={(a, go) => {
+          dispatch({ type: 'setOnboarding', onboarding: a })
+          if (go) goTo(go)
+        }}
+      />
+    )
 
   return (
     <div className="ed-page">
@@ -42,6 +59,28 @@ export default function OverviewView({ openPM, openClient, openPilot }: Props) {
           </button>
         </div>
       </header>
+
+      <div className="ov-start">
+        {start ? (
+          <>
+            <span className="ed-meta">Suggested for you</span>
+            <button className="ed-link" onClick={() => goTo(start)}>
+              {start.label}
+            </button>
+            <span className="why">{start.why}</span>
+            <button className="ed-link dim" onClick={() => dispatch({ type: 'setOnboarding', onboarding: undefined })}>
+              Retake questions
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="ed-meta">New here?</span>
+            <button className="ed-link" onClick={() => setSkipped(false)}>
+              Answer 3 questions to find your start
+            </button>
+          </>
+        )}
+      </div>
 
       <figure className="ed-figure ov-figure">
         <div className="frame">

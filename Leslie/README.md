@@ -22,6 +22,14 @@ Changes (accepted links, moved cards, added notes) live only in the browser tab.
 |---|---|
 | ![Pilot](docs/pilot.png) | ![Parking lot](docs/parking-lot.png) |
 
+| Onboarding | Ask bar |
+|---|---|
+| ![Onboarding](docs/onboarding.png) | ![Ask bar](docs/ask.png) |
+
+## Ask bar and onboarding
+- **Ask bar (PM and Pilot):** type a question in plain words ("What's blocking the flight?", "Who looks after safety?"). A short answer appears with "Go to" buttons for the matching nodes, and both views highlight them. The logic is in `src/features/ask.ts`: a local stand-in for an LLM, so no API key is needed. Replace `ask()` with a real model call that returns the same `AskResult` shape.
+- **Onboarding (Overview):** first-time visitors answer three questions (role, first goal, familiarity) and get a suggested starting tab. Answers are stored in the browser only and can be retaken from the Overview.
+
 ## Parking lot and organizer
 Everything imported (dropped files, pasted notes, nodes added on the PM tab) lands in the **Parking lot** tab as an unclassified item. **Organize** proposes a category and links for each one; nothing joins the graph until you accept. The organizer in `src/features/organize.ts` is a local keyword stand-in for an LLM so the demo runs with no API key: replace the body of `organize()` with a real model call that returns the same `Suggestion` shape.
 

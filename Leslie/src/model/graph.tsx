@@ -1,5 +1,6 @@
 // One in-memory graph shared by every view. Views only render it differently.
-import { createContext, useContext, useReducer, type ReactNode } from 'react'
+import { createContext, useContext, useMemo, useReducer, type ReactNode } from 'react'
+import { ask, type AskResult } from '../features/ask'
 import { CANDIDATES, CAT, EDGES, INITIAL_LOG, NODES, UNCLASSIFIED_COLOR, type Candidate, type CategoryId, type GraphEdge, type GraphNode } from '../data/sampleProject'
 
 export type Filter = CategoryId | 'all' | 'unclassified'
@@ -10,6 +11,31 @@ export interface Suggestion {
   confidence: number // 0-1
   links: { target: string; relation: string }[]
   reason: string
+}
+
+/** Answers from the first-run questionnaire on the Overview. */
+export interface Onboarding {
+  role: 'client' | 'pm' | 'pilot' | 'explore'
+  goal: 'building' | 'blocking' | 'find' | 'add'
+  level: 'new' | 'some' | 'expert'
+}
+
+const OB_KEY = 'ybuild.onboarding'
+function loadOnboarding(): Onboarding | undefined {
+  try {
+    const raw = localStorage.getItem(OB_KEY)
+    return raw ? (JSON.parse(raw) as Onboarding) : undefined
+  } catch {
+    return undefined
+  }
+}
+function saveOnboarding(o?: Onboarding) {
+  try {
+    if (o) localStorage.setItem(OB_KEY, JSON.stringify(o))
+    else localStorage.removeItem(OB_KEY)
+  } catch {
+    /* storage unavailable: the questionnaire simply shows again next time */
+  }
 }
 
 export interface LogEntry {
@@ -29,11 +55,13 @@ export interface GraphState {
   filter: Filter
   /** Organizer output per parked node id. */
   suggestions: Record<string, Suggestion>
+  onboarding?: Onboarding
 }
 
 type Action =
   | { type: 'select'; id?: string }
   | { type: 'setQuery'; query: string }
+  | { type: 'setOnboarding'; onboarding?: Onboarding }
   | { type: 'setFilter'; filter: Filter }
   | { type: 'move'; id: string; x: number; y: number }
   | { type: 'resetLayout' }
@@ -53,6 +81,9 @@ function reducer(s: GraphState, a: Action): GraphState {
       return { ...s, selectedId: a.id }
     case 'setQuery':
       return { ...s, query: a.query }
+    case 'setOnboarding':
+      saveOnboarding(a.onboarding)
+      return { ...s, onboarding: a.onboarding }
     case 'setFilter':
       return { ...s, filter: a.filter }
     case 'move':
@@ -154,33 +185,33 @@ function reducer(s: GraphState, a: Action): GraphState {
 
 const title = (s: GraphState, id: string) => s.nodes.find((n) => n.id === id)?.title ?? id
 
-const Ctx = createContext<{ state: GraphState; dispatch: React.Dispatch<Action> } | null>(null)
+const Ctx = createContext<{ state: GraphState; dispatch: React.Dispatch<Action>; guide?: AskResult } | null>(null)
 
 export function GraphProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, { nodes: NODES, edges: EDGES, candidates: CANDIDATES, log: INITIAL_LOG, selectedId: 'flight', query: '', filter: 'all', suggestions: {} })
-  return <Ctx.Provider value={{ state, dispatch }}>{children}</Ctx.Provider>
+  const [state, dispatch] = useReducer(reducer, { nodes: NODES, edges: EDGES, candidates: CANDIDATES, log: INITIAL_LOG, selectedId: 'flight', query: '', filter: 'all', suggestions: {} } as GraphState, (s: GraphState) => ({ ...s, onboarding: loadOnboarding() }))
+  // The question in the ask bar, interpreted once and shared by every view.
+  const guide = useMemo(() => (state.query.trim() ? ask(state.query, state.nodes, state.edges) : undefined), [state.query, state.nodes, state.edges])
+  return <Ctx.Provider value={{ state, dispatch, guide }}>{children}</Ctx.Provider>
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useGraph() {
   const c = useContext(Ctx)
   if (!c) throw new Error('useGraph outside GraphProvider')
-  const { state, dispatch } = c
+  const { state, dispatch, guide } = c
   const byId = (id?: string) => state.nodes.find((n) => n.id === id)
   const edgesOf = (id: string) => state.edges.filter((e) => e.source === id || e.target === id)
   const degree = (id: string) => edgesOf(id).length
   const pendingFor = (id: string) => state.candidates.filter((x) => x.state === 'pending' && (x.source === id || x.target === id))
   const neighbors = (id: string) => new Set(edgesOf(id).flatMap((e) => [e.source, e.target]))
-  const matches = (n: GraphNode) => nodeMatches(n, state.query, state.filter)
-  return { state, dispatch, byId, edgesOf, degree, pendingFor, neighbors, matches }
+  /** Passes the category filter and, when a question is asked, is one of the guide's answers. */
+  const matches = (n: GraphNode) => inCategory(n, state.filter) && (!guide || guide.ids.includes(n.id))
+  return { state, dispatch, byId, edgesOf, degree, pendingFor, neighbors, matches, guide }
 }
 
-/** True when a node passes the shared search text and category filter. */
 // eslint-disable-next-line react-refresh/only-export-components
-export function nodeMatches(n: GraphNode, query: string, filter: Filter) {
-  const q = query.trim().toLowerCase()
-  const inCat = filter === 'all' || (filter === 'unclassified' ? n.category === null || n.status === 'Unclassified' : n.category === filter)
-  return inCat && (!q || `${n.title} ${n.summary} ${n.kind} ${n.status} ${n.owner} ${n.category ? CAT[n.category].label : 'unclassified'}`.toLowerCase().includes(q))
+export function inCategory(n: GraphNode, filter: Filter) {
+  return filter === 'all' || (filter === 'unclassified' ? n.category === null || n.status === 'Unclassified' : n.category === filter)
 }
 
 /** Parked = imported but not yet placed in the graph. */

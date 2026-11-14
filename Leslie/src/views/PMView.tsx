@@ -204,6 +204,25 @@ export default function PMView() {
     return () => cancelAnimationFrame(id)
   }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Re-fit when the canvas area changes size (e.g. the guide's answer appears above it).
+  const fitRef = useRef(fit)
+  useEffect(() => {
+    fitRef.current = fit
+  })
+  useEffect(() => {
+    const el = wrap.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    let h = el.clientHeight
+    const ro = new ResizeObserver(() => {
+      if (Math.abs(el.clientHeight - h) > 24) {
+        h = el.clientHeight
+        fitRef.current()
+      }
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   // Wheel zoom around the cursor
   useEffect(() => {
     const el = wrap.current
