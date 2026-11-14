@@ -8,6 +8,8 @@ _Draft for team critique · 2026-11-14 · background in [PROJECT_BRIEF.md](PROJE
 
 **Use cases, demo target and decisions:** [use-cases-and-decisions.md](use-cases-and-decisions.md) covers the Slack intake use case, what to finish for the demo, and the backbone decisions we need to make.
 
+**Working MVP:** [northstar/](northstar/README.md) is a running version of the section 1 interaction: add something, see the proposed placement and its effects, approve it.
+
 **How to use this doc:** nothing here is final. Each section is marked **Decided**, **Proposed** or **Open**. Challenge anything marked Proposed, and answer what you can in sections 11 and 12.
 
 ## 1. North star for the MVP (Decided)

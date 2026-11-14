@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>North star intake</title>
+<style>
+:root{--bg:#f6f7f9;--panel:#fff;--ink:#1f2933;--mute:#66788a;--line:#d5dbe1;--acc:#2563eb;--acc-bg:#eef4ff;
+  --red:#dc2626;--red-bg:#fdecec;--amber:#d97706;--amber-bg:#fff4e0;--green:#16a34a;--grey:#94a3b8}
+@media (prefers-color-scheme:dark){:root{--bg:#12161b;--panel:#1b2129;--ink:#e6eaee;--mute:#93a1af;--line:#313a45;
+  --acc:#6ea0ff;--acc-bg:#1d2a44;--red:#f87171;--red-bg:#3a1e1e;--amber:#fbbf24;--amber-bg:#3a2e14;--green:#4ade80;--grey:#64748b}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.45 -apple-system,"Segoe UI",Helvetica,Arial,sans-serif;height:100vh;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:14px;padding:9px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:15px;margin:0}
+header .meta{color:var(--mute);font-size:12px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+select,button,textarea,input{font:inherit;color:inherit}
+select,input[type=text]{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:4px 6px}
+button{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:5px 11px;cursor:pointer;font-weight:600}
+button.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+button:disabled{opacity:.5;cursor:default}
+main{flex:1;display:grid;grid-template-columns:290px minmax(0,1fr) 370px;gap:10px;padding:10px;min-height:0}
+section{background:var(--panel);border:1px solid var(--line);border-radius:8px;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+h2{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:0;padding:10px 12px 6px}
+.scroll{overflow:auto;padding:0 12px 12px;flex:1}
+#drop{margin:0 12px;border:1.5px dashed var(--acc);background:var(--acc-bg);border-radius:8px;padding:16px 10px;text-align:center;cursor:pointer;color:var(--acc);font-weight:600}
+#drop.over{border-style:solid}
+#drop small{display:block;color:var(--mute);font-weight:400;margin-top:3px}
+#chat{margin:8px 12px 0;display:flex;gap:6px}
+#chat textarea{flex:1;resize:none;height:54px;border:1px solid var(--line);border-radius:6px;padding:6px;background:var(--panel)}
+.card{border:1px solid var(--line);border-radius:7px;padding:8px 9px;margin-top:8px;cursor:pointer;position:relative}
+.card.sel{border-color:var(--acc);background:var(--acc-bg)}
+.card .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .s{color:var(--mute);font-size:11.5px;display:flex;align-items:center;gap:6px;margin-top:2px}
+.card.processing,.card.refining{border-style:dashed}
+.spin{width:11px;height:11px;border:2px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--grey)}
+.dot.red{background:var(--red)}.dot.amber{background:var(--amber)}.dot.green{background:var(--green)}.dot.acc{background:var(--acc)}
+#canvas{flex:1;min-height:0;position:relative}
+svg{width:100%;height:100%;display:block}
+.edge{stroke:var(--grey);stroke-width:1.3;fill:none}
+.edge.ghost{stroke:var(--acc);stroke-dasharray:5 4;stroke-width:1.8}
+.edge.hl{stroke:var(--red);stroke-width:2}
+.elabel{font-size:9.5px;fill:var(--mute);text-anchor:middle}
+.node rect.box{fill:var(--panel);stroke:var(--line);stroke-width:1.5}
+.node text{fill:var(--ink);font-size:11.5px}
+.node text.sub{fill:var(--mute);font-size:10px}
+.node{cursor:pointer}
+.node.sel rect.box{stroke:var(--acc);stroke-width:2.5}
+.node.st-blocked rect.box,.node.st-at_risk rect.box{stroke:var(--red);stroke-width:2.5;fill:var(--red-bg)}
+.node.st-blocked rect.box{animation:pulse 1.1s ease-in-out infinite}
+.node.st-reopened rect.box{stroke:var(--amber);stroke-width:2.5;fill:var(--amber-bg)}
+.node.ghost rect.box{stroke:var(--acc);stroke-dasharray:6 4;stroke-width:2;fill:var(--acc-bg)}
+.node.would rect.box{stroke:var(--red);stroke-dasharray:4 3;stroke-width:2.5}
+@keyframes pulse{50%{stroke-opacity:.25}}
+@media (prefers-reduced-motion:reduce){.node.st-blocked rect.box,.spin{animation:none}}
+.legend{position:absolute;left:10px;bottom:8px;color:var(--mute);font-size:11px;display:flex;gap:12px;flex-wrap:wrap}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.row{display:flex;gap:8px;align-items:center;margin-top:6px}
+.k{color:var(--mute);width:74px;flex:none}
+.pill{display:inline-block;border-radius:10px;padding:1px 8px;font-size:11px;background:var(--bg);border:1px solid var(--line);margin:0 4px 3px 0}
+.link{border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin-top:6px}
+.link .why{color:var(--mute);font-size:11.5px;margin-top:2px}
+.fx{border-left:3px solid var(--grey);padding:3px 0 3px 8px;margin-top:7px}
+.fx.red{border-color:var(--red)}.fx.amber{border-color:var(--amber)}
+.fx b{font-weight:600}.fx .why{color:var(--mute);font-size:11.5px}
+.note{background:var(--amber-bg);border-radius:6px;padding:7px 9px;margin-top:8px}
+.muted{color:var(--mute)}
+.actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.ev{border-left:2px solid var(--line);padding:2px 0 8px 10px;margin-left:4px;position:relative}
+.ev:before{content:"";position:absolute;left:-5px;top:6px;width:8px;height:8px;border-radius:50%;background:var(--acc)}
+.ev .m{color:var(--mute);font-size:11px}
+#toast{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:9}
+#toast div{background:var(--ink);color:var(--bg);padding:9px 13px;border-radius:7px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25);max-width:340px}
+img.prev{max-width:100%;max-height:150px;border-radius:6px;margin-top:8px;border:1px solid var(--line)}
+@media (max-width:980px){main{grid-template-columns:1fr;overflow:auto}section{min-height:320px}body{height:auto}}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="pname">Project</h1>
+  <div class="meta" id="meta"></div>
+  <label>You are <select id="who"></select></label>
+  <button id="reset" title="Reload the example project and clear history">Reset demo</button>
+</header>
+<main>
+  <section>
+    <h2>Add to the project</h2>
+    <div id="drop">Drop files here<small>or click to choose · PDF, photo, model, email…</small></div>
+    <input type="file" id="file" multiple hidden>
+    <div id="chat"><textarea id="text" placeholder="Type or paste anything… e.g. “drone 4a needs maintenance”"></textarea><button class="primary" id="send">Add</button></div>
+    <h2 style="padding-top:14px">Incoming</h2>
+    <div class="scroll" id="tray"></div>
+  </section>
+  <section>
+    <h2>Project graph</h2>
+    <div id="canvas"><svg id="svg"></svg>
+      <div class="legend"><span><i style="background:var(--red)"></i>blocked / at risk</span><span><i style="background:var(--amber)"></i>re-opened</span><span><i style="border:1.5px dashed var(--acc)"></i>proposed, not saved</span></div>
+    </div>
+  </section>
+  <section>
+    <h2 id="ptitle">Review</h2>
+    <div class="scroll" id="panel"></div>
+    <h2>Decision history</h2>
+    <div class="scroll" id="hist" style="max-height:26%;flex:none"></div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const TYPE_COLOR = {decision:"#7c3aed",discovery:"#db2777",event:"#0891b2",data_feed:"#0d9488",deliverable:"#2563eb",blocker:"#dc2626",constraint:"#b45309",document:"#64748b",entity:"#16a34a"};
+let S = null, selItem = null, selNode = null, draft = null, draftFx = null, pos = {};
+const W = 150, H = 44;
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  if (!r.ok) { let m = r.statusText; try { m = (await r.json()).detail || m; } catch {} throw new Error(m); }
+  return r.json();
+}
+const who = () => $("#who").value || "Sam";
+const node = id => S.nodes.find(n => n.id === id);
+const ago = t => { const s = Math.max(0, Date.now()/1000 - t); return s < 60 ? "just now" : s < 3600 ? Math.round(s/60)+" min ago" : new Date(t*1000).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"}); };
+
+async function refresh() {
+  S = await api("/api/state");
+  $("#pname").textContent = S.project.name;
+  const c = S.config;
+  $("#meta").textContent = `Decision engine: ${c.jev_model} · Embeddings: ${c.embedding_model} · Converter: ${c.converter ? "on" : "off"} · Interpreter agent: ${c.agent ? "on" : "off"}` + (c.seed_warning ? " · " + c.seed_warning : "");
+  if (!$("#who").options.length) $("#who").innerHTML = S.people.map(p => `<option value="${esc(p.name)}">${esc(p.name)} (${esc(p.role)})</option>`).join("");
+  if (selItem) { const it = S.items.find(i => i.id === selItem); if (!it || !["ready","refining"].includes(it.status)) { selItem = null; draft = null; } else if (!draft || draft.stale) startDraft(it); }
+  render();
+}
+
+function startDraft(it) {
+  const p = it.proposal;
+  draft = {type: p.type, title: p.title, links: p.links.map(l => ({...l, on: true})), stale: it.status === "refining"};
+  draftFx = p.effects;
+}
+async function rePreview() {
+  try { draftFx = await api(`/api/items/${selItem}/preview`, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload())}); } catch (e) { toast(e.message); }
+  render();
+}
+const payload = (extra={}) => ({type: draft.type, title: draft.title, by: who(), links: draft.links.filter(l => l.on).map(({target,type,reason,confidence,origin}) => ({target,type,reason,confidence,origin})), ...extra});
+
+function render() { renderTray(); renderGraph(); renderPanel(); renderHist(); }
+
+function renderTray() {
+  const label = {processing:"Working out where this goes…", refining:"First guess ready · agent is reading it…", ready:"Ready to review", approved:"Added to the graph", dismissed:"Dismissed", failed:"Couldn't process"};
+  $("#tray").innerHTML = S.items.length ? S.items.map(it => {
+    const busy = it.status === "processing" || it.status === "refining";
+    const lvl = it.proposal?.effects?.level;
+    const dot = busy ? '<span class="spin"></span>' : `<span class="dot ${it.status==="ready" ? (lvl==="red"?"red":lvl==="amber"?"amber":"acc") : it.status==="approved"?"green":""}"></span>`;
+    const t = it.timings?.total ? ` · ${it.timings.total}s` : "";
+    return `<div class="card ${it.status} ${it.id===selItem?"sel":""}" data-item="${it.id}"><div class="t">${esc(it.proposal?.title || it.label)}</div>
+      <div class="s">${dot}<span>${esc(label[it.status]||it.status)}${it.status==="ready"?esc(t):""}</span></div>
+      <div class="s">${esc(it.author||"")} · ${esc(it.source?.filename || "message")} · ${ago(it.created_at)}</div></div>`;
+  }).join("") : '<p class="muted">Nothing yet. Drop a file or type a note above.</p>';
+  document.querySelectorAll("[data-item]").forEach(el => el.onclick = () => {
+    const it = S.items.find(i => i.id === el.dataset.item);
+    selNode = it.status === "approved" ? it.proposal?.node_id : null;
+    selItem = ["ready","refining"].includes(it.status) ? it.id : null;
+    draft = null; if (selItem) startDraft(it); else if (it.status === "failed") toast(it.error || "Failed");
+    render();
+  });
+}
+
+function layout(nodes, edges, fixed) {
+  const box = $("#canvas").getBoundingClientRect(), cw = Math.max(box.width, 500), ch = Math.max(box.height, 380);
+  nodes.forEach((n, i) => { if (!pos[n.id]) { const nb = edges.filter(e => e.src===n.id||e.dst===n.id).map(e => pos[e.src===n.id?e.dst:e.src]).filter(Boolean);
+    pos[n.id] = nb.length ? {x: nb.reduce((a,p)=>a+p.x,0)/nb.length + 60*Math.cos(i), y: nb.reduce((a,p)=>a+p.y,0)/nb.length + 70*Math.sin(i)+40}
+                          : {x: cw/2 + cw*.32*Math.cos(i*2.4), y: ch/2 + ch*.32*Math.sin(i*2.4)}; } });
+  for (let it = 0; it < 260; it++) {
+    const f = {}; nodes.forEach(n => f[n.id] = {x:0,y:0});
+    for (let i = 0; i < nodes.length; i++) for (let j = i+1; j < nodes.length; j++) {
+      const a = pos[nodes[i].id], b = pos[nodes[j].id]; let dx = a.x-b.x, dy = (a.y-b.y)*1.9, d = Math.hypot(dx,dy)||1;
+      const k = 70000/(d*d); f[nodes[i].id].x += dx/d*k; f[nodes[i].id].y += dy/d*k; f[nodes[j].id].x -= dx/d*k; f[nodes[j].id].y -= dy/d*k; }
+    edges.forEach(e => { const a = pos[e.src], b = pos[e.dst]; if (!a||!b) return; const dx = b.x-a.x, dy = b.y-a.y, d = Math.hypot(dx,dy)||1, k = (d-215)*.03;
+      f[e.src].x += dx/d*k; f[e.src].y += dy/d*k; f[e.dst].x -= dx/d*k; f[e.dst].y -= dy/d*k; });
+    nodes.forEach(n => { if (fixed && fixed.has(n.id)) return; const p = pos[n.id];
+      p.x += Math.max(-12, Math.min(12, f[n.id].x + (cw/2-p.x)*.006)); p.y += Math.max(-12, Math.min(12, f[n.id].y + (ch/2-p.y)*.006));
+      p.x = Math.max(W/2+6, Math.min(cw-W/2-6, p.x)); p.y = Math.max(H/2+6, Math.min(ch-H/2-30, p.y)); });
+  }
+  return {cw, ch};
+}
+
+function renderGraph() {
+  let nodes = S.nodes.map(n => ({...n})), edges = S.edges.map(e => ({...e}));
+  const would = {};
+  let fixed = null;
+  if (selItem && draft) {
+    delete pos.__ghost;
+    fixed = new Set(nodes.map(n => n.id));
+    if (Object.keys(pos).length < nodes.length) layout(nodes, edges);
+    nodes.push({id:"__ghost", type: draft.type, title: draft.title, status:"proposed", ghost:true});
+    draft.links.filter(l => l.on).forEach(l => edges.push({src:"__ghost", dst:l.target, type:l.type, ghost:true}));
+    (draftFx?.effects||[]).forEach(e => { if (e.new_status) would[e.node_id] = e.change; });
+  }
+  const {cw, ch} = layout(nodes, edges, fixed);
+  const svg = $("#svg"); svg.setAttribute("viewBox", `0 0 ${cw} ${ch}`);
+  const hl = new Set(); (draftFx?.effects||[]).forEach(e => (e.chain||[]).forEach(id => hl.add(id)));
+  let out = '<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="context-stroke"/></marker></defs>';
+  edges.forEach(e => { const a = pos[e.src], b = pos[e.dst]; if (!a||!b) return;
+    const dx = b.x-a.x, dy = b.y-a.y, t = Math.min((W/2+4)/Math.abs(dx||1e-6), (H/2+4)/Math.abs(dy||1e-6)), ex = b.x-dx*t, ey = b.y-dy*t, sx = a.x+dx*t, sy = a.y+dy*t;
+    const risky = selItem && hl.has(e.src) && hl.has(e.dst);
+    out += `<line class="edge ${e.ghost?"ghost":""} ${risky?"hl":""}" x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" marker-end="url(#arr)"/>`;
+    if (e.ghost || selNode===e.src || selNode===e.dst) out += `<text class="elabel" x="${(sx+ex)/2}" y="${(sy+ey)/2-4}">${esc(e.type.replace("_"," "))}</text>`; });
+  nodes.forEach(n => { const p = pos[n.id], cls = ["node", n.ghost?"ghost":"st-"+n.status, n.id===selNode?"sel":"", would[n.id]?"would":""].join(" ");
+    const t = n.title.length > 23 ? n.title.slice(0,22)+"…" : n.title;
+    const sub = n.ghost ? "proposed · not saved" : would[n.id] ? "would be: "+would[n.id] : n.type.replace("_"," ")+" · "+String(n.status).replace("_"," ");
+    out += `<g class="${cls}" data-node="${esc(n.id)}" transform="translate(${p.x-W/2},${p.y-H/2})"><title>${esc(n.title)}</title>
+      <rect class="box" width="${W}" height="${H}" rx="6"/><rect width="5" height="${H}" rx="2" fill="${TYPE_COLOR[n.type]||"#64748b"}"/>
+      <text x="12" y="18" font-weight="600">${esc(t)}</text><text class="sub" x="12" y="34">${esc(sub)}</text></g>`; });
+  svg.innerHTML = out;
+  svg.querySelectorAll("[data-node]").forEach(g => g.onclick = () => { const id = g.dataset.node; if (id === "__ghost") return; selNode = id; if (!selItem) renderPanel(); renderGraph(); if (selItem) { /* keep reviewing */ } });
+}
+
+function renderPanel() {
+  const el = $("#panel");
+  const it = selItem && S.items.find(i => i.id === selItem);
+  if (it && draft) {
+    const p = it.proposal, refining = it.status === "refining";
+    $("#ptitle").textContent = refining ? "First guess (still reading)" : "Proposed placement";
+    const others = S.nodes.filter(n => !draft.links.some(l => l.target === n.id));
+    el.innerHTML = `
+      <div class="row"><input type="text" id="d-title" value="${esc(draft.title)}" style="flex:1;font-weight:600"></div>
+      <div class="row"><span class="k">Type</span><select id="d-type">${S.node_types.filter(t=>t!=="entity"||draft.type==="entity").map(t => `<option ${t===draft.type?"selected":""}>${t}</option>`).join("")}</select>
+        <span class="muted">${Math.round(p.confidence*100)}% sure · ${esc(p.importance)}</span></div>
+      <p style="margin:8px 0 4px">${esc(p.summary)}</p>
+      <div>${p.tags.map(t => `<span class="pill">${esc(t)}</span>`).join("")}</div>
+      ${it.source?.filename && /\.(png|jpe?g|webp|gif|bmp)$/i.test(it.source.filename) ? `<img class="prev" src="/api/items/${it.id}/image" alt="">` : ""}
+      <div class="muted" style="margin-top:6px">From ${esc(it.author)} · ${esc(it.source?.filename || "message")} · proposed by ${esc(p.by||"")}${p.read_by_agent ? " after a deeper read by "+esc(p.read_by_agent) : ""} in ${it.timings?.total ?? it.timings?.first_guess ?? "?"}s</div>
+      ${p.missing_details ? `<div class="note"><b>Worth asking:</b> ${esc(p.missing_details)}</div>` : ""}
+      ${(p.warnings||[]).length ? `<div class="note">${p.warnings.map(esc).join("<br>")}</div>` : ""}
+      <h2 style="padding:14px 0 0">Connections</h2>
+      ${draft.links.length ? draft.links.map((l,i) => `<div class="link"><label><input type="checkbox" data-l="${i}" ${l.on?"checked":""}> <select data-lt="${i}">${S.edge_types.map(t => `<option ${t===l.type?"selected":""}>${t}</option>`).join("")}</select> → <b>${esc(node(l.target)?.title)}</b></label>
+          <div class="why">${esc(l.reason)}${l.origin==="jev" ? ` · ${Math.round(l.confidence*100)}%` : " · added by you"}</div></div>`).join("") : '<p class="muted">No connections proposed.</p>'}
+      <div class="row"><select id="add-t" style="flex:1"><option value="">+ connect to another node…</option>${others.map(n => `<option value="${esc(n.id)}">${esc(n.title)}</option>`).join("")}</select></div>
+      <h2 style="padding:14px 0 0">If you approve this</h2>
+      ${(draftFx?.effects||[]).length ? draftFx.effects.map(e => `<div class="fx ${e.new_status==="reopened"?"amber":e.new_status?"red":""}"><b>${esc(e.title)}</b> → ${esc(e.change)}<div class="why">${esc(e.why)}</div></div>`).join("") + (draftFx.notify.length ? `<p class="muted" style="margin-top:8px">Would notify: ${draftFx.notify.map(esc).join(", ")}</p>` : "")
+        : '<p class="muted">Nothing else changes. It is added as a linked record.</p>'}
+      <div class="row" style="margin-top:12px"><input type="text" id="d-reason" placeholder="Reason or details (optional)" style="flex:1"></div>
+      <div class="actions"><button class="primary" id="approve" ${refining?"disabled":""}>${refining?"Still reading…":"Approve and add"}</button><button id="dismiss">Dismiss</button></div>`;
+    $("#d-title").onchange = e => { draft.title = e.target.value.trim() || draft.title; rePreview(); };
+    $("#d-type").onchange = e => { draft.type = e.target.value; rePreview(); };
+    el.querySelectorAll("[data-l]").forEach(c => c.onchange = () => { draft.links[c.dataset.l].on = c.checked; rePreview(); });
+    el.querySelectorAll("[data-lt]").forEach(c => c.onchange = () => { draft.links[c.dataset.lt].type = c.value; rePreview(); });
+    $("#add-t").onchange = e => { if (!e.target.value) return; draft.links.push({target: e.target.value, type: "about", reason: "", confidence: 1, origin: "user", on: true}); rePreview(); };
+    $("#approve").onclick = () => act("approve", payload({reason: $("#d-reason").value.trim()}));
+    $("#dismiss").onclick = () => act("dismiss", {by: who(), reason: $("#d-reason").value.trim()});
+    return;
+  }
+  const n = selNode && node(selNode);
+  if (n) {
+    $("#ptitle").textContent = "Node";
+    const out = S.edges.filter(e => e.src === n.id), inc = S.edges.filter(e => e.dst === n.id);
+    el.innerHTML = `<div style="font-weight:600;font-size:14px">${esc(n.title)}</div>
+      <div class="row"><span class="k">Type</span><span>${esc(n.type.replace("_"," "))}</span></div>
+      <div class="row"><span class="k">Status</span><span>${esc(String(n.status).replace("_"," "))}</span></div>
+      <div class="row"><span class="k">Owner</span><span>${esc(n.owner||"none")}</span></div>
+      <p>${esc(n.summary)}</p><div>${n.tags.map(t => `<span class="pill">${esc(t)}</span>`).join("")}</div>
+      ${n.data?.source ? `<div class="muted" style="margin-top:6px">Source: ${esc(n.data.source)} · added by ${esc(n.data.added_by||"")}</div>` : ""}
+      <h2 style="padding:14px 0 0">Connections</h2>
+      ${out.map(e => `<div class="link">${esc(e.type.replace("_"," "))} → <b>${esc(node(e.dst)?.title)}</b><div class="why">${esc(e.reason)}</div></div>`).join("")}
+      ${inc.map(e => `<div class="link"><b>${esc(node(e.src)?.title)}</b> ${esc(e.type.replace("_"," "))} → this<div class="why">${esc(e.reason)}</div></div>`).join("")}`;
+    return;
+  }
+  $("#ptitle").textContent = "Review";
+  el.innerHTML = '<p class="muted">Add something on the left. When its proposed placement is ready, open it here to see what it connects to and what it would change, then approve it.</p>';
+}
+
+function renderHist() {
+  $("#hist").innerHTML = S.events.map(e => { const fx = e.payload?.effects || [];
+    return `<div class="ev"><div class="m">${esc(e.actor)} · ${ago(e.at)}</div><div><b>${esc(e.title)}</b></div>
+      ${e.reason ? `<div>“${esc(e.reason)}”</div>` : ""}
+      ${e.payload?.source ? `<div class="m">source: ${esc(e.payload.source)} from ${esc(e.payload.added_by||"")}${e.payload.edited_by_user ? " · placement edited before approval" : ""}</div>` : ""}
+      ${fx.length ? `<div class="m">changed: ${fx.map(f => esc(f.title)+" → "+esc(f.change)).join("; ")}</div>` : ""}</div>`; }).join("");
+}
+
+async function act(what, body) {
+  try {
+    const r = await api(`/api/items/${selItem}/${what}`, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
+    selNode = r.node_id || null; selItem = null; draft = null; draftFx = null; delete pos.__ghost;
+    await refresh();
+  } catch (e) { toast(e.message); }
+}
+
+async function send(files) {
+  const text = $("#text").value.trim();
+  if (!text && !(files && files.length)) return;
+  const fd = new FormData(); fd.append("text", text); fd.append("author", who());
+  [...(files||[])].forEach(f => fd.append("files", f, f.name));
+  $("#text").value = "";
+  try { await api("/api/intake", {method:"POST", body: fd}); await refresh(); } catch (e) { toast(e.message); }
+}
+
+function toast(msg, onclick) {
+  const d = document.createElement("div"); d.textContent = msg; d.onclick = () => { onclick && onclick(); d.remove(); };
+  $("#toast").appendChild(d); setTimeout(() => d.remove(), 9000);
+}
+
+$("#send").onclick = () => send();
+$("#text").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
+$("#text").onpaste = e => { const fs = [...(e.clipboardData?.files||[])]; if (fs.length) { e.preventDefault(); send(fs); } };
+const drop = $("#drop");
+drop.onclick = () => $("#file").click();
+$("#file").onchange = e => { send(e.target.files); e.target.value = ""; };
+["dragover","dragenter"].forEach(t => document.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave","drop"].forEach(t => document.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
+document.addEventListener("drop", e => { if (e.dataTransfer?.files?.length) send(e.dataTransfer.files); });
+$("#reset").onclick = async () => { if (confirm("Reload the example project and clear the history?")) { await api("/api/reset", {method:"POST"}); pos = {}; selItem = selNode = draft = null; refresh(); } };
+window.addEventListener("resize", () => S && renderGraph());
+
+const es = new EventSource("/api/events");
+es.onmessage = async m => { const ev = JSON.parse(m.data);
+  if (ev.reset) pos = {};
+  await refresh();
+  if (ev.type === "ready") toast(`Ready to review: ${ev.title} (${ev.seconds}s)`, () => { const it = S.items.find(i => i.id === ev.id); if (it) { selItem = it.id; selNode = null; startDraft(it); render(); } });
+};
+refresh();
+</script>
+</body>
+</html>
