@@ -1,6 +1,6 @@
 # Converter engine: handoff
 
-**Converter** branch of the drone-project knowledge-graph hackathon. Drop any project file (Rhino models, PDFs, emails, photos, markups, Teams screenshots, video, voice notes, Office files, zips) and get an embedding-ready package: text, image, audio and video chunks plus JSON metadata, typed links and entities for the graph.
+The intake and converter engine of the drone-project knowledge-graph hackathon (code in [`converter/`](converter/); the team's planning docs are in [`Ryan/`](Ryan/), shared embeddings in [`api/`](api/)). Drop any project file, paste a conversation or a link, or ask it to research something, (Rhino models, PDFs, emails, photos, markups, Teams screenshots, video, voice notes, Office files, zips) and get an embedding-ready package: text, image, audio and video chunks plus JSON metadata, typed links and entities for the graph.
 
 - **Using it / package spec** → [`converter/README.md`](converter/README.md)
 - **Picking up the work** → this page: code map, design decisions, gotchas, test checklist, next steps
@@ -33,7 +33,14 @@ Flow (`agent.ask`):
 3. **understand** (agent model): manifest essentials + text chunks (about 24k chars) + up to 10 of the most informative images become JSON with title, summary, `node_type` (team taxonomy from `Ryan/agent-architecture.md`: decision, discovery, event, data_feed, deliverable, blocker, constraint, document), importance, decision_question, owner/due, tags, **insights** (self-contained statements with a source chunk/page), **figures** (with optional crops), **markup_text** (handwriting on images), **links** (only to ids in the library list).
 4. **write back**: new chunks are *appended* (existing chunk ids stay stable) with roles `agent_summary | insight | figure | markup_text` and `meta.suggested_by = "agent:<model>"`. `manifest.agent` holds the reading plus `status: suggested|accepted`. Agent links carry `suggested_by`, `status` and `why`. **Undo** (`agent.set_status(..., "undo")`) removes exactly those additions; re-running replaces them.
 
-API: `POST /api/ask` (form: `prompt`, `files[]`, optional `package_ids` to re-read existing nodes), `POST /api/packages/{id}/agent` (`action=accept|undo`), `GET /api/agent`.
+**Text only, no files** (`agent.text_intake`): the router model classifies the prompt.
+- `note`: a pasted conversation, minutes or a message. It's saved as `note_<title>.md` and becomes the node.
+- `links`: every URL in the prompt is downloaded (http(s) only, 80 MB cap; html/pdf/images/video/office by content type) and converted; `context.source_url` keeps the origin.
+- `research`: OpenRouter web plugin (`plugins: [{"id": "web"}]`) on `CONVERTER_RESEARCH_MODEL`. It writes a cited Markdown brief `research_<title>.md` with a numbered source list; `context.source_urls` holds the URLs.
+
+Measured: a pasted Teams thread took 14 s / $0.03 and became a decision with the real trade-off. A link (FAA page) took 14 s / $0.04 and became a document. A research question (FAA rules over the Hudson piers) took 43 s / $0.27 and became a constraint with 10 sources, flagged as contradicting the flight plan. Research is the expensive path because web results go into the prompt; set `CONVERTER_RESEARCH_MODEL` to a cheaper model if needed.
+
+API: `POST /api/ask` (form: `prompt`, optional `files[]`, optional `package_ids` to re-read existing nodes; prompt alone = text-only intake), `POST /api/packages/{id}/agent` (`action=accept|undo`), `GET /api/agent`.
 Measured on the samples: about 10 to 20 s and $0.02 to $0.04 per file. Tested on the samples: a Teams markup (read the handwriting, became a decision with a real question), a reviewed PDF plus an email (decisions, linked to RFI-012, the site notes and the flight log), and a top-view markup via the browser.
 
 ## Run / check
@@ -131,6 +138,6 @@ Not tested on real data yet: real client markups, real Outlook `.msg` files, lar
 
 ## Git
 
-- Work happens on branch **`converter`** (pushed to `origin`). No PR into `main` yet; open one when the team approves. `main` has moved on (the `Ryan/` folder), but there are no overlapping files.
+- Merged into **`main`** on 2026-11-14 (approved by the team). The **`converter`** branch is kept for converter-only work: branch from `main`, merge back when done.
 - This clone has repo-local config: `user.name "Minh Dang Ngo"`, `user.email dangminh2606@outlook.com`, `credential.https://github.com.username MinhDangNgo` (must be the GitHub **username**, not the email, or Git Credential Manager asks to sign in on every push). A new contributor should set their own identity and **not** reuse these.
 - Ignored: `.venv/`, `converter_output/`, `samples/generated/`. Never commit converted outputs or client files.

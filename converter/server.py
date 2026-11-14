@@ -84,9 +84,10 @@ def create_app(out_root: str | Path) -> FastAPI:
                     with open(tmp, "wb") as fh:
                         shutil.copyfileobj(f.file, fh)
                     saved.append((tmp, name))
+                text_only = not saved and not package_ids.strip() and prompt.strip()
                 result = agent.ask(out, prompt.strip(), saved,
-                                   lambda p, o, n, c: convert_file(p, o, original_name=n, context=c)) if saved else \
-                    {"prompt": prompt, "plan": None, "items": [], "cost_usd": 0}
+                                   lambda p, o, n, c: convert_file(p, o, original_name=n, context=c)) \
+                    if (saved or text_only) else {"prompt": prompt, "plan": None, "items": [], "cost_usd": 0}
             # run the agent on existing packages too ("re-read this with my prompt")
             for pid in [p for p in package_ids.split(",") if p.strip()]:
                 m = agent.understand(out, pkg_dir(pid.strip()).name, prompt.strip())

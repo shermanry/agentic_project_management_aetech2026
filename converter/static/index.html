@@ -261,7 +261,7 @@ details pre { font: 11.5px ui-monospace, Consolas, monospace; white-space: pre-w
 
     <section id="composer">
       <div id="tray"></div>
-      <textarea id="prompt" rows="1" placeholder="Drop or paste files, then say what they are…" title="Drag & drop anywhere · Ctrl+V pastes screenshots · Ctrl+Enter sends"></textarea>
+      <textarea id="prompt" rows="1" placeholder="Drop files, paste a conversation or a link, or ask the agent to look something up…" title="Drag & drop anywhere · Ctrl+V pastes screenshots · Ctrl+Enter sends"></textarea>
       <div class="bar">
         <button class="round" id="attach" title="Add files" aria-label="Add files"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
         <span class="grow"></span>
@@ -305,6 +305,7 @@ details pre { font: 11.5px ui-monospace, Consolas, monospace; white-space: pre-w
       <button class="starter" data-p="Report or drawing set: keep only the key statements, constraints and the figures worth keeping.">▤ Long document → key points</button>
       <button class="starter" data-p="Rhino model update: describe the design and what changed.">◇ Model update</button>
       <button class="starter" data-p="Site photos / drone footage: what do they show, any defects or risks?">◉ Site capture</button>
+      <button class="starter" data-p="Research: FAA rules for flying a drone near a heliport in Manhattan, and what permits we need for Pier 54.">⌕ Research</button>
     </div>
   </section>
 
@@ -397,7 +398,9 @@ document.querySelectorAll(".starter").forEach(b => b.onclick = () => { promptEl.
 function submit() {
   if (mode === "local") {
     const files = takeTray();
-    if (!files.length) { toast("Add a file first"); return; }
+    if (!files.length && promptEl.value.trim()) files.push(new File([promptEl.value.trim()], `note_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.md`, { type: "text/markdown" }));
+    if (!files.length) { toast("Type something, or drop a file"); return; }
+    if (files.length === 1 && files[0].name.startsWith("note_")) { promptEl.value = ""; grow(); enqueue(files); return; }
     if (promptEl.value.trim() && !$("#c_note").value.trim()) $("#c_note").value = promptEl.value.trim();
     promptEl.value = ""; grow(); enqueue(files);
   } else send();
@@ -424,16 +427,16 @@ function submit() {
 async function send(packageIds = [], promptOverride = null) {
   const prompt = (promptOverride ?? promptEl.value).trim();
   const files = packageIds.length ? [] : takeTray();
-  if (!files.length && !packageIds.length) { toast("Drop or paste a file first"); promptEl.focus(); return; }
+  if (!files.length && !packageIds.length && !prompt) { toast("Type something, or drop a file"); promptEl.focus(); return; }
   if (!agentOn) { toast("Agent is off: add OPENROUTER_API_KEY to .env"); return; }
   if (promptOverride === null) { promptEl.value = ""; grow(); }
   const run = document.createElement("div");
   run.className = "run";
-  const what = packageIds.length ? `re-reading ${packageIds.length} node(s)` : files.map(f => f.name).join(", ");
+  const what = packageIds.length ? `re-reading ${packageIds.length} node(s)` : files.length ? files.map(f => f.name).join(", ") : "text only";
   const n = files.length || packageIds.length;
   run.innerHTML = `<div class="you"><div class="av">${esc(initials())}</div><div><div class="p">${esc(prompt || "(no prompt)")}</div><div class="f">${esc(what)}</div></div></div>
     <div class="status"><div class="spin"></div><div class="steps">
-      <div class="s on">Understanding your prompt…</div><div class="s">Extracting ${n} file(s) locally…</div>
+      <div class="s on">Understanding your prompt…</div><div class="s">${n ? `Extracting ${n} file(s) locally…` : (/https?:\/\//.test(prompt) ? "Fetching the link(s)…" : "Saving the note or researching the web…")}</div>
       <div class="s">Reading text and images, picking what matters…</div><div class="s">Linking to the tree…</div></div></div>`;
   $("#feed").prepend(run);
   run.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -449,6 +452,8 @@ async function send(packageIds = [], promptOverride = null) {
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
     const res = await r.json();
     run.querySelector(".status").remove();
+    (res.errors || []).forEach(e => run.insertAdjacentHTML("beforeend", `<div class="res"><div></div><div style="color:var(--err)" class="small">${esc(e)}</div></div>`));
+    if (!res.items.length && !(res.errors || []).length) run.insertAdjacentHTML("beforeend", `<div class="res"><div></div><div class="muted">Nothing to add.</div></div>`);
     res.items.forEach(it => run.insertAdjacentHTML("beforeend", resultHtml(it)));
     run.insertAdjacentHTML("beforeend", `<div class="foot">${res.items.length} node(s) added · $${(res.cost_usd || 0).toFixed(3)}${res.models ? ` · ${esc(res.models.router)} → ${esc(res.models.agent)}` : ""}</div>`);
     wireResults(run);
