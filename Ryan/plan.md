@@ -6,6 +6,8 @@ _Draft for team critique · 2026-11-14 · background in [PROJECT_BRIEF.md](PROJE
 
 **Agent architecture:** [agent-architecture.md](agent-architecture.md) describes the Opus-class analysis loop that generates specialist agents, skills, connectors and per-node-type rules on top of the graph.
 
+**Use cases, demo target and decisions:** [use-cases-and-decisions.md](use-cases-and-decisions.md) covers the Slack intake use case, what to finish for the demo, and the backbone decisions we need to make.
+
 **How to use this doc:** nothing here is final. Each section is marked **Decided**, **Proposed** or **Open**. Challenge anything marked Proposed, and answer what you can in sections 11 and 12.
 
 ## 1. What we're building
