@@ -52,7 +52,7 @@ manifest = convert_file("site_model.3dm", "converter_output")
 
 \* Transcripts need `pip install faster-whisper`, which runs locally. Without it, audio and video still produce segments, and the manifest gets a warning plus `"transcript": "pending"`.
 
-## Context, markups and links: making nodes meaningful and linkable
+## Context and markups: making the content meaningful
 
 A file on its own rarely says *why* it matters. "Make the canopy lighter" lives in the Teams message, not in the screenshot. The converter captures that context and builds it into the vectors.
 
@@ -62,7 +62,7 @@ A file on its own rarely says *why* it matters. "Make the canopy lighter" lives 
 "context": { "author": "A. Chen", "author_role": "project lead", "channel": "teams",
              "note": "Client wants the canopy lighter - circled.", "date": "2026-11-14",
              "intent": "markup",          // optional: force markup / "reference" to skip detection
-             "refers_to": "uep_…" }       // optional: the original being marked up
+             "refers_to": "uep_…" }       // optional: the original being marked up (used only to cut out the strokes)
 ```
 
 - The note becomes its own chunk (`role: "context"`) and is folded into every image caption. A vector then says *who asked for what*, not just what the picture looks like.
@@ -81,18 +81,18 @@ A file on its own rarely says *why* it matters. "Make the canopy lighter" lives 
 
 Each marked area becomes a `role: "markup_region"` chunk: a cropped image plus text naming the position, pen colour, author and request. If the markup sits on one of our **Rhino views**, it also names the **model layers under the mark** (from the per-layer renders), e.g. *"covering model layer(s) SRF_PAVE"*. That ties a client comment to model elements. Handwritten text isn't read locally (`markup_text: "pending"`); a vision model downstream can fill it in.
 
-**Typed links**: edges the graph can use directly:
+**Links**: the converter does not decide what relates to what. The only links are physical containment:
 
 ```jsonc
 "links": [
-  { "type": "marks_up", "target": "uep_05cfee8c9a92", "target_chunk": "uep_05cfee8c9a92:0074", "confidence": 0.84 },
   { "type": "part_of",  "target": "uep_88cec6feafc7" },     // attachment of an email / file in a zip
-  { "type": "contains", "target": "uep_a185711027d6" },
-  { "type": "refers_to", "target": "uep_…", "confidence": 1.0 }   // user picked it
+  { "type": "contains", "target": "uep_a185711027d6" }
 ]
 ```
 
-**Entities** (`metadata.entities`) are normalised names the graph can join on exactly, complementing embedding similarity: `rfi` (rfi-012), `level` (level-6; ranges expanded), `elevation` (north-elevation), `grid` (grid-B4), `sheet` (A-101), `date` (nov-20, 2026-11-14), `person` (emails), `regulation` (laanc, part 107, tfr), `element` (canopy, parapet, roof, crane…). Two packages sharing `level-6` + `north-elevation` are candidate neighbours even if their vectors drift.
+A markup records which original it was drawn on as a fact, `metadata.markup.drawn_on` (`package_id`, `chunk_id`, `title`).
+
+**Entities** (`metadata.entities`) are normalised names the graph can join on exactly, complementing embedding similarity: `rfi` (rfi-012), `level` (level-6; ranges expanded), `elevation` (north-elevation), `grid` (grid-B4), `sheet` (A-101), `date` (nov-20, 2026-11-14), `person` (emails), `regulation` (laanc, part 107, tfr), `element` (canopy, parapet, roof, crane…). They are extracted facts; whether two packages sharing `level-6` + `north-elevation` belong together is for the graph to decide.
 
 ## Package spec (`uep/0.1`)
 
@@ -110,11 +110,12 @@ Each marked area becomes a `role: "markup_region"` chunk: a cropped image plus t
   "modalities": ["text", "image"],
   "tags": { "values": ["geometry", "kind:rhino_model", "from:client", "channel:teams", ...], "suggested_by": "rules" },
   "context": { "author", "author_role", "channel", "note", "date", "intent", "refers_to" },   // see above
-  "metadata": { ...kind-specific..., "needs_decision_hint": false,
+  "metadata": { ...kind-specific...,
                 "entities": { "level": ["level-6"], "rfi": ["rfi-012"], ... },
-                "markup": { "regions", "positions", "colours", "method", "layers", "marks_up" },  // markups only
+                "markup": { "regions", "positions", "colours", "method", "layers", "drawn_on", "markup_text" },  // markups only
                 "parent_id": "uep_…", "parent_ids": ["uep_…"] },   // set when it came from an email/zip
-  "links": [ { "type": "marks_up" | "part_of" | "contains" | "refers_to", "target": "uep_…", ... } ],
+  "links": [ { "type": "part_of" | "contains", "target": "uep_…" } ],     // containment only
+  "agent": { "title", "summary", "counts", "markup_text", "model", "usage" },   // only if read by the AI
   "thumbnail": "assets/view_axonometric.png",
   "chunk_count": 17,
   "children": ["uep_…"],               // attachments / zip members, each its own package

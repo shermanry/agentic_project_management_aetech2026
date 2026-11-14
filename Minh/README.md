@@ -1,6 +1,6 @@
 # Minh: intake and converter engine (handoff)
 
-The intake and converter engine of the drone-project knowledge-graph hackathon (everything of mine lives in this `Minh/` folder; the team's planning docs are in [`../Ryan/`](../Ryan/), shared embeddings in [`../api/`](../api/)). Drop any project file, paste a conversation or a link, or ask it to research something, (Rhino models, PDFs, emails, photos, markups, Teams screenshots, video, voice notes, Office files, zips) and get an embedding-ready package: text, image, audio and video chunks plus JSON metadata, typed links and entities for the graph.
+The intake and converter engine of the drone-project knowledge-graph hackathon (everything of mine lives in this `Minh/` folder; the team's planning docs are in [`../Ryan/`](../Ryan/), shared embeddings in [`../api/`](../api/)). Drop any project file, paste a conversation or a link, or ask it to research something, (Rhino models, PDFs, emails, photos, markups, Teams screenshots, video, voice notes, Office files, zips) and get an embedding-ready package: text, image, audio and video chunks plus JSON metadata and extracted entities, ready for the graph to place.
 
 - **Using it / package spec** → [`converter/README.md`](converter/README.md)
 - **Picking up the work** → this page: code map, design decisions, gotchas, test checklist, next steps
@@ -20,29 +20,30 @@ All paths below are relative to this `Minh/` folder unless they start with `../`
 
 Part of the drone-project knowledge-graph hackathon project (see `../Ryan/PROJECT_BRIEF.md`). This module is only the **converter**: any dropped file becomes a Universal Embedding Package (UEP) folder (`manifest.json` + `chunks.jsonl` + `assets/`). Teammates build **embedding** and **graph** on top of those packages.
 
+- **Scope: convert, don't judge.** This module only turns whatever is dropped (files, pasted text, links, a research question) into clean, meaningful content. It does **not** decide what relates to what, how important something is, or whether it needs a decision: placement, linking and approval belong to the graph side (e.g. Ryan's north-star pipeline). The only links it writes are physical containment: an attachment is `part_of` its email, a file is `part_of` its zip.
 - **The package format is a contract.** Teammates read `manifest.json`, `chunks.jsonl` and `converter_output/index.jsonl`. Adding fields is fine. Renaming or removing fields, or changing the meaning of `id` / `role` / `locator` / `links`, breaks them. If you must, bump `SCHEMA_VERSION` in `core.py` and update `converter/README.md`.
-- **Two layers.** The **local converter** extracts hard facts deterministically with no network calls. The optional **agent** (`converter/agent.py`, via OpenRouter) adds *meaning* on top: one prompt plus files in, and context, summary, node type, key points, figures, markup handwriting and links out. "Convert only" in the UI (or the CLI) stays fully local.
+- **Two layers.** The **local converter** extracts hard facts deterministically with no network calls. The optional **agent** (`converter/agent.py`, via OpenRouter) adds *readable content* on top: one prompt plus files in; who sent it, a summary, key points with sources, figures worth keeping and the handwriting on markups out. "Convert only" in the UI (or the CLI) stays fully local.
 
-## The agent layer (prompt + files → filled-in, linked node)
+## The agent layer (prompt + files → clean, meaningful content)
 
 Needs `OPENROUTER_API_KEY` in `.env` at the **repo root** (copy `../.env.example`; never commit `.env`). The agent finds it by searching parent folders. Models are set in `.env`:
 `CONVERTER_ROUTER_MODEL` (default `anthropic/claude-haiku-5.5`, reads the prompt) and `CONVERTER_AGENT_MODEL` (default `anthropic/claude-sonnet-5.5`, reads text and images). Requests use OpenRouter `provider.data_collection = "deny"` (`CONVERTER_ALLOW_DATA_COLLECTION`).
 
 Flow (`agent.ask`):
-1. **interpret** (router model): prompt + filenames + library list become per-file context: author, role, channel, note, intent, refers_to, project.
+1. **interpret** (router model): prompt + filenames become per-file context: author, role, channel, note, intent, project. No library lookup.
 2. **convert** (local converter, unchanged) with that context.
-3. **understand** (agent model): manifest essentials + text chunks (about 24k chars) + up to 10 of the most informative images become JSON with title, summary, `node_type` (team taxonomy from `../Ryan/agent-architecture.md`: decision, discovery, event, data_feed, deliverable, blocker, constraint, document), importance, decision_question, owner/due, tags, **insights** (self-contained statements with a source chunk/page), **figures** (with optional crops), **markup_text** (handwriting on images), **links** (only to ids in the library list).
-4. **write back**: new chunks are *appended* (existing chunk ids stay stable) with roles `agent_summary | insight | figure | markup_text` and `meta.suggested_by = "agent:<model>"`. `manifest.agent` holds the reading plus `status: suggested|accepted`. Agent links carry `suggested_by`, `status` and `why`. **Undo** (`agent.set_status(..., "undo")`) removes exactly those additions; re-running replaces them.
+3. **understand** (agent model): manifest essentials + text chunks (about 24k chars) + up to 10 of the most informative images become JSON with title, summary, tags, **key_points** (self-contained statements of what the file says or shows, each citing its source chunk/page/image), **figures** (with optional crops) and **markup_text** (handwriting on images). The prompt explicitly forbids judging importance, classifying, or relating to other nodes.
+4. **write back**: new chunks are *appended* (existing chunk ids stay stable) with roles `agent_summary | key_point | figure | markup_text` and `meta.suggested_by = "agent:<model>"`; `manifest.agent` holds title, summary, counts and usage. `agent.undo()` removes exactly those additions; re-running replaces them.
 
 **Text only, no files** (`agent.text_intake`): the router model classifies the prompt.
 - `note`: a pasted conversation, minutes or a message. It's saved as `note_<title>.md` and becomes the node.
 - `links`: every URL in the prompt is downloaded (http(s) only, 80 MB cap; html/pdf/images/video/office by content type) and converted; `context.source_url` keeps the origin.
 - `research`: OpenRouter web plugin (`plugins: [{"id": "web"}]`) on `CONVERTER_RESEARCH_MODEL`. It writes a cited Markdown brief `research_<title>.md` with a numbered source list; `context.source_urls` holds the URLs.
 
-Measured: a pasted Teams thread took 14 s / $0.03 and became a decision with the real trade-off. A link (FAA page) took 14 s / $0.04 and became a document. A research question (FAA rules over the Hudson piers) took 43 s / $0.27 and became a constraint with 10 sources, flagged as contradicting the flight plan. Research is the expensive path because web results go into the prompt; set `CONVERTER_RESEARCH_MODEL` to a cheaper model if needed.
+Measured: a pasted Teams thread took about 10 s / $0.01 and came out as 6 clean key points (who said what, dates, the options). A link (FAA page) took 14 s / $0.04. A research question (FAA rules over the Hudson piers) took 43 s / $0.27 and produced a brief with 10 sources. Research is the expensive path because web results go into the prompt; set `CONVERTER_RESEARCH_MODEL` to a cheaper model if needed.
 
-API: `POST /api/ask` (form: `prompt`, optional `files[]`, optional `package_ids` to re-read existing nodes; prompt alone = text-only intake), `POST /api/packages/{id}/agent` (`action=accept|undo`), `GET /api/agent`.
-Measured on the samples: about 10 to 20 s and $0.02 to $0.04 per file. Tested on the samples: a Teams markup (read the handwriting, became a decision with a real question), a reviewed PDF plus an email (decisions, linked to RFI-012, the site notes and the flight log), and a top-view markup via the browser.
+API: `POST /api/ask` (form: `prompt`, optional `files[]`, optional `package_ids` to re-read existing nodes; prompt alone = text-only intake), `POST /api/packages/{id}/agent/undo`, `GET /api/agent`.
+Measured on the samples: about 10 s and $0.01 to $0.02 per file. A Teams markup came out as its summary, 5 key points, 2 cropped figures and the handwriting ("lighter canopy here?").
 
 ## Run / check
 
@@ -61,10 +62,10 @@ There is **no test suite yet**. Regression testing = regenerate the samples, con
 | Sample | Expect |
 | --- | --- |
 | `tower_site.3dm` | `rhino_model`, ~17 chunks, 4 views + 4 layer views, 1 warning (sphere Brep without render mesh) |
-| `flight_reschedule.eml` | `email`, body split latest/quoted, image attachment inside, PDF as child package (`part_of` link) |
+| `flight_reschedule.eml` | `email`, body split latest/quoted, image attachment inside, PDF as child package (`part_of`) |
 | `flight_plan_reviewed.pdf` | 2 `markup_region` chunks (Cloud+ by Project Lead, Note by Client with folded reply), entities incl. `rfi-012`, `level-30`, `north-elevation` |
-| `client_markup_on_render.png` | `markup`, method `diff`, `marks_up` link to the model, `layers` filled |
-| `teams_screenshot_markup.png` (cropped) and `teams_chat_screenshot.png` (inside fake Teams UI) | `markup`, method `aligned-diff`, **3 regions** (circle, arrow, written note), all red, `marks_up` link |
+| `client_markup_on_render.png` | `markup`, method `diff`, `metadata.markup.drawn_on` = the model view, `layers` filled |
+| `teams_screenshot_markup.png` (cropped) and `teams_chat_screenshot.png` (inside fake Teams UI) | `markup`, method `aligned-diff`, **3 regions** (circle, arrow, written note), all red, `drawn_on` filled |
 | `drone_photo.jpg` | `image` (NOT markup), GPS + DJI XMP in metadata |
 | `flyover.mp4` / `voice_memo.m4a` | keyframes + 30 s clips / wav segments, warning "no transcript" unless faster-whisper is installed |
 
@@ -76,11 +77,11 @@ Markup output is easiest to judge by drawing `locator.bbox` of the `markup_regio
 converter/
   core.py        Package (one per file): chunks, assets, context, aliases/parents, manifest + jsonl writing; text splitting; zip
   engine.py      registry (@register(kind, *exts)), convert_file(), child conversion, _finalize (summary/context chunks,
-                 tags, entities, typed links), index.jsonl (thread-locked)
+                 tags, entities, containment links), index.jsonl (thread-locked)
   markup.py      perceptual hash, find original (hash, then ORB features), diff / aligned-diff / colour detection,
                  region chunks, Rhino layer-under-mark mapping
   entities.py    regex entities (rfi, level, elevation, grid, sheet, date, person, regulation, element)
-  tagging.py     keyword tag rules + needs_decision hint
+  tagging.py     keyword tag rules
   server.py      FastAPI: /api/convert (multipart + context form fields), /api/packages[/id|/zip], DELETE, /files static
   static/index.html  single-file vanilla JS UI (drop, Ctrl+V paste, context box, library, detail drawer)
   handlers/      one module per family; imported in handlers/__init__.py to register
@@ -99,7 +100,7 @@ converter/
 - **Context propagates**: an email's sender, channel and date go into `pkg.context`. `ctx.convert_child` passes author/role/channel/date/note to attachments and zip members.
 - **Markup pipeline** (`markup.analyze`): explicit `refers_to` → hash match (`find_original`, dhash ≤ 14/64 bits, ties broken by thumbnail pixel distance) → ORB feature match against our own Rhino `snapshot` views (`find_original_by_features`) → diff (same framing, pixels verified to line up) or aligned-diff (homography) → if still nothing, colour strokes (red/magenta only). `intent: "reference"` skips all of it; `intent: "markup"` forces a markup node even with 0 regions.
 - **Layer mapping** works only when the original is a Rhino `view_axonometric.png`. It reads the per-layer highlight renders (`layer_*.png`), which use `ACCENT` orange in `handlers/rhino.py`. Changing the accent colour, view angle or image size breaks `_layer_maps`.
-- **Typed links** (`manifest.links`): `part_of`, `contains`, `marks_up` (with confidence from hash distance), `refers_to`. Backlinks ("marked up by") are computed at read time in `server.py` from `index.jsonl`, not stored.
+- **Links** (`manifest.links`): only `part_of` / `contains` (attachment ↔ email, file ↔ zip). No relevance links. A markup records what it was drawn on as a plain fact, `metadata.markup.drawn_on`, because the original is needed to cut out the pen strokes precisely.
 - **Tags** are rules (`suggested_by: "rules"`), meant to be replaced by the model-based tagger downstream. Entities are separate, for exact-match graph joins.
 
 ## Gotchas already hit (don't re-learn them)
@@ -112,7 +113,7 @@ converter/
 - **Screenshot crops**: the warped original overhangs the picture edge into chat UI. `detect_by_diff` keeps only differences in locally agreeing areas and drops regions on the edge of the matched area.
 - **Colour detection without an original** only looks for red/magenta. Green/blue are too common in renders (ground, glass, water) and caused false positives.
 - **`.claude/launch.json` for the preview server lives one folder above the repo** (the desktop session's root), not inside it.
-- **Agent output is a suggestion.** Don't let it overwrite local facts. It only appends, and the UI shows suggested vs accepted. Links are restricted to ids in the library list sent to the model, so it can't invent targets.
+- **The agent extracts, it doesn't judge.** It only appends content chunks and never overwrites local facts. Keep relevance, importance and linking out of it; that's the graph's job.
 - `find_original*` scans every package in `converter_output` (fine at hackathon scale, O(library)). Feature matching only tries Rhino snapshot views, to keep it fast.
 
 ## Adding a format
@@ -121,20 +122,19 @@ New module in `converter/handlers/`, decorate with `@register("kind", ".ext")`, 
 
 ## Status (2026-11-14)
 
-Done and tested on synthetic samples plus one real Rhino model (Pier 54, ~2.2k objects, 85 chunks): every handler above, the drag-drop / paste UI, context, markups, PDF annotations, entities, links.
+Done and tested on synthetic samples plus one real Rhino model (Pier 54, ~2.2k objects, 85 chunks): every handler above, the drag-drop / paste UI, context, markups, PDF annotations, entities, text-only intake (notes, links, research).
 
 Not tested on real data yet: real client markups, real Outlook `.msg` files, large PDFs / drawing sets, long videos.
 
 ## Next steps (rough priority)
 
-0. **Agent**: store embeddings for chunks via the team's `../api/embeddings.py` (keep `model_id()` with every vector) and use them to pick link candidates instead of the entity-overlap shortlist; let the agent split long documents into several floating nodes; batch mode for watched folders.
-
-1. **Tests**: turn the table above into pytest using `samples/make_samples.py` fixtures (markup region counts and links are the fragile part).
+0. **Agent**: let it split long documents into several self-contained content packages; batch mode for watched folders. (Embedding and linking stay with the graph side.)
+1. **Tests**: turn the table above into pytest using `samples/make_samples.py` fixtures (markup region counts are the fragile part).
 2. **Watched folder**: drag emails from Outlook into a folder and they auto-convert. Outlook can't drop straight into the browser, so this would be the handiest workflow.
 3. **`markup_text` / OCR**: read typed or handwritten notes on markups (local Tesseract, or a vision model if the team allows network).
 4. **Transcripts by default** (faster-whisper), and an `.srt` telemetry sidecar parser for DJI video.
 5. **More AEC formats**: IFC (ifcopenshell), DWG/DXF (ezdxf for DXF), E57/LAS point clouds, Revit via exported IFC, HEIC photos (pillow-heif).
-6. **Teams/Slack connector** (Graph API) for the "passive streams" in the brief, suggested rather than auto-placed.
+6. **Teams/Slack connector** (Graph API) for the "passive streams" in the brief: pull messages and files in for conversion; placement stays with the graph.
 7. **Scale**: a dhash index file instead of scanning all `chunks.jsonl` in `find_original`.
 
 ## Git

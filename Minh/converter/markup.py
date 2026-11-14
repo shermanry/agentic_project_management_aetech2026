@@ -8,8 +8,8 @@ Two ways to find what was drawn, both local (OpenCV, no AI):
 
 Each marked area becomes its own image chunk whose text says who asked, what they
 said, where on the image it is, and which original it refers to - so a search for
-"canopy" or "north elevation" lands on the exact circle, and the graph can draw a
-`marks_up` edge to the original node.
+"canopy" or "north elevation" lands on the exact circle. The manifest records a plain
+fact (`drawn_on`) about which original the strokes were drawn on.
 """
 from __future__ import annotations
 
@@ -382,7 +382,8 @@ def analyze(pkg: Package, img: Image.Image, rel_asset: str, label: str, message:
     if layers:
         summary["layers"] = layers
     if original:
-        summary["marks_up"] = {k: original[k] for k in ("package_id", "chunk_id", "distance", "title") if k in original}
+        # a fact about this image (what it was drawn on), used to cut out the pen strokes precisely; not a graph link
+        summary["drawn_on"] = {k: original[k] for k in ("package_id", "chunk_id", "title") if k in original}
     return summary
 
 

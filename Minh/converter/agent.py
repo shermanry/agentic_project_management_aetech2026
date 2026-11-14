@@ -1,17 +1,20 @@
-"""Agent layer: one prompt + files in, a filled-in, linked node out. Nobody fills forms.
+"""Agent layer: drop anything (or just type), get clean, meaningful content out. Nobody fills forms.
 
-    prompt + files
-      1. interpret   (fast model)  prompt -> per-file context: who, channel, intent, the message, what it refers to
+Scope: EXTRACTION ONLY. This layer turns a file into good content: what it is, the key points in it, the
+images worth keeping, the words written on markups. It does NOT judge relevance, importance or how nodes
+relate to each other: placement, linking and decisions are the graph's job downstream.
+
+    prompt + files (or text only)
+      1. interpret   (fast model)  prompt -> per-file context: who sent it, channel, the message, project
       2. convert     (local)       the deterministic converter, with that context
-      3. understand  (vision model) reads text + the most informative images and returns the MEANINGFUL parts:
-                                    summary, node type (team taxonomy), importance, key statements, figures worth
-                                    keeping (with crops), what's handwritten on markups, links to existing nodes
-      4. write back                 everything the model adds is marked suggested_by="agent:<model>" and
-                                    status="suggested" -> accept or undo in the UI
+      3. understand  (vision model) reads text + the most informative images and returns the meaningful
+                                    content: title, summary, key points (with sources), figures worth
+                                    keeping (with crops), what's handwritten on markups, topic tags
+      4. write back                 appended to chunks.jsonl, marked suggested_by="agent:<model>";
+                                    undo() removes exactly those additions
 
-The local facts (layers, EXIF, PDF comments, pixel-exact markup regions) are never overwritten; the agent
-adds chunks at the END of chunks.jsonl (so existing chunk ids stay stable) and an `agent` section in the
-manifest. Undo removes exactly those additions.
+The local facts (layers, EXIF, PDF comments, pixel-exact markup regions) are never overwritten; existing
+chunk ids stay stable.
 
 Config (.env at repo root, see .env.example):
     OPENROUTER_API_KEY        required
@@ -21,8 +24,8 @@ Config (.env at repo root, see .env.example):
     CONVERTER_RESEARCH_MODEL  default = CONVERTER_AGENT_MODEL (web research for text-only prompts)
     CONVERTER_RESEARCH_RESULTS default 6 web results per research request
 
-Text-only prompts (no files) are handled too: a pasted conversation becomes a note, links are fetched,
-and "find out / look up ..." requests run a web search with citations (see text_intake()).
+Text-only prompts (no files): a pasted conversation becomes a note, links are fetched, and
+"find out / look up ..." requests run a web search with citations (see text_intake()).
 """
 from __future__ import annotations
 
@@ -44,12 +47,8 @@ from .core import now_iso
 from .engine import _update_index
 
 OPENROUTER_CHAT = "https://openrouter.ai/api/v1/chat/completions"
-NODE_TYPES = ["decision", "discovery", "event", "data_feed", "deliverable", "blocker", "constraint", "document"]
-IMPORTANCE = ["low", "medium", "high", "critical"]
-LINK_TYPES = ["relates_to", "answers", "asks_about", "supersedes", "depends_on", "marks_up", "same_topic", "contradicts"]
 MAX_IMAGES = 10
 MAX_TEXT_CHARS = 24_000
-LIBRARY_BRIEF_MAX = 40
 
 
 # ---------------------------------------------------------------- config / http
@@ -134,48 +133,10 @@ def _parse_json(text: str) -> dict:
     return json.loads(text[start:end + 1])
 
 
-# ---------------------------------------------------------------- library
-def _read_manifest(out: Path, pid: str) -> dict | None:
-    p = out / pid / "manifest.json"
-    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
-
-
-def library_brief(out: Path, focus_entities: dict | None = None, exclude: set[str] | None = None,
-                  limit: int = LIBRARY_BRIEF_MAX) -> list[dict]:
-    """Compact list of existing nodes the model can link to. Nodes sharing entities with the
-    incoming file come first, then the most recent."""
-    rows = []
-    idx = out / "index.jsonl"
-    if not idx.exists():
-        return rows
-    want = {f"{k}:{v}" for k, vs in (focus_entities or {}).items() for v in vs if k != "element"}
-    for line in idx.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        r = json.loads(line)
-        if exclude and r["id"] in exclude:
-            continue
-        m = _read_manifest(out, r["id"])
-        if not m:
-            continue
-        ents = m.get("metadata", {}).get("entities", {})
-        have = {f"{k}:{v}" for k, vs in ents.items() for v in vs}
-        ag = m.get("agent") or {}
-        rows.append({
-            "id": m["id"], "kind": m["kind"], "title": ag.get("title") or m["title"],
-            "summary": (ag.get("summary") or m.get("description") or "")[:240],
-            "node_type": ag.get("node_type"), "from": m.get("context", {}).get("author"),
-            "project": m.get("context", {}).get("project"),
-            "entities": sorted(have)[:12], "_score": len(want & have), "_t": r.get("updated_at", ""),
-        })
-    rows.sort(key=lambda r: (r["_score"], r["_t"]), reverse=True)
-    return [{k: v for k, v in r.items() if not k.startswith("_") and v} for r in rows[:limit]]
-
-
 # ---------------------------------------------------------------- 1. interpret the prompt
-INTERPRET_SYSTEM = """You route files into a drone-survey / architecture project knowledge graph.
-The user gives ONE free-text prompt and some files. Work out, for each file, the context a person
-would otherwise have to type into a form. Be literal: only state what the prompt or filenames support.
+INTERPRET_SYSTEM = """You prepare files for a content extractor (drone-survey / architecture projects).
+The user gives ONE free-text prompt and some files. Work out, for each file, the facts a person would
+otherwise type into a form. Be literal: only state what the prompt or filenames support.
 
 Return JSON:
 {
@@ -185,31 +146,25 @@ Return JSON:
      "author_role": "client"|"project lead"|"team"|"contractor"|"consultant"|"me"|null,
      "channel": "email"|"teams"|"slack"|"meeting"|"site"|"whatsapp"|null,
      "note": str|null,            // the message/request that came WITH the file, in plain words (not the user's instruction to you)
-     "intent": "markup"|"reference"|null,   // markup = someone drew on it to request a change
-     "refers_to": str|null,       // id of an existing library node this file is about / marks up, only if clearly indicated
+     "intent": "markup"|"reference"|null,   // markup = someone drew on it
      "project": str|null          // project name if the prompt names one, e.g. "Pier 54"
   }],
   "focus": str|null               // what the user wants pulled out, e.g. "structural comments only"; null if not specified
 }"""
 
 
-def interpret(prompt: str, filenames: list[str], library: list[dict]) -> tuple[dict, dict]:
-    msg = (f"PROMPT:\n{prompt or '(none)'}\n\nFILES:\n" + "\n".join(f"- {f}" for f in filenames) +
-           "\n\nEXISTING LIBRARY NODES (id, kind, title):\n" +
-           "\n".join(f"- {r['id']} [{r['kind']}] {r['title']}" for r in library[:LIBRARY_BRIEF_MAX]))
+def interpret(prompt: str, filenames: list[str]) -> tuple[dict, dict]:
+    msg = f"PROMPT:\n{prompt or '(none)'}\n\nFILES:\n" + "\n".join(f"- {f}" for f in filenames)
     out, usage = chat_json(router_model(), [{"role": "system", "content": INTERPRET_SYSTEM},
                                             {"role": "user", "content": msg}], max_tokens=1500)
-    ids = {r["id"] for r in library}
-    by_name = {f.get("filename"): f for f in out.get("files", []) if isinstance(f, dict)}
+    listed = [f for f in out.get("files", []) if isinstance(f, dict)]
+    by_name = {f.get("filename"): f for f in listed}
     files = []
     for name in filenames:
-        f = by_name.get(name) or (out.get("files") or [{}])[0] if len(filenames) == 1 else by_name.get(name, {})
-        f = dict(f or {})
-        if f.get("refers_to") not in ids:
-            f["refers_to"] = None
+        f = dict(by_name.get(name) or (listed[0] if len(filenames) == 1 and listed else {}))
         if f.get("intent") not in ("markup", "reference"):
             f["intent"] = None
-        files.append({"filename": name, **{k: f.get(k) for k in ("author", "author_role", "channel", "note", "intent", "refers_to", "project")}})
+        files.append({"filename": name, **{k: f.get(k) for k in ("author", "author_role", "channel", "note", "intent", "project")}})
     return {"files": files, "focus": out.get("focus")}, usage
 
 
@@ -345,42 +300,35 @@ def text_intake(prompt: str, dest_dir: Path) -> tuple[list[tuple[Path, str]], li
 
 
 # ---------------------------------------------------------------- 3. understand a package
-UNDERSTAND_SYSTEM = f"""You are the reading layer of a project knowledge graph for drone surveys and architecture projects.
-A local converter has already extracted a file into chunks (text) and images (page renders, model views,
-photos, markup regions, keyframes). Metadata alone is not useful: your job is to pull out the MEANINGFUL
-content a project team would want as nodes, with a pointer back to where it came from.
+UNDERSTAND_SYSTEM = """You are the reading layer of a content converter for drone-survey and architecture projects.
+A local converter has already extracted a file into text chunks and images (page renders, model views,
+photos, markup regions, keyframes). Metadata alone is not useful: pull out the MEANINGFUL content of THIS
+file, clean and self-contained, with a pointer back to where it came from.
+
+You only describe what is in this file. Do NOT judge importance, do NOT decide what it relates to,
+do NOT classify it into project categories: that happens later, elsewhere.
 
 Rules:
 - Use only what is in the material. Never invent people, dates, numbers or decisions.
-- Prefer few, high-value items over many weak ones. Skip boilerplate, logos, title blocks, signatures, disclaimers, quoted history that adds nothing.
-- Every insight must be self-contained (understandable without the file) and cite its source chunk id or image number.
-- node_type must be one of {NODE_TYPES}:
-  decision = a choice someone must make / approve; discovery = new information that may change an assumption;
-  event = something at a time (flight, meeting, deadline window); data_feed = a live/updating source;
-  deliverable = something owed to someone by a date; blocker = work waiting on a person/party;
-  constraint = a rule or limit (wind limit, airspace, permit rule); document = reference material.
-- figures: choose images that carry real information (site plans, sections, photos of conditions, marked-up areas,
-  informative model views). Optional crop = [x0,y0,x1,y1] in 0..1 of that image, to cut away margins/UI/title blocks.
-- markup_text: transcribe any handwriting or typed notes drawn ON images (markups), per image.
-- links: only to ids from the LIBRARY list, only when there is a concrete reason. Types: {LINK_TYPES}.
-- The user's prompt and focus take priority over everything else.
+- Prefer few, high-value items over many weak ones. Skip boilerplate, logos, title blocks, signatures,
+  disclaimers, and quoted history that adds nothing.
+- key_points: self-contained statements of what the file actually says or shows (facts, requests,
+  numbers, dates, rules, observations), each citing its source chunk id, image number or page.
+- figures: images that carry real information (site plans, sections, photos of conditions, marked-up
+  areas, informative model views). Optional crop = [x0,y0,x1,y1] in 0..1 of that image to cut away
+  margins, app UI or title blocks.
+- markup_text: transcribe handwriting or typed notes drawn ON images, per image.
+- The user's prompt and focus decide what to emphasise.
 
 Return JSON:
-{{
-  "title": str,                         // short, specific, human title for the node
-  "summary": str,                       // 1-3 sentences: what this is and why it matters to the project
-  "node_type": str,
-  "importance": "low"|"medium"|"high"|"critical",
-  "importance_reason": str,
-  "needs_decision": bool,
-  "decision_question": str|null,        // the actual question to decide, if any
-  "owner": str|null, "due": str|null,   // only if stated
-  "tags": [str],                        // 3-8 lowercase topic tags
-  "insights": [{{"text": str, "node_type": str, "why": str, "source_chunk": str|null, "image": int|null, "page": int|null}}],
-  "figures": [{{"image": int, "caption": str, "why": str, "crop": [number,number,number,number]|null}}],
-  "markup_text": [{{"image": int, "text": str}}],
-  "links": [{{"target": str, "type": str, "why": str, "confidence": number}}]
-}}"""
+{
+  "title": str,           // short, specific, human title for this content
+  "summary": str,         // 1-3 sentences: what this file is and what it says
+  "tags": [str],          // 3-8 lowercase topic words found in the content
+  "key_points": [{"text": str, "source_chunk": str|null, "image": int|null, "page": int|null}],
+  "figures": [{"image": int, "caption": str, "crop": [number,number,number,number]|null}],
+  "markup_text": [{"image": int, "text": str}]
+}"""
 
 _IMAGE_PRIORITY = {"markup": 0, "markup_region": 1, "image": 2, "snapshot": 3, "page": 4, "figure": 5, "attachment": 2,
                    "keyframe": 6}
@@ -440,10 +388,8 @@ def understand(out: Path, pid: str, prompt: str = "", focus: str | None = None) 
     manifest = json.loads((d / "manifest.json").read_text(encoding="utf-8"))
     chunks = [json.loads(l) for l in (d / "chunks.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
     images = _pick_images(chunks)
-    library = library_brief(out, manifest.get("metadata", {}).get("entities"), exclude={pid})
     content: list[dict] = [{"type": "text", "text":
         f"USER PROMPT: {prompt or '(none)'}\nFOCUS: {focus or '(none)'}\n\n"
-        f"LIBRARY (existing nodes you may link to):\n{json.dumps(library, ensure_ascii=False)}\n\n"
         f"EXTRACTED MATERIAL:\n{_material(manifest, chunks)}\n\n"
         f"IMAGES follow, numbered 1..{len(images)}:"}]
     for i, c in enumerate(images, 1):
@@ -452,7 +398,7 @@ def understand(out: Path, pid: str, prompt: str = "", focus: str | None = None) 
         content.append(_image_part(d / c["asset"]))
     result, usage = chat_json(agent_model(), [{"role": "system", "content": UNDERSTAND_SYSTEM},
                                               {"role": "user", "content": content}], max_tokens=5000)
-    return _write_back(out, manifest, chunks, images, result, usage, prompt, focus, {r["id"] for r in library})
+    return _write_back(out, manifest, chunks, images, result, usage, prompt, focus)
 
 
 # ---------------------------------------------------------------- 4. write back (and undo)
@@ -485,7 +431,7 @@ def _strip_agent(out: Path, manifest: dict, chunks: list[dict]) -> list[dict]:
 
 
 def _write_back(out: Path, manifest: dict, chunks: list[dict], images: list[dict], r: dict, usage: dict,
-                prompt: str, focus: str | None, library_ids: set[str]) -> dict:
+                prompt: str, focus: str | None) -> dict:
     pid = manifest["id"]
     by = f"agent:{agent_model()}"
     with _lock(pid):
@@ -497,22 +443,18 @@ def _write_back(out: Path, manifest: dict, chunks: list[dict], images: list[dict
             new.append({"modality": modality, "text": text, "asset": asset, "mime": mime, "role": role,
                         "locator": locator or {}, "meta": {"suggested_by": by, **meta}})
 
-        node_type = r.get("node_type") if r.get("node_type") in NODE_TYPES else "document"
-        importance = r.get("importance") if r.get("importance") in IMPORTANCE else "medium"
         title = (r.get("title") or manifest["title"]).strip()
         summary = (r.get("summary") or "").strip()
-        add("text", f"{title}\n{summary}" + (f"\nDecision needed: {r['decision_question']}" if r.get("decision_question") else ""),
-            "agent_summary", node_type=node_type, importance=importance)
+        add("text", f"{title}\n{summary}", "agent_summary")
 
-        for ins in (r.get("insights") or [])[:20]:
-            if not isinstance(ins, dict) or not ins.get("text"):
+        for kp in (r.get("key_points") or r.get("insights") or [])[:20]:
+            if not isinstance(kp, dict) or not kp.get("text"):
                 continue
-            src = ins.get("source_chunk") if ins.get("source_chunk") in chunk_ids else None
-            img = _img(images, ins.get("image"))
-            loc = {k: v for k, v in {"page": ins.get("page"), "source_chunk": src,
+            src = kp.get("source_chunk") if kp.get("source_chunk") in chunk_ids else None
+            img = _img(images, kp.get("image"))
+            loc = {k: v for k, v in {"page": kp.get("page"), "source_chunk": src,
                                      "source_image": img["id"] if img else None}.items() if v}
-            add("text", ins["text"].strip(), "insight", loc,
-                node_type=ins.get("node_type") if ins.get("node_type") in NODE_TYPES else node_type, why=ins.get("why"))
+            add("text", kp["text"].strip(), "key_point", loc)
 
         for k, fig in enumerate((r.get("figures") or [])[:8], 1):
             img = _img(images, fig.get("image")) if isinstance(fig, dict) else None
@@ -524,40 +466,27 @@ def _write_back(out: Path, manifest: dict, chunks: list[dict], images: list[dict
                 asset = _crop(out / pid, img["asset"], crop, f"agent_figure_{k:02d}.jpg") or asset
             add("image", (fig.get("caption") or "").strip(), "figure", {**img["locator"], "source_chunk": img["id"],
                 **({"crop": crop} if _valid_crop(crop) else {})}, asset=asset,
-                mime="image/jpeg" if asset.endswith(".jpg") else img.get("mime"), why=fig.get("why"))
+                mime="image/jpeg" if asset.endswith(".jpg") else img.get("mime"))
 
         markup_text = []
         for mt in (r.get("markup_text") or [])[:12]:
             img = _img(images, mt.get("image")) if isinstance(mt, dict) else None
-            if img and (mt.get("text") or "").strip():
+            if img and (mt.get("text") or "").strip() and \
+                    mt["text"].strip().lower() not in {m["text"].lower() for m in markup_text}:  # same note seen in several crops
                 markup_text.append({"chunk": img["id"], "text": mt["text"].strip()})
                 add("text", f"Written on the markup ({img['locator'].get('position', 'image')}): \"{mt['text'].strip()}\"",
                     "markup_text", {"source_chunk": img["id"], **{k: v for k, v in img["locator"].items() if k in ("position", "region", "page")}})
-
-        links = []
-        have = {(l["type"], l["target"]) for l in manifest.get("links", [])}
-        for l in (r.get("links") or [])[:10]:
-            if isinstance(l, dict) and l.get("target") in library_ids and l.get("target") != pid \
-                    and (l.get("type"), l.get("target")) not in have:
-                have.add((l.get("type"), l.get("target")))
-                links.append({"type": l.get("type") if l.get("type") in LINK_TYPES else "relates_to",
-                              "target": l["target"], "why": l.get("why"),
-                              "confidence": round(float(l.get("confidence") or 0.6), 2),
-                              "suggested_by": by, "status": "suggested"})
 
         base = len(chunks)
         for i, c in enumerate(new):
             c.update({"id": f"{pid}:{base + i:04d}", "package_id": pid, "index": base + i})
         chunks += new
-        manifest["links"] = manifest.get("links", []) + links
         manifest.setdefault("tags", {})["agent_values"] = sorted({t.lower() for t in (r.get("tags") or []) if isinstance(t, str)})[:10]
         manifest["agent"] = {
-            "status": "suggested", "model": agent_model(), "run_at": now_iso(), "prompt": prompt, "focus": focus,
-            "title": title, "summary": summary, "node_type": node_type, "importance": importance,
-            "importance_reason": r.get("importance_reason"), "needs_decision": bool(r.get("needs_decision")),
-            "decision_question": r.get("decision_question"), "owner": r.get("owner"), "due": r.get("due"),
-            "counts": {"insights": sum(c["role"] == "insight" for c in new), "figures": sum(c["role"] == "figure" for c in new),
-                       "links": len(links)},
+            "model": agent_model(), "run_at": now_iso(), "prompt": prompt, "focus": focus,
+            "title": title, "summary": summary,
+            "counts": {"key_points": sum(c["role"] == "key_point" for c in new),
+                       "figures": sum(c["role"] == "figure" for c in new), "markup_text": len(markup_text)},
             "markup_text": markup_text,
             "usage": {k: usage.get(k) for k in ("prompt_tokens", "completion_tokens", "cost") if k in usage},
         }
@@ -599,20 +528,13 @@ def _crop(d: Path, rel: str, crop, name: str) -> str | None:
         return None
 
 
-def set_status(out: Path, pid: str, action: str) -> dict:
-    """accept: mark the agent's additions accepted. undo: remove them."""
+def undo(out: Path, pid: str) -> dict:
+    """Remove everything the agent added to a package (the local extraction stays)."""
     d = out / pid
     with _lock(pid):
         manifest = json.loads((d / "manifest.json").read_text(encoding="utf-8"))
         chunks = [json.loads(l) for l in (d / "chunks.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
-        if action == "undo":
-            chunks = _strip_agent(out, manifest, chunks)
-        elif action == "accept" and manifest.get("agent"):
-            manifest["agent"]["status"] = "accepted"
-            manifest["agent"]["accepted_at"] = now_iso()
-            for l in manifest.get("links", []):
-                if l.get("suggested_by", "").startswith("agent"):
-                    l["status"] = "accepted"
+        chunks = _strip_agent(out, manifest, chunks)
         _save(out, manifest, chunks)
     return manifest
 
@@ -634,12 +556,11 @@ def ask(out: Path, prompt: str, files: list[tuple[Path, str]], convert) -> dict:
         files, overrides, u0, errors = text_intake(prompt, Path(intake.name))
         usage_total.append(u0)
     try:
-        library = library_brief(out)
-        plan, u = interpret(prompt, [n for _, n in files], library) if files else ({"files": [], "focus": None}, {})
+        plan, u = interpret(prompt, [n for _, n in files]) if files else ({"files": [], "focus": None}, {})
         usage_total.append(u)
         manifests = []
         for (path, name), ctx, extra in zip(files, plan["files"], overrides):
-            context = {k: ctx.get(k) for k in ("author", "author_role", "channel", "note", "intent", "refers_to", "project")}
+            context = {k: ctx.get(k) for k in ("author", "author_role", "channel", "note", "intent", "project")}
             context.update({k: v for k, v in extra.items() if v})
             manifests.append(convert(path, out, name, context))
     finally:
@@ -659,8 +580,7 @@ def ask(out: Path, prompt: str, files: list[tuple[Path, str]], convert) -> dict:
         ag = m.get("agent") or {}
         usage_total.append(ag.get("usage") or {})
         items.append({"id": m["id"], "filename": m["source"]["filename"], "kind": m["kind"], "thumbnail": m.get("thumbnail"),
-                      "agent": ag or None, "error": err,
-                      "links": [l for l in m.get("links", []) if l.get("suggested_by", "").startswith("agent") or l["type"] == "marks_up"]})
+                      "agent": ag or None, "error": err})
     cost = sum((u or {}).get("cost") or 0 for u in usage_total)
     return {"prompt": prompt, "plan": plan, "items": items, "errors": errors, "cost_usd": round(cost, 4),
             "models": {"router": router_model(), "agent": agent_model()}}

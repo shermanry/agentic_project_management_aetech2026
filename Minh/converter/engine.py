@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Callable
 
 from .core import Chunk, Package, now_iso
-from .tagging import keyword_tags, needs_decision
+from .tagging import keyword_tags
 from .entities import extract as extract_entities
 
 Handler = Callable[[Package, "Context"], None]
@@ -111,7 +111,6 @@ def _finalize(pkg: Package, parent_id: str | None) -> None:
     pkg.tags.add(f"kind:{pkg.kind}")
     for m in pkg.modalities:
         pkg.tags.add(f"modality:{m}")
-    pkg.metadata.setdefault("needs_decision_hint", needs_decision(all_text))
     pkg.metadata["entities"] = extract_entities(all_text + " " + pkg.title)
     if parent_id and parent_id not in pkg.parent_ids:
         pkg.parent_ids.append(parent_id)
@@ -122,24 +121,12 @@ def _finalize(pkg: Package, parent_id: str | None) -> None:
 
 
 def _links(pkg: Package) -> None:
-    """Explicit, typed edges the graph can use directly (embedding-proximity edges come later)."""
-    links = [{"type": "part_of", "target": p} for p in pkg.parent_ids]
-    links += [{"type": "contains", "target": c} for c in pkg.children]
-    marks = pkg.metadata.get("markup")
-    for m in (marks if isinstance(marks, list) else [marks] if marks else []):
-        if m.get("marks_up"):
-            links.append({"type": "marks_up", "target": m["marks_up"]["package_id"],
-                          "target_chunk": m["marks_up"].get("chunk_id"), "confidence": _conf(m["marks_up"])})
+    """Only physical containment: an attachment is part_of its email, a file is part_of its zip.
+    The converter does not decide what relates to what; that is the graph's job downstream."""
     if pkg.context.get("refers_to") == pkg.id:   # a file can't refer to itself
         pkg.context.pop("refers_to")
-    if pkg.context.get("refers_to") and not any(l["target"] == pkg.context["refers_to"] for l in links):
-        links.append({"type": "refers_to", "target": pkg.context["refers_to"], "confidence": 1.0})
-    pkg.links = links
-
-
-def _conf(m: dict) -> float:
-    d = m.get("distance")
-    return 1.0 if d is None else round(max(0.5, 1 - d / 32), 2)
+    pkg.links = [{"type": "part_of", "target": p} for p in pkg.parent_ids] + \
+                [{"type": "contains", "target": c} for c in pkg.children]
 
 
 def excerpt(pkg: Package, n: int = 300) -> str:

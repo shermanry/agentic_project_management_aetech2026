@@ -1,6 +1,10 @@
-"""Local drag-and-drop UI + JSON API. Runs on 127.0.0.1 only; nothing leaves the machine.
+"""Local drag-and-drop UI + JSON API. Runs on 127.0.0.1 only. "Convert only" keeps everything on this
+machine; the agent endpoints send content to OpenRouter (see agent.py).
 
-    POST /api/convert              multipart files -> list of manifests
+    POST /api/convert              multipart files -> list of manifests (local only)
+    POST /api/ask                  prompt + optional files -> agent extraction (prompt alone = note / links / research)
+    POST /api/packages/{id}/agent/undo   remove the AI extraction from a package
+    GET  /api/agent                agent availability and models
     GET  /api/packages             library index
     GET  /api/packages/{id}        manifest + chunks
     GET  /api/packages/{id}/zip    the package as a zip
@@ -93,19 +97,17 @@ def create_app(out_root: str | Path) -> FastAPI:
                 m = agent.understand(out, pkg_dir(pid.strip()).name, prompt.strip())
                 ag = m.get("agent") or {}
                 result["items"].append({"id": m["id"], "filename": m["source"]["filename"], "kind": m["kind"],
-                                        "thumbnail": m.get("thumbnail"), "agent": ag, "error": None,
-                                        "links": [l for l in m.get("links", []) if l.get("suggested_by", "").startswith("agent")]})
+                                        "thumbnail": m.get("thumbnail"), "agent": ag, "error": None})
                 result["cost_usd"] = round(result.get("cost_usd", 0) + ((ag.get("usage") or {}).get("cost") or 0), 4)
             return result
         except agent.AgentError as e:
             raise HTTPException(502, str(e))
 
-    @app.post("/api/packages/{pid}/agent")
-    def agent_action(pid: str, action: str = Form(...)):
+    @app.post("/api/packages/{pid}/agent/undo")
+    def agent_undo(pid: str):
+        """Remove the AI extraction from a package; the local extraction stays."""
         from . import agent
-        if action not in ("accept", "undo"):
-            raise HTTPException(400, "action must be accept or undo")
-        return agent.set_status(out, pkg_dir(pid).name, action)
+        return agent.undo(out, pkg_dir(pid).name)
 
     @app.get("/api/packages")
     def packages():
@@ -120,7 +122,7 @@ def create_app(out_root: str | Path) -> FastAPI:
             r["warnings"] = len(m.get("warnings", []))
             ag = m.get("agent")
             if ag:
-                r["agent"] = {k: ag.get(k) for k in ("title", "summary", "node_type", "importance", "status", "needs_decision")}
+                r["agent"] = {k: ag.get(k) for k in ("title", "summary")}
         return sorted(rows, key=lambda r: r["updated_at"], reverse=True)
 
     @app.get("/api/packages/{pid}")
@@ -128,18 +130,7 @@ def create_app(out_root: str | Path) -> FastAPI:
         d = pkg_dir(pid)
         m = json.loads((d / "manifest.json").read_text(encoding="utf-8"))
         chunks = [json.loads(l) for l in (d / "chunks.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
-        # backlinks: who points at this package (e.g. "marked up by")
-        backlinks = []
-        idx = out / "index.jsonl"
-        if idx.exists():
-            for l in idx.read_text(encoding="utf-8").splitlines():
-                if l.strip():
-                    r = json.loads(l)
-                    for link in r.get("links", []):
-                        if link["target"] == pid and link["type"] not in ("part_of", "contains") and \
-                                not any(b["type"] == link["type"] and b["source"] == r["id"] for b in backlinks):
-                            backlinks.append({"type": link["type"], "source": r["id"], "title": r["title"]})
-        return {"manifest": m, "chunks": chunks, "backlinks": backlinks}
+        return {"manifest": m, "chunks": chunks}
 
     @app.get("/api/packages/{pid}/zip")
     def package_zip(pid: str):
