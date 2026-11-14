@@ -1,0 +1,359 @@
+{
+  "pack": "aerial-am-manufacturing",
+  "description": "Seed rules for aerial additive manufacturing, one or more per node type, in the format of Ryan/agent-architecture.md section 3. All status: proposed.",
+  "rules": [
+    {
+      "id": "am_rule_01",
+      "pack": "aerial-am-manufacturing",
+      "applies_to": {
+        "type": "decision",
+        "tags": [
+          "layer-gate"
+        ]
+      },
+      "when": "state == 'awaiting_inputs' and minutes_until(open_time_end) <= 10",
+      "then": [
+        {
+          "action": "raise_attention",
+          "level": "red",
+          "for": [
+            "site_lead",
+            "design_lead"
+          ]
+        },
+        {
+          "action": "nudge_owners_of",
+          "target": "missing_inputs",
+          "via": "messenger_nanny"
+        }
+      ],
+      "judgment": null,
+      "why": "A loaded layer that waits past the mix's open time is wasted; the missing input has to be chased before then",
+      "written_by": "ecem (seed)",
+      "evidence": [
+        "Nature 2022: refill after every layer"
+      ],
+      "status": "proposed",
+      "approved_by": null,
+      "stats": {
+        "fired": 0,
+        "acted_on": 0,
+        "dismissed": 0
+      }
+    },
+    {
+      "id": "am_rule_02",
+      "pack": "aerial-am-manufacturing",
+      "applies_to": {
+        "type": "data_feed",
+        "tags": [
+          "scan"
+        ]
+      },
+      "when": "deviation_mm > tolerance_mm for 3 consecutive layers",
+      "then": [
+        {
+          "action": "create_node",
+          "type": "discovery",
+          "title": "Drift that offsets can't fix"
+        },
+        {
+          "action": "reopen",
+          "target": "decision",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "action": "raise_attention",
+          "level": "red",
+          "for": [
+            "design_lead"
+          ]
+        }
+      ],
+      "judgment": null,
+      "why": "One layer out of tolerance is corrected by offsetting the next path; a repeated error means the design or sequence must change",
+      "written_by": "ecem (seed)",
+      "evidence": [
+        "Nature 2022: scan-in-the-loop offset",
+        "CAAM: adaptive design"
+      ],
+      "status": "proposed",
+      "approved_by": null,
+      "stats": {
+        "fired": 0,
+        "acted_on": 0,
+        "dismissed": 0
+      }
+    },
+    {
+      "id": "am_rule_03",
+      "pack": "aerial-am-manufacturing",
+      "applies_to": {
+        "type": "data_feed",
+        "tags": [
+          "weather"
+        ]
+      },
+      "when": "gust_ms > wind_limit_ms or feed_silent_minutes > 15 during build",
+      "then": [
+        {
+          "action": "set_state",
+          "target": "decision",
+          "tags": [
+            "layer-gate"
+          ],
+          "state": "hold"
+        },
+        {
+          "action": "raise_attention",
+          "level": "flashing_red",
+          "for": [
+            "site_lead"
+          ]
+        }
+      ],
+      "judgment": null,
+      "why": "Wind disturbs path tracking and fresh material; a silent feed during printing is as unsafe as a high reading",
+      "written_by": "ecem (seed)",
+      "evidence": [
+        "Dry run: tracking drifted above the limit"
+      ],
+      "status": "proposed",
+      "approved_by": null,
+      "stats": {
+        "fired": 0,
+        "acted_on": 0,
+        "dismissed": 0
+      }
+    },
+    {
+      "id": "am_rule_04",
+      "pack": "aerial-am-manufacturing",
+      "applies_to": {
+        "type": "entity",
+        "tags": [
+          "drone",
+          "builder"
+        ]
+      },
+      "when": "telemetry.fault or battery_pct < reserve_needed(next_layer)",
+      "then": [
+        {
+          "action": "reassign_jobs",
+          "to": "other_builders"
+        },
+        {
+          "action": "raise_attention",
+          "level": "red",
+          "for": [
+            "site_lead"
+          ]
+        }
+      ],
+      "judgment": "Can the remaining builders finish the current layer within the open time? If not, recommend stopping at the layer boundary.",
+      "why": "Reassign if the rest of the fleet can finish the layer before the mix sets; otherwise stop at the layer boundary",
+      "written_by": "ecem (seed)",
+      "evidence": [
+        "Nature 2022: redundancy for failures"
+      ],
+      "status": "proposed",
+      "approved_by": null,
+      "stats": {
+        "fired": 0,
+        "acted_on": 0,
+        "dismissed": 0
+      }
+    },
+    {
+      "id": "am_rule_05",
+      "pack": "aerial-am-manufacturing",
+      "applies_to": {
+        "type": "event",
+        "tags": [
+          "build"
+        ]
+      },
+      "when": "hours_until(start) <= 24",
+      "then": [
+        {
+          "action": "check",
+          "targets": [
+            "crew",
+            "flight approval",
+            "weather forecast",
+            "material stock",
+            "batteries charged"
+          ]
+        },
+        {
+          "action": "raise_blocker_if_missing"
+        }
+      ],
+      "judgment": null,
+      "why": "A build day fails on logistics more often than on technology: crew, approval, forecast and consumables are checked the day before",
+      "written_by": "ecem (seed)",
+      "evidence": [
+        "Planning addition"
+      ],
+      "status": "proposed",
+      "approved_by": null,
+      "stats": {
+        "fired": 0,
+        "acted_on": 0,
+        "dismissed": 0
+      }
+    },
+    {
+      "id": "am_rule_06",
+      "pack": "aerial-am-manufacturing",
+      "applies_to": {
+        "type": "constraint"
+      },
+      "when": "value changed",
+      "then": [
+        {
+          "action": "reevaluate",
+          "target": "decision",
+          "tags": [
+            "layer-gate",
+            "toolpath"
+          ]
+        },
+        {
+          "action": "raise_attention",
+          "level": "amber",
+          "for": [
+            "design_lead",
+            "site_lead"
+          ]
+        }
+      ],
+      "judgment": null,
+      "why": "When a tolerance, wind limit or payload changes, every pending layer release and the toolpath must be re-checked",
+      "written_by": "ecem (seed)",
+      "evidence": [
+        "Agent architecture: constraint rule"
+      ],
+      "status": "proposed",
+      "approved_by": null,
+      "stats": {
+        "fired": 0,
+        "acted_on": 0,
+        "dismissed": 0
+      }
+    },
+    {
+      "id": "am_rule_07",
+      "pack": "aerial-am-manufacturing",
+      "applies_to": {
+        "type": "decision",
+        "tags": [
+          "design"
+        ]
+      },
+      "when": "state == 'decided' and any(edge.target.type == 'entity' and edge.target.tags contains 'twin')",
+      "then": [
+        {
+          "action": "run_skill",
+          "skill": "stage_stability_check"
+        },
+        {
+          "action": "block_if_failed",
+          "target": "decision",
+          "tags": [
+            "layer-gate"
+          ]
+        }
+      ],
+      "judgment": null,
+      "why": "Every design change after the freeze must pass a stability check on every interim stage before printing continues",
+      "written_by": "ecem (seed)",
+      "evidence": [
+        "CAAM: twin-in-the-loop"
+      ],
+      "status": "proposed",
+      "approved_by": null,
+      "stats": {
+        "fired": 0,
+        "acted_on": 0,
+        "dismissed": 0
+      }
+    },
+    {
+      "id": "am_rule_08",
+      "pack": "aerial-am-manufacturing",
+      "applies_to": {
+        "type": "blocker",
+        "tags": [
+          "staffing"
+        ]
+      },
+      "when": "state != 'done' and hours_until(linked_event.start) <= 48",
+      "then": [
+        {
+          "action": "nudge",
+          "to": "owner",
+          "via": "messenger_nanny"
+        },
+        {
+          "action": "escalate_after_hours",
+          "hours": 24,
+          "to": "pm"
+        }
+      ],
+      "judgment": null,
+      "why": "Refilling and battery swaps are manual; without the crew, the drones can't print",
+      "written_by": "ecem (seed)",
+      "evidence": [
+        "Nature 2022: manual refill and battery swap"
+      ],
+      "status": "proposed",
+      "approved_by": null,
+      "stats": {
+        "fired": 0,
+        "acted_on": 0,
+        "dismissed": 0
+      }
+    },
+    {
+      "id": "am_rule_09",
+      "pack": "aerial-am-manufacturing",
+      "applies_to": {
+        "type": "deliverable",
+        "tags": [
+          "print"
+        ]
+      },
+      "when": "all layers released and final_scan.state == 'happened'",
+      "then": [
+        {
+          "action": "create_node",
+          "type": "decision",
+          "title": "Accept the printed shell"
+        },
+        {
+          "action": "attach_evidence",
+          "from": [
+            "scan_feed",
+            "decision history"
+          ]
+        }
+      ],
+      "judgment": null,
+      "why": "Acceptance rests on the final scan and the full decision log, so the client can trace every hold and redesign",
+      "written_by": "ecem (seed)",
+      "evidence": [
+        "Nature 2022: FARO validation"
+      ],
+      "status": "proposed",
+      "approved_by": null,
+      "stats": {
+        "fired": 0,
+        "acted_on": 0,
+        "dismissed": 0
+      }
+    }
+  ]
+}

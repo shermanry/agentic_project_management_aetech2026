@@ -1,0 +1,85 @@
+{
+  "question": "Why use drones, and could this be built without them?",
+  "answer": "For the papers' demo objects, yes: a gantry or robot arm would be faster and more accurate. Drones earn their place only when at least one condition below holds.",
+  "use_drones_if": [
+    {
+      "id": "size",
+      "condition": "The structure is larger than any machine you could put around it",
+      "source": "caam_abstract"
+    },
+    {
+      "id": "access",
+      "condition": "The work is at height, remote, post-disaster or a repair in place",
+      "source": "zhang2022_nature"
+    },
+    {
+      "id": "congestion",
+      "condition": "Ground space is congested or the build blocks ground circulation",
+      "source": "caam_abstract"
+    },
+    {
+      "id": "scaffolding",
+      "condition": "The form would need scaffolding that grows with span",
+      "source": "caam_abstract"
+    }
+  ],
+  "gains": [
+    {
+      "id": "envelope",
+      "text": "No machine envelope to design inside",
+      "source": "caam_abstract"
+    },
+    {
+      "id": "circulation",
+      "text": "Robots fly above the site",
+      "source": "caam_abstract"
+    },
+    {
+      "id": "scalable_crew",
+      "text": "Crew size follows the geometry",
+      "source": "zhang2022_nature"
+    },
+    {
+      "id": "adaptive",
+      "text": "The build corrects itself every layer",
+      "source": "zhang2022_nature"
+    },
+    {
+      "id": "freeform",
+      "text": "Freeform shapes with less scaffolding",
+      "source": "caam_abstract"
+    }
+  ],
+  "costs": [
+    {
+      "id": "payload",
+      "text": "About one layer per trip; 72 trips for a 2.05 m tower",
+      "source": "zhang2022_nature"
+    },
+    {
+      "id": "accuracy",
+      "text": "~5 mm, only with a delta arm",
+      "source": "zhang2022_nature"
+    },
+    {
+      "id": "material",
+      "text": "Light, weaker materials only",
+      "source": "dams2024_frontiers_review"
+    },
+    {
+      "id": "environment",
+      "text": "Downwash; outdoor weather untested",
+      "source": "zhang2022_nature"
+    },
+    {
+      "id": "stability",
+      "text": "Every interim stage must be checked",
+      "source": "caam_abstract"
+    },
+    {
+      "id": "maturity",
+      "text": "Lab and simulation only so far",
+      "source": "zhang2022_nature"
+    }
+  ]
+}

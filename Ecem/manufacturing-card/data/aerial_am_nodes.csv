@@ -1,0 +1,96 @@
+id,type,team_type,category,label,description,source,params
+A_BUILDRONE,agent,entity,robot,BuilDrone,Quadrotor that deposits material in flight (foam variant: dual-canister spray; cementitious variant: extruder + delta arm).,zhang2022_nature,{}
+A_SCANDRONE,agent,entity,robot,ScanDrone,Quadrotor with onboard RGB-D camera; scans after every layer to assess print quality.,zhang2022_nature,{}
+A_HUMAN,agent,entity,human,Human supervisor,"Supervises autonomy; print verification, strategy input, operations management, H&S approvals, structural requirements, logistics.",zhang2022_nature,{}
+A_GROUND_CREW,agent,entity,human,Refill / battery crew,Manually refills material and swaps batteries (not automated in the paper).,zhang2022_nature,{}
+H_DELTA,hardware,entity,manipulator,Delta manipulator,"Lightweight 3-limb parallel arm, pure translational end-effector; compensates drone drift and CoM-to-nozzle lever-arm offset.",zhang2022_nature,"{""dof"": 3}"
+H_NOZZLE,hardware,entity,deposition,Cementitious nozzle + tubing,"Nozzle on delta end-effector, fed via tubing from extruder.",zhang2022_nature,"{""nozzle_d_mm"": 8, ""tube_id_mm"": 8}"
+H_CARTRIDGE,hardware,entity,deposition,Cementitious cartridge,"Servo + worm-drive extruder. Theoretical 310 mL, practical 202 mL (tapered insert + plunger).",dams2024_frontiers_review,"{""capacity_theoretical_ml"": 310, ""capacity_practical_ml"": 202}"
+H_FOAM_CANISTERS,hardware,entity,deposition,Dual-component foam canisters,Two-part expanding foam canisters under the quadrotor; spray nozzle at holder bottom.,zhang2022_nature,{}
+H_RGBD,sensor,data_feed,perception,RGB-D camera (ScanDrone),Captures depth+images for dense mapping of the top layer.,zhang2022_nature,{}
+H_MOCAP,sensor,data_feed,localization,Motion tracking system,External motion-capture pose feed; indoor-only dependency.,zhang2022_nature,{}
+H_FARO,sensor,data_feed,validation,FARO laser scanner,Ground-truth scan for post-hoc validation.,zhang2022_nature,{}
+H_LED,hardware,entity,virtual_print,LED arrays,Used for virtual light-trail prints; color signals printing/non-printing state.,zhang2022_nature,{}
+H_BATTERY,hardware,entity,power,Onboard battery,Untethered power; manual swap; bounds sortie time.,zhang2022_nature,{}
+SW_ROS,software,entity,architecture,ROS control architecture,ROS-based high-level architecture for all Aerial-AM platforms.,zhang2022_nature,{}
+SW_MPC,software,entity,control,Model Predictive Control,Real-time MPC trajectory tracking on BuilDrone and ScanDrone.,zhang2022_nature,{}
+SW_DELTA_CTRL,software,entity,control,Delta compensation controller,Kinematics-based controller that self-aligns nozzle against body error.,zhang2022_nature,{}
+SW_DENSE_MAP,software,entity,perception,Dense mapping (supereight),Fuses RGB-D frames + poses into a mesh of the built structure.,zhang2022_nature,{}
+SW_SLICER,software,entity,planning,Contour slicer / job generator,Segments geometry into horizontal contour layers -> print jobs (176 jobs in dome virtual print).,zhang2022_nature,"{""jobs_dome"": 176}"
+SW_TASK_ALLOC,software,entity,planning,Adaptive task allocation,Robots adaptively select jobs; population adapts to geometry.,zhang2022_nature,{}
+SW_LOCAL_PLANNER,software,entity,planning,Local path planner / collision awareness,Collision awareness vs other robots and the growing structure.,zhang2022_nature,{}
+SW_PATH_GEN,software,entity,planning,Toolpath generator,"Concentric circles, rounded Peano curve, or hybrid paths.",zhang2022_nature,{}
+P_BLUEPRINT,process_step,event,workflow,Single blueprint / design input,Target geometry and structural requirements from human.,zhang2022_nature,{}
+P_SLICE,process_step,event,workflow,Slice into contour layers,Geometry -> layers -> jobs.,zhang2022_nature,{}
+P_ALLOCATE,process_step,event,workflow,Allocate jobs to robots,"Strategic loop assigns jobs, sizes the active fleet.",zhang2022_nature,{}
+P_LOAD,process_step,event,workflow,Load material + battery,Manual refill per layer/trip; battery swap.,zhang2022_nature,{}
+P_TAKEOFF,process_step,event,workflow,Take off / approach,Fly to start of contour at reference height above structure.,zhang2022_nature,{}
+P_DEPOSIT,process_step,event,workflow,Deposit layer in flight,Extrude/spray while tracking path with MPC (+delta).,zhang2022_nature,{}
+P_RETURN,process_step,event,workflow,Return / land,Return to base for refill.,zhang2022_nature,{}
+P_SCAN,process_step,event,workflow,Scan top layer,"ScanDrone flies scan trajectory, builds mesh.",zhang2022_nature,{}
+P_EVAL,process_step,event,workflow,Evaluate layer,Compute mean top-layer height / deviations.,zhang2022_nature,{}
+P_ADAPT,process_step,decision,workflow,Adapt next trajectory,Offset next-layer path to nominal relative height; adjust plan.,zhang2022_nature,{}
+P_VERIFY,process_step,decision,workflow,Human verification,Supervisor checks and approves continuation.,zhang2022_nature,{}
+P_VALIDATE,process_step,event,workflow,Final validation,Compare as-built to FARO scan / design.,zhang2022_nature,{}
+R_PAYLOAD,restriction,constraint,platform,Payload limit,Each BuilDrone must extrude within power and payload limits; dictates material per trip.,zhang2022_nature,{}
+R_REFILL_PER_LAYER,restriction,constraint,logistics,One layer per load,"Required a material refill after each layer (72 trips foam, 28 layers cement).",zhang2022_nature,"{""foam_trips"": 72, ""cement_layers"": 28}"
+R_MANUAL_CONSUMABLES,restriction,blocker,logistics,Manual refill & battery swap,Replenishment not automated; untethered claim only partly demonstrated.,zhang2022_nature,{}
+R_INDOOR_MOCAP,restriction,constraint,localization,Indoor motion-capture dependency,All experiments in indoor lab with external motion tracking; no outdoor validation.,zhang2022_nature,{}
+R_FLIGHT_TIME,restriction,constraint,power,Battery endurance,Sortie length bounded by battery; heavier payload = shorter flight.,dams2024_frontiers_review,{}
+R_PRINT_SPEED,restriction,constraint,process,Low deposition speed (cement),Real print speed 1 cm/s (5 cm/s virtual).,zhang2022_nature,"{""real_m_s"": 0.01, ""virtual_m_s"": 0.05}"
+R_SEQUENTIAL_PRINT,restriction,constraint,coordination,Sequential printing for continuity,Two BuilDrones printed in sequence to keep construction continuous.,zhang2022_nature,{}
+R_HUMAN_SUPERVISION,restriction,constraint,governance,Human-in-the-loop required,Autonomous printing only under human supervision; H&S approvals.,zhang2022_nature,{}
+R_SPATIAL_CROWDING,restriction,constraint,coordination,Contour spatial constraint,"As contours shrink with height, fewer robots fit; robots self-retire.",zhang2022_nature,{}
+R_TETHER_TRADEOFF,restriction,constraint,platform,Tether trade-off,"Tethering gives power/material but limits parallelism, trajectories, envelope, and shifts CoG.",dams2024_frontiers_review,{}
+E_DOWNWASH,environmental_challenge,constraint,aero,Propeller downwash,Downwash deforms fresh material; needs rapid-curing / downwash-resistant mixes.,zhang2022_nature,{}
+E_FOAM_EXPANSION,environmental_challenge,discovery,material,Irregular foam expansion,Layer height varies despite accurate flight -> scan correction required.,zhang2022_nature,{}
+E_WIND,environmental_challenge,data_feed,weather,Wind / gusts outdoors,Not tested; outdoor flight will add disturbance to path tracking and spray.,production_inferred,{}
+E_TEMP_HUMIDITY,environmental_challenge,data_feed,weather,Temperature / water temperature,Environmental conditions and water temperature affect curing and open time.,dams2024_frontiers_review,{}
+E_UV_WEATHERING,environmental_challenge,constraint,weather,UV & weathering,Weather and UV reduce longevity of printed structures.,dams2024_frontiers_review,{}
+E_GNSS_LOSS,environmental_challenge,constraint,localization,No mocap outdoors / GNSS degradation,Outdoor plan relies on multi-sensor SLAM + differential GPS; near tall structures GNSS degrades.,zhang2022_nature,{}
+E_LIGHTING,environmental_challenge,constraint,perception,Lighting / sun on RGB-D,Not discussed in paper; sunlight degrades active depth sensing outdoors.,production_inferred,{}
+E_COMMS_LOSS,environmental_challenge,discovery,network,Communication loss,Handled via robot redundancy.,zhang2022_nature,{}
+E_MECH_FAILURE,environmental_challenge,discovery,platform,Mechanical failure,Handled via redundancy; no detailed FMEA.,zhang2022_nature,{}
+E_TERRAIN_ACCESS,environmental_challenge,constraint,site,Hard-to-access / at-height sites,"Target use-case: disaster relief, tall buildings, remote sites — unprepared ground, obstacles.",aml_penn_blog,{}
+D_ACCURACY,design_constraint,constraint,tolerance,Positional accuracy ≤ 5 mm,Delta arm brings max error to ~5 mm (reported acceptable within UK building requirements).,zhang2022_nature,"{""max_error_mm"": 5}"
+D_LAYER_RES,design_constraint,constraint,geometry,Layer resolution,Cement: 6 mm layer resolution; foam layer cross-section set by expanded bead size.,zhang2022_nature,"{""cement_layer_mm"": 6}"
+D_THIN_WALL,design_constraint,constraint,geometry,Thin single-wall contours,Demonstrated geometries are single-wall cylinders / surfaces of revolution.,zhang2022_nature,{}
+D_CONTOUR_LAYERS,design_constraint,constraint,geometry,Horizontal contour decomposition,Geometry must be sliceable into horizontal contour layers.,zhang2022_nature,{}
+D_NO_SUPPORT,design_constraint,constraint,geometry,No support material,Support deposition unresolved -> overhangs limited.,zhang2022_nature,{}
+D_PATH_LENGTH,design_constraint,constraint,toolpath,Path length per load,"Path must fit material per trip: Peano 2.975 m/layer; per 2 layers Peano 5.85 m, hybrid 6.79 m, concentric 7.61 m.",zhang2022_nature,"{""peano_m_per_layer"": 2.975, ""peano_2L"": 5.85, ""hybrid_2L"": 6.79, ""concentric_2L"": 7.61}"
+D_STRUCTURAL,design_constraint,constraint,structure,Structural design for Aerial-AM,Structural analysis and design-for-Aerial-AM still needed; materials not yet load-bearing like RC/steel.,zhang2022_nature,{}
+D_SCALE_DIAMETER,design_constraint,constraint,geometry,Footprint vs fleet benefit,Larger diameters gain more from added robots; parabolic forms gain less (smaller avg contour).,zhang2022_nature,{}
+M_CARRYABILITY,material_constraint,constraint,governing_factor,Carryability,Must fit UAV power and payload.,dams2024_frontiers_review,{}
+M_WORKABILITY,material_constraint,constraint,governing_factor,Workability,"Must flow through cartridge, tubing and nozzle.",dams2024_frontiers_review,{}
+M_BUILDABILITY,material_constraint,constraint,governing_factor,Buildability,Must resist deformation under subsequent layers and downwash.,dams2024_frontiers_review,{}
+M_OPEN_TIME,material_constraint,constraint,governing_factor,Open time,"Must stay workable through loading+flight+deposition, then harden fast; must not set inside device.",dams2024_frontiers_review,{}
+M_FOAM,material,entity,foam,Two-part PU expanding foam,"Rapid-curing, ~30 kg/m³.",zhang2022_nature,"{""density_kg_m3"": 30}"
+M_CEMENT_MIXES,material,entity,cementitious,Cementitious-polymeric mixes No.1–4,"PC + PFA + xanthan gum + HEMC + plasticiser (+foaming agent). Fresh density 1741–1793 kg/m³; yield stress 1.1 kPa (1–3), 0.7 kPa (4). No.1 best buildability, No.4 best workability. Target ~1700 kg/m³, 28-day ~25 MPa.",zhang2022_nature,"{""density_kg_m3"": [1793, 1741, 1757, 1760], ""yield_kPa"": [1.1, 1.1, 1.1, 0.7], ""target_fc28_MPa"": 25}"
+M_FLOW,material_constraint,constraint,extrusion,Flow-rate matching,"Cartridge 0.294e-3 m/s, tubing 4.44e-3 m/s, bead 10e-3 m/s — extrusion must match flight speed.",zhang2022_nature,"{""cartridge_m_s"": 0.000294, ""tube_m_s"": 0.00444, ""bead_m_s"": 0.01}"
+M_DURABILITY,material_constraint,constraint,lifecycle,Strength/durability & recyclability,Printable polymers/mixes lack RC/steel strength; thermosets hard to recycle.,dams2024_frontiers_review,{}
+K_FOAM_RESULT,metric,document,result,Foam cylinder result,"Ø0.3 m, 2.05 m, 72 layers, 24 s/layer, 29 min deposition; max error 15 mm H / 6 mm V; 2.27 cm median vs FARO.",zhang2022_nature,{}
+K_CEMENT_RESULT,metric,document,result,Cement cylinder result,"28 layers, Ø0.335 m, 180 mm after settling, 2 h 13 min, ~5 mm max error, tip error median <4 mm.",zhang2022_nature,{}
+K_SIM_RESULT,metric,document,result,Simulation result,More robots cut completion time; 15 m parabolic geometry with 15 robots simulated.,zhang2022_nature,{}
+K_LAYER_HEIGHT_ERR,metric,data_feed,quality,Top-layer height deviation,Mean top-layer height vs nominal; drives offset of next layer.,zhang2022_nature,{}
+K_POSE_ERR,metric,data_feed,quality,Nozzle position error,Nozzle tip vs reference path.,zhang2022_nature,{}
+K_COMPLETION_TIME,metric,data_feed,throughput,Completion time,Mission time vs robot count and geometry.,zhang2022_nature,{}
+K_MATERIAL_REMAINING,metric,data_feed,logistics,Material remaining,Remaining cartridge volume (production-needed signal).,production_inferred,{}
+K_BATTERY_SOC,metric,data_feed,logistics,Battery state of charge,Production-needed signal for scheduling swaps.,production_inferred,{}
+K_CURE_STATE,metric,data_feed,quality,Cure / green strength state,Production-needed: whether layer below can bear next layer + downwash.,production_inferred,{}
+O_AUTO_REPLENISH,open_problem,discovery,future_work,Automated refill & charging,Required to scale untethered operation.,zhang2022_nature,{}
+O_SUPPORT_MATERIAL,open_problem,discovery,future_work,Support material deposition,Unresolved.,zhang2022_nature,{}
+O_ACTIVE_CURING,open_problem,discovery,future_work,Active curing,Unresolved.,zhang2022_nature,{}
+O_TASK_SHARING,open_problem,discovery,future_work,Task-sharing between robots,Unresolved.,zhang2022_nature,{}
+O_OUTDOOR_SLAM,open_problem,discovery,future_work,Outdoor multi-sensor SLAM + DGPS,"Planned, not demonstrated.",zhang2022_nature,{}
+O_EFFICIENCY_METRICS,open_problem,discovery,future_work,Distributed-manufacturing efficiency metrics,Needed vs object scale and platform.,zhang2022_nature,{}
+O_REGULATION,open_problem,blocker,future_work,Codes & airspace regulation,Design/structural codes not adapted to AM; airspace/flight permits for multi-UAV ops.,dams2024_frontiers_review,{}
+O_REINFORCEMENT,open_problem,discovery,future_work,Reinforcement / crack mitigation,Needed for load-bearing use.,dams2024_frontiers_review,{}
+L1_STRATEGIC,feedback_loop,rule,slow,Strategic manufacturing loop,Geometry -> jobs -> allocation -> fleet sizing; re-plans as print progresses.,zhang2022_nature,"{""timescale"": ""slow / per-layer-or-mission""}"
+L2_OPERATIONAL,feedback_loop,rule,fast,Operational flight-control loop,MPC tracks path using mocap pose in real time.,zhang2022_nature,"{""timescale"": ""real-time""}"
+L3_DELTA,feedback_loop,rule,fast,Nozzle compensation loop,Delta arm cancels body drift so tip follows path (≤5 mm).,zhang2022_nature,"{""timescale"": ""real-time""}"
+L4_SCAN_ADAPT,feedback_loop,rule,per_layer,Scan-in-the-loop layer correction,Scan after every layer -> mean height -> offset next trajectory.,zhang2022_nature,"{""timescale"": ""per layer""}"
+L5_HUMAN,feedback_loop,rule,supervisory,Human verification loop,Supervisor verifies print and approves / intervenes.,zhang2022_nature,"{""timescale"": ""per layer / on exception""}"
+L6_LOGISTICS,feedback_loop,rule,production,Material & energy logistics loop,Monitor material/battery -> schedule refill/swap -> reassign jobs (manual in paper; must be automated for production).,production_inferred,"{""timescale"": ""per trip""}"
+L7_CURE_GATE,feedback_loop,rule,production,Cure-gating loop,Hold next layer until layer below reaches green strength (needed for cement at scale).,production_inferred,"{""timescale"": ""per layer""}"
+L8_ENV_GATE,feedback_loop,rule,production,Environmental go/no-go loop,"Wind, temp, humidity, light -> pause/resume, adjust speed/mix.",production_inferred,"{""timescale"": ""continuous""}"
+L9_FAULT,feedback_loop,rule,production,Fault-tolerance / reallocation loop,Comms loss or robot failure -> redundancy -> reassign jobs.,zhang2022_nature,"{""timescale"": ""event-driven""}"

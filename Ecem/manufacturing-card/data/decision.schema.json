@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Decision",
+  "type": "object",
+  "required": [
+    "id",
+    "phase",
+    "role",
+    "title",
+    "question",
+    "min_tier"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "phase": {
+      "enum": [
+        "design",
+        "production",
+        "project_management"
+      ]
+    },
+    "role": {
+      "enum": [
+        "designer",
+        "site_lead",
+        "project_manager"
+      ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "question": {
+      "type": "string"
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "criteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "constraint_nodes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "ids from aerial_am_nodes / CAAM nodes"
+    },
+    "min_tier": {
+      "enum": [
+        "basic",
+        "medium",
+        "advanced"
+      ]
+    },
+    "cadence": {
+      "type": "string"
+    },
+    "reversibility": {
+      "enum": [
+        "cheap",
+        "cheap before build",
+        "moderate",
+        "costly"
+      ]
+    },
+    "evidence": {
+      "type": "string"
+    },
+    "gate": {
+      "type": "string"
+    },
+    "source": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "status": {
+      "enum": [
+        "open",
+        "needs_evidence",
+        "ready",
+        "decided",
+        "blocked"
+      ]
+    },
+    "owner": {
+      "type": "string"
+    },
+    "due": {
+      "type": "string",
+      "format": "date"
+    },
+    "outcome": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "answer": {
+      "type": "string"
+    },
+    "decision_rule": {
+      "type": "string"
+    },
+    "answer_basis": {
+      "type": "string",
+      "description": "paper, caam, review, inferred, or combinations"
+    },
+    "revisit_when": {
+      "type": "string"
+    }
+  }
+}

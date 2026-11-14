@@ -1,0 +1,844 @@
+{
+  "version": "1.1",
+  "decisions": [
+    {
+      "id": "DD01",
+      "phase": "design",
+      "role": "designer",
+      "title": "Fabrication method",
+      "question": "Which process can build this, and is a drone needed at all?",
+      "options": [
+        "Aerial AM (drone team)",
+        "Ground mobile printer",
+        "Gantry printer",
+        "Robot arm + prefab",
+        "Conventional formwork"
+      ],
+      "criteria": [
+        "Build size vs machine envelope",
+        "Site access / height",
+        "Ground congestion",
+        "Accuracy needed",
+        "Material strength",
+        "Scaffolding cost",
+        "Weather exposure",
+        "Technology maturity"
+      ],
+      "constraint_nodes": [
+        "E_TERRAIN_ACCESS",
+        "R_INDOOR_MOCAP",
+        "D_ACCURACY",
+        "M_DURABILITY",
+        "C_CONGESTION",
+        "C_SCAFFOLD_SCALING"
+      ],
+      "min_tier": "medium",
+      "cadence": "once per project",
+      "reversibility": "costly",
+      "evidence": "Method comparison matrix",
+      "gate": "Design gate 1",
+      "source": [
+        "caam_abstract",
+        "zhang2022_nature",
+        "general_knowledge"
+      ],
+      "answer": "Not for the papers' demo objects: a 2 m tower or 18 cm cylinder is faster and more accurate on a gantry or robot arm. Drones were chosen to prove aerial AM is possible.",
+      "decision_rule": "Use drones only if at least one holds: bigger than any machine envelope, at height or hard to reach, ground congested, or scaffolding would grow with span. Otherwise use a ground method.",
+      "answer_basis": "paper+inferred",
+      "revisit_when": "A site, height or size condition changes"
+    },
+    {
+      "id": "DD02",
+      "phase": "design",
+      "role": "designer",
+      "title": "Geometry envelope",
+      "question": "Does the form fit what the chosen method can build?",
+      "options": [
+        "Accept as drawn",
+        "Revise geometry",
+        "Change method"
+      ],
+      "criteria": [
+        "Sliceable into horizontal layers",
+        "Wall thickness",
+        "Overhangs without support"
+      ],
+      "constraint_nodes": [
+        "D_CONTOUR_LAYERS",
+        "D_THIN_WALL",
+        "D_NO_SUPPORT"
+      ],
+      "min_tier": "medium",
+      "cadence": "per design version",
+      "reversibility": "cheap before build",
+      "evidence": "Buildability check result",
+      "gate": "Design gate 2",
+      "source": [
+        "zhang2022_nature"
+      ],
+      "answer": "Keep to forms that slice into horizontal contour layers with thin single walls and no unsupported overhangs. Only single-wall cylinders were printed; domes and parabolic forms were virtual or simulated.",
+      "decision_rule": "Reject a version that can't be sliced into horizontal contours or has an overhang the layers can't step out to. Inclines beyond a gentle step need the stability strategy (DD06).",
+      "answer_basis": "paper",
+      "revisit_when": "The method's demonstrated geometry widens"
+    },
+    {
+      "id": "DD03",
+      "phase": "design",
+      "role": "designer",
+      "title": "Material",
+      "question": "Which material meets strength, weight and curing needs?",
+      "options": [
+        "Expanding PU foam",
+        "Cementitious mix No.1 (buildability)",
+        "Cementitious mix No.4 (workability)",
+        "Other"
+      ],
+      "criteria": [
+        "Carryability",
+        "Workability",
+        "Buildability",
+        "Open time",
+        "Strength / durability"
+      ],
+      "constraint_nodes": [
+        "M_CARRYABILITY",
+        "M_WORKABILITY",
+        "M_BUILDABILITY",
+        "M_OPEN_TIME",
+        "M_CEMENT_MIXES",
+        "M_FOAM"
+      ],
+      "min_tier": "medium",
+      "cadence": "once, revisit on failure",
+      "reversibility": "costly",
+      "evidence": "Mix test data",
+      "gate": "Design gate 2",
+      "source": [
+        "zhang2022_nature",
+        "dams2024_frontiers_review"
+      ],
+      "answer": "Foam (~30 kg/m³) is light, fast and good for form studies and insulation, but expands unevenly and isn't structural. Cement mixes (~1741–1793 kg/m³ fresh, ~25 MPa target at 28 days) are heavier and slower, with 202 mL per trip. Mix No.1 holds shape best; No.4 flows best.",
+      "decision_rule": "Foam for scale and form tests. Cement for thin shells that must harden: Mix No.1 when layers slump, No.4 when the nozzle clogs. Either way, it must resist downwash and not set inside the extruder.",
+      "answer_basis": "paper+review",
+      "revisit_when": "Mix tests show slump, clogging or cracking"
+    },
+    {
+      "id": "DD04",
+      "phase": "design",
+      "role": "designer",
+      "title": "Tolerance",
+      "question": "What deviation from the design is acceptable?",
+      "options": [
+        "≤5 mm",
+        "≤10 mm",
+        "Custom"
+      ],
+      "criteria": [
+        "Function of the part",
+        "Method capability"
+      ],
+      "constraint_nodes": [
+        "D_ACCURACY",
+        "K_POSE_ERR"
+      ],
+      "min_tier": "medium",
+      "cadence": "once per project",
+      "reversibility": "cheap before build",
+      "evidence": "Method accuracy data",
+      "gate": "Design gate 2",
+      "source": [
+        "zhang2022_nature"
+      ],
+      "answer": "≤5 mm with the delta arm on cement, reported acceptable within UK building requirements. Foam without the arm reached 15 mm horizontal / 6 mm vertical max, and 2.27 cm median against the laser scan.",
+      "decision_rule": "Set ≤5 mm for cement with the arm, ~2–3 cm for foam. Anything tighter means another method.",
+      "answer_basis": "paper",
+      "revisit_when": "Arm or localization changes"
+    },
+    {
+      "id": "DD05",
+      "phase": "design",
+      "role": "designer",
+      "title": "Toolpath strategy",
+      "question": "Fewer trips, or a smoother finish?",
+      "options": [
+        "Rounded Peano",
+        "Hybrid",
+        "Concentric circles"
+      ],
+      "criteria": [
+        "Path length per load",
+        "Surface quality",
+        "Trips per layer"
+      ],
+      "constraint_nodes": [
+        "D_PATH_LENGTH",
+        "H_CARTRIDGE",
+        "SW_PATH_GEN"
+      ],
+      "min_tier": "advanced",
+      "cadence": "per design version",
+      "reversibility": "cheap before build",
+      "evidence": "Path length vs cartridge volume",
+      "gate": "Design gate 3",
+      "source": [
+        "zhang2022_nature"
+      ],
+      "answer": "Fewer trips. Per two layers the rounded Peano path is 5.85 m, hybrid 6.79 m, concentric 7.61 m, so Peano gets the most wall per cartridge. The paper used Peano for cement. Finish quality wasn't compared.",
+      "decision_rule": "Default to Peano while payload limits each trip. Consider concentric only when wall continuity matters more and payload allows (not tested).",
+      "answer_basis": "paper+inferred",
+      "revisit_when": "Payload per trip increases"
+    },
+    {
+      "id": "DD06",
+      "phase": "design",
+      "role": "designer",
+      "title": "Interim stability strategy",
+      "question": "Adapt the design or the sequence, or add scaffolding?",
+      "options": [
+        "Adaptive design / sequencing",
+        "Scaffolding",
+        "Simplify geometry"
+      ],
+      "criteria": [
+        "Stability of each interim state",
+        "Scaffolding volume vs span",
+        "Design intent"
+      ],
+      "constraint_nodes": [
+        "C_INTERIM_STABILITY",
+        "C_SCAFFOLD_SCALING",
+        "C_ADAPTIVE_DESIGN"
+      ],
+      "min_tier": "advanced",
+      "cadence": "per design version",
+      "reversibility": "cheap before build",
+      "evidence": "Digital-twin stability check",
+      "gate": "Design gate 3",
+      "source": [
+        "caam_abstract"
+      ],
+      "answer": "Change the design and sequence first. CAAM argues scaffolding scales badly (up to exponentially with span) and proposes a digital twin that checks every interim state, but shows this in simulation only.",
+      "decision_rule": "Vertical walls need neither. For inclines, run an interim stability check on the twin for each stage and adapt geometry or sequence. Add local scaffolding only where the check fails and the span is small.",
+      "answer_basis": "caam+inferred",
+      "revisit_when": "Physical tests of adaptive sequencing exist"
+    },
+    {
+      "id": "DD07",
+      "phase": "design",
+      "role": "designer",
+      "title": "Structural role",
+      "question": "Is the printed part load-bearing, enclosure or formwork?",
+      "options": [
+        "Load-bearing",
+        "Enclosure / non-structural",
+        "Formwork / mould"
+      ],
+      "criteria": [
+        "Material strength",
+        "Code requirements",
+        "Reinforcement available"
+      ],
+      "constraint_nodes": [
+        "D_STRUCTURAL",
+        "O_REINFORCEMENT",
+        "M_DURABILITY"
+      ],
+      "min_tier": "medium",
+      "cadence": "once per project",
+      "reversibility": "costly",
+      "evidence": "Structural analysis",
+      "gate": "Design gate 2",
+      "source": [
+        "zhang2022_nature",
+        "dams2024_frontiers_review"
+      ],
+      "answer": "Enclosure, formwork, insulation or repair, not load-bearing. Printed materials don't yet match reinforced concrete or steel. Reinforcement and structural design for aerial AM are open problems.",
+      "decision_rule": "Load-bearing only with reinforcement, structural analysis and code approval. Until then, non-structural.",
+      "answer_basis": "paper+review",
+      "revisit_when": "Reinforcement method proven"
+    },
+    {
+      "id": "DD08",
+      "phase": "design",
+      "role": "designer",
+      "title": "Design freeze points",
+      "question": "Which parts can still change once building starts?",
+      "options": [
+        "Freeze all",
+        "Freeze base, adapt upper",
+        "Adapt throughout"
+      ],
+      "criteria": [
+        "Risk of mid-build change",
+        "Stability",
+        "Schedule"
+      ],
+      "constraint_nodes": [
+        "C_ADAPTIVE_DESIGN",
+        "P_ADAPT"
+      ],
+      "min_tier": "basic",
+      "cadence": "per phase",
+      "reversibility": "cheap",
+      "evidence": "Design version history",
+      "gate": "Design gate 3",
+      "source": [
+        "caam_abstract"
+      ],
+      "answer": "Freeze footprint, material, tolerance and structural role before printing. Keep upper geometry, toolpath offsets and sequence adaptable. Nature only adjusted layer height mid-build; CAAM proposes adapting design mid-build.",
+      "decision_rule": "Any change after the freeze goes through a buildability check and twin stability check, and is logged as a new design version.",
+      "answer_basis": "paper+caam",
+      "revisit_when": "Never: the freeze is the baseline"
+    },
+    {
+      "id": "PD01",
+      "phase": "production",
+      "role": "site_lead",
+      "title": "Release next layer",
+      "question": "Go, hold or adjust for the next layer?",
+      "options": [
+        "Go",
+        "Hold",
+        "Adjust path"
+      ],
+      "criteria": [
+        "Deviation of last layer",
+        "Cure state below",
+        "Interim stability",
+        "Wind / conditions",
+        "Material and battery ready"
+      ],
+      "constraint_nodes": [
+        "K_LAYER_HEIGHT_ERR",
+        "K_CURE_STATE",
+        "C_INTERIM_STABILITY",
+        "E_WIND",
+        "K_MATERIAL_REMAINING",
+        "K_BATTERY_SOC"
+      ],
+      "min_tier": "advanced",
+      "cadence": "every layer",
+      "reversibility": "cheap",
+      "evidence": "Scan + sensor readings",
+      "gate": "Layer gate",
+      "source": [
+        "zhang2022_nature",
+        "caam_abstract",
+        "production_inferred"
+      ],
+      "answer": "Go when the last layer is within tolerance, the layer below has cured, the stability check passes, conditions are within limits, and material and battery are ready. In the paper, ScanDrone scanned after every layer, the next path was offset, and a human supervised.",
+      "decision_rule": "All checks pass → go. One fails but is correctable by path offset → adjust. Cure, stability or conditions fail → hold. Cure and wind limits aren't in the papers: set them in a pilot.",
+      "answer_basis": "paper+inferred",
+      "revisit_when": "Limits set from pilot data"
+    },
+    {
+      "id": "PD02",
+      "phase": "production",
+      "role": "designer",
+      "title": "Accept deviation",
+      "question": "Is the as-built within tolerance, or correct the next layer?",
+      "options": [
+        "Accept",
+        "Offset next layer",
+        "Stop and review"
+      ],
+      "criteria": [
+        "Deviation vs tolerance",
+        "Trend over layers"
+      ],
+      "constraint_nodes": [
+        "K_LAYER_HEIGHT_ERR",
+        "D_ACCURACY",
+        "L4_SCAN_ADAPT"
+      ],
+      "min_tier": "advanced",
+      "cadence": "every layer",
+      "reversibility": "cheap",
+      "evidence": "Scan vs design",
+      "gate": "Layer gate",
+      "source": [
+        "zhang2022_nature"
+      ],
+      "answer": "Correct the next layer. The paper measured mean top-layer height and offset the next trajectory, so drift didn't accumulate.",
+      "decision_rule": "Within tolerance → accept. Out of tolerance but fixable by offset → correct next layer. Same error several layers running → stop and review.",
+      "answer_basis": "paper+inferred",
+      "revisit_when": "Error trend persists"
+    },
+    {
+      "id": "PD03",
+      "phase": "production",
+      "role": "designer",
+      "title": "Mid-build design change",
+      "question": "Change the design to match what was actually built?",
+      "options": [
+        "Keep design",
+        "Revise upper layers",
+        "Stop"
+      ],
+      "criteria": [
+        "Accumulated deviation",
+        "Stability",
+        "Design intent"
+      ],
+      "constraint_nodes": [
+        "C_ADAPTIVE_DESIGN",
+        "C_DIGITAL_TWIN",
+        "P_ADAPT"
+      ],
+      "min_tier": "medium",
+      "cadence": "on trigger",
+      "reversibility": "costly",
+      "evidence": "As-built twin",
+      "gate": "Change gate",
+      "source": [
+        "caam_abstract"
+      ],
+      "answer": "Small drift: no redesign, absorb it with offsets. Large accumulated drift: revise the upper layers to match the as-built, checked on the twin (CAAM's approach, simulated only).",
+      "decision_rule": "Redesign when the next layers can't meet tolerance or stability from the current as-built. Log the new version against the layers already built.",
+      "answer_basis": "caam+inferred",
+      "revisit_when": "Accumulated deviation exceeds what offsets fix"
+    },
+    {
+      "id": "PD04",
+      "phase": "production",
+      "role": "site_lead",
+      "title": "Fleet size",
+      "question": "How many robots work this layer?",
+      "options": [
+        "Add robot",
+        "Keep",
+        "Retire robot"
+      ],
+      "criteria": [
+        "Contour size",
+        "Airspace crowding",
+        "Robots available"
+      ],
+      "constraint_nodes": [
+        "R_SPATIAL_CROWDING",
+        "D_SCALE_DIAMETER",
+        "SW_TASK_ALLOC"
+      ],
+      "min_tier": "advanced",
+      "cadence": "every layer",
+      "reversibility": "cheap",
+      "evidence": "Contour length and spacing",
+      "gate": "None",
+      "source": [
+        "zhang2022_nature"
+      ],
+      "answer": "Size the fleet to the contour. Robots self-retire as contours shrink; larger diameters gain more from added robots. The cement print used two drones in turn.",
+      "decision_rule": "Add robots while contour length allows safe spacing; retire them as the contour shrinks. With one-layer-per-load payloads, keep at least two so one prints while one refills.",
+      "answer_basis": "paper",
+      "revisit_when": "Contour size changes"
+    },
+    {
+      "id": "PD05",
+      "phase": "production",
+      "role": "site_lead",
+      "title": "Weather hold",
+      "question": "Pause or continue in current conditions?",
+      "options": [
+        "Continue",
+        "Pause",
+        "Continue slower"
+      ],
+      "criteria": [
+        "Wind",
+        "Temperature / humidity",
+        "Light on sensors"
+      ],
+      "constraint_nodes": [
+        "E_WIND",
+        "E_TEMP_HUMIDITY",
+        "E_LIGHTING",
+        "L8_ENV_GATE"
+      ],
+      "min_tier": "medium",
+      "cadence": "continuous",
+      "reversibility": "cheap",
+      "evidence": "Weather readings",
+      "gate": "Go/no-go",
+      "source": [
+        "production_inferred",
+        "dams2024_frontiers_review"
+      ],
+      "answer": "Unknown: all tests were indoors. Wind affects path tracking and spray; temperature and water temperature affect curing.",
+      "decision_rule": "Set wind and temperature limits in an outdoor pilot. Pause above them; slow down near them. Don't print outside them.",
+      "answer_basis": "inferred+review",
+      "revisit_when": "Pilot data available"
+    },
+    {
+      "id": "PD06",
+      "phase": "production",
+      "role": "site_lead",
+      "title": "Refill timing",
+      "question": "When to refill material and swap batteries?",
+      "options": [
+        "Now",
+        "After current layer",
+        "Reassign to another robot"
+      ],
+      "criteria": [
+        "Material remaining",
+        "Battery charge",
+        "Open time of mix"
+      ],
+      "constraint_nodes": [
+        "K_MATERIAL_REMAINING",
+        "K_BATTERY_SOC",
+        "M_OPEN_TIME",
+        "L6_LOGISTICS"
+      ],
+      "min_tier": "advanced",
+      "cadence": "every trip",
+      "reversibility": "cheap",
+      "evidence": "Robot telemetry",
+      "gate": "None",
+      "source": [
+        "zhang2022_nature",
+        "production_inferred"
+      ],
+      "answer": "Refill after every layer, as the paper did. One 202 mL cartridge is about one layer.",
+      "decision_rule": "Plan one load per layer and refill at layer end. Alternate two drones to keep the layer continuous, and stay inside the mix's open time.",
+      "answer_basis": "paper",
+      "revisit_when": "Payload or automated refilling changes"
+    },
+    {
+      "id": "PD07",
+      "phase": "production",
+      "role": "site_lead",
+      "title": "Failure response",
+      "question": "A robot failed or lost contact: reassign or stop?",
+      "options": [
+        "Reassign work",
+        "Stop build",
+        "Continue with fewer robots"
+      ],
+      "criteria": [
+        "Remaining fleet",
+        "Layer in progress",
+        "Safety"
+      ],
+      "constraint_nodes": [
+        "E_MECH_FAILURE",
+        "E_COMMS_LOSS",
+        "C_ROBOT_STATE",
+        "L9_FAULT"
+      ],
+      "min_tier": "advanced",
+      "cadence": "on event",
+      "reversibility": "cheap",
+      "evidence": "Fault report",
+      "gate": "Safety gate",
+      "source": [
+        "zhang2022_nature",
+        "caam_abstract"
+      ],
+      "answer": "Reassign if the remaining robots can finish the layer within the mix's open time; otherwise stop at a clean layer boundary. The paper relies on redundancy for failures and comms loss.",
+      "decision_rule": "Remaining fleet can finish in open time → reassign. Can't → stop, let it cure, resume later.",
+      "answer_basis": "paper+inferred",
+      "revisit_when": "Fleet size changes"
+    },
+    {
+      "id": "PD08",
+      "phase": "production",
+      "role": "designer",
+      "title": "Final acceptance",
+      "question": "Does the finished build match the design?",
+      "options": [
+        "Accept",
+        "Accept with notes",
+        "Remediate"
+      ],
+      "criteria": [
+        "Deviation across all layers",
+        "Visual / structural check"
+      ],
+      "constraint_nodes": [
+        "P_VALIDATE",
+        "H_FARO",
+        "K_FOAM_RESULT"
+      ],
+      "min_tier": "basic",
+      "cadence": "once",
+      "reversibility": "costly",
+      "evidence": "Laser scan vs design",
+      "gate": "Handover gate",
+      "source": [
+        "zhang2022_nature"
+      ],
+      "answer": "Accept when a laser scan of the as-built matches the design within tolerance. The paper validated the foam tower with a FARO scan (2.27 cm median).",
+      "decision_rule": "Scan vs design within tolerance across all layers → accept. Local exceedances → accept with notes or remediate.",
+      "answer_basis": "paper",
+      "revisit_when": "Never: final"
+    },
+    {
+      "id": "PM01",
+      "phase": "project_management",
+      "role": "project_manager",
+      "title": "Budget",
+      "question": "Approve the budget for material, robot-hours and crew?",
+      "options": [
+        "Approve",
+        "Revise",
+        "Reject"
+      ],
+      "criteria": [
+        "Material volume",
+        "Robot-trips",
+        "Crew hours"
+      ],
+      "constraint_nodes": [
+        "R_REFILL_PER_LAYER",
+        "R_PAYLOAD"
+      ],
+      "min_tier": "basic",
+      "cadence": "per phase",
+      "reversibility": "moderate",
+      "evidence": "Cost estimate",
+      "gate": "Phase gate",
+      "source": [
+        "production_inferred"
+      ],
+      "answer": "The papers give no costs. Budget by trips (72 for a 2.05 m foam tower) × (material + battery cycles + crew time), plus scanning and supervision.",
+      "decision_rule": "Approve when trips, material volume and crew hours are estimated from the layer plan. Re-baseline if trips per layer change.",
+      "answer_basis": "inferred",
+      "revisit_when": "Toolpath or payload changes"
+    },
+    {
+      "id": "PM02",
+      "phase": "project_management",
+      "role": "project_manager",
+      "title": "Schedule & weather windows",
+      "question": "When does each phase run?",
+      "options": [
+        "Accept plan",
+        "Shift dates",
+        "Add shifts"
+      ],
+      "criteria": [
+        "Trips per layer",
+        "Cure waits",
+        "Forecast windows"
+      ],
+      "constraint_nodes": [
+        "K_COMPLETION_TIME",
+        "R_PRINT_SPEED",
+        "L7_CURE_GATE",
+        "E_WIND"
+      ],
+      "min_tier": "basic",
+      "cadence": "weekly",
+      "reversibility": "moderate",
+      "evidence": "Layer plan + forecast",
+      "gate": "Phase gate",
+      "source": [
+        "zhang2022_nature",
+        "production_inferred"
+      ],
+      "answer": "Deposition time alone was 24 s per layer and 29 min total for the foam tower, and 2 h 13 min for 28 cement layers. Refills, scans, cure waits and weather add to that.",
+      "decision_rule": "Schedule = layers × (deposition + refill + scan + cure wait) inside forecast weather windows, plus buffer for holds.",
+      "answer_basis": "paper+inferred",
+      "revisit_when": "Forecast or cure data changes"
+    },
+    {
+      "id": "PM03",
+      "phase": "project_management",
+      "role": "project_manager",
+      "title": "Risk acceptance",
+      "question": "Which risks does the project carry?",
+      "options": [
+        "Accept",
+        "Mitigate",
+        "Transfer",
+        "Avoid"
+      ],
+      "criteria": [
+        "Likelihood",
+        "Impact",
+        "Mitigation cost"
+      ],
+      "constraint_nodes": [
+        "E_DOWNWASH",
+        "E_WIND",
+        "E_MECH_FAILURE",
+        "C_IMPACT"
+      ],
+      "min_tier": "medium",
+      "cadence": "per phase",
+      "reversibility": "moderate",
+      "evidence": "Risk register",
+      "gate": "Phase gate",
+      "source": [
+        "zhang2022_nature",
+        "caam_abstract",
+        "production_inferred"
+      ],
+      "answer": "Accept foam height drift (the scan loop corrects it). Mitigate downwash with fast-curing mixes and failures with spare robots. Avoid load-bearing use and untested outdoor conditions.",
+      "decision_rule": "Accept what a feedback loop corrects; mitigate what redundancy covers; avoid what no test has covered.",
+      "answer_basis": "paper+inferred",
+      "revisit_when": "A pilot covers new conditions"
+    },
+    {
+      "id": "PM04",
+      "phase": "project_management",
+      "role": "project_manager",
+      "title": "Scope change",
+      "question": "Approve, defer or reject a change request?",
+      "options": [
+        "Approve",
+        "Defer",
+        "Reject"
+      ],
+      "criteria": [
+        "Cost",
+        "Schedule",
+        "Design intent"
+      ],
+      "constraint_nodes": [
+        "C_ADAPTIVE_DESIGN"
+      ],
+      "min_tier": "basic",
+      "cadence": "on request",
+      "reversibility": "moderate",
+      "evidence": "Change request",
+      "gate": "Change gate",
+      "source": [
+        "production_inferred"
+      ],
+      "answer": "Before the freeze: allowed after a buildability check. After the freeze: only with a twin stability check and a new design version.",
+      "decision_rule": "Approve if it passes the checks and fits budget and schedule; defer if it waits on evidence; reject if it breaks a frozen item.",
+      "answer_basis": "inferred",
+      "revisit_when": "Phase changes"
+    },
+    {
+      "id": "PM05",
+      "phase": "project_management",
+      "role": "project_manager",
+      "title": "Staffing",
+      "question": "Who supervises and supports each shift?",
+      "options": [
+        "Approve roster",
+        "Change roster"
+      ],
+      "criteria": [
+        "Human supervision required",
+        "Refill / battery crew"
+      ],
+      "constraint_nodes": [
+        "R_HUMAN_SUPERVISION",
+        "A_GROUND_CREW",
+        "R_MANUAL_CONSUMABLES"
+      ],
+      "min_tier": "medium",
+      "cadence": "weekly",
+      "reversibility": "cheap",
+      "evidence": "Shift plan",
+      "gate": "None",
+      "source": [
+        "zhang2022_nature"
+      ],
+      "answer": "At least one human supervisor (required in the paper) plus a refill and battery crew per shift. Refilling and battery swaps were manual.",
+      "decision_rule": "One supervisor and a ground crew sized to the fleet per shift, until refilling and charging are automated.",
+      "answer_basis": "paper",
+      "revisit_when": "Automated refilling arrives"
+    },
+    {
+      "id": "PM06",
+      "phase": "project_management",
+      "role": "project_manager",
+      "title": "Permits & airspace",
+      "question": "Are flight and building permits in place?",
+      "options": [
+        "Proceed",
+        "Apply",
+        "Redesign operation"
+      ],
+      "criteria": [
+        "Airspace rules",
+        "Building codes for AM"
+      ],
+      "constraint_nodes": [
+        "O_REGULATION"
+      ],
+      "min_tier": "medium",
+      "cadence": "per phase",
+      "reversibility": "costly",
+      "evidence": "Permit status",
+      "gate": "Phase gate",
+      "source": [
+        "dams2024_frontiers_review",
+        "production_inferred"
+      ],
+      "answer": "Not covered by the papers. The review notes building codes haven't adapted to AM. Outdoor multi-drone flights need aviation approval wherever you build.",
+      "decision_rule": "Check local aviation rules for multi-drone operations and building-code acceptance before any outdoor build.",
+      "answer_basis": "review+inferred",
+      "revisit_when": "Location chosen"
+    },
+    {
+      "id": "PM07",
+      "phase": "project_management",
+      "role": "project_manager",
+      "title": "Material supply",
+      "question": "Which supplier and batch for the mix?",
+      "options": [
+        "Approve supplier",
+        "Change supplier"
+      ],
+      "criteria": [
+        "Mix spec",
+        "Lead time",
+        "Cost"
+      ],
+      "constraint_nodes": [
+        "M_CEMENT_MIXES",
+        "M_FOAM"
+      ],
+      "min_tier": "medium",
+      "cadence": "per order",
+      "reversibility": "moderate",
+      "evidence": "Supplier quotes",
+      "gate": "None",
+      "source": [
+        "general_knowledge"
+      ],
+      "answer": "Cement mixes use Portland cement, pulverised fuel ash, xanthan gum, HEMC and plasticiser (some with foaming agent); the foam is two-part polyurethane. Short open times favour mixing at or near the site.",
+      "decision_rule": "Approve suppliers who meet the mix spec and can deliver within open-time limits.",
+      "answer_basis": "paper+inferred",
+      "revisit_when": "Mix changes"
+    },
+    {
+      "id": "PM08",
+      "phase": "project_management",
+      "role": "project_manager",
+      "title": "Stakeholder sign-off",
+      "question": "Do stakeholders approve passing this gate?",
+      "options": [
+        "Sign off",
+        "Sign off with conditions",
+        "Hold"
+      ],
+      "criteria": [
+        "Gate criteria met",
+        "Open risks"
+      ],
+      "constraint_nodes": [
+        "R_HUMAN_SUPERVISION",
+        "P_VERIFY"
+      ],
+      "min_tier": "basic",
+      "cadence": "per gate",
+      "reversibility": "costly",
+      "evidence": "Gate report",
+      "gate": "Phase gate",
+      "source": [
+        "zhang2022_nature"
+      ],
+      "answer": "Sign off at design gates 1–3, a safety gate before outdoor flights, and handover. Per-layer release is an internal gate, not a stakeholder one.",
+      "decision_rule": "Sign off when gate criteria are met and open risks are accepted in writing.",
+      "answer_basis": "inferred",
+      "revisit_when": "Each gate"
+    }
+  ]
+}

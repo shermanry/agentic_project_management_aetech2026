@@ -1,0 +1,154 @@
+{
+  "methods": [
+    "Aerial AM (drone team)",
+    "Ground mobile printer",
+    "Gantry printer",
+    "Robot arm + prefab",
+    "Conventional formwork"
+  ],
+  "scale": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "criteria": [
+    {
+      "criterion": "Build size vs machine envelope",
+      "ratings": {
+        "Aerial AM (drone team)": "high",
+        "Ground mobile printer": "medium",
+        "Gantry printer": "low",
+        "Robot arm + prefab": "medium",
+        "Conventional formwork": "high"
+      },
+      "note": "Aerial: robots build larger than themselves (CAAM). Gantry limited to its frame.",
+      "sources": [
+        "caam_abstract",
+        "general_knowledge"
+      ]
+    },
+    {
+      "criterion": "Site access / at height",
+      "ratings": {
+        "Aerial AM (drone team)": "high",
+        "Ground mobile printer": "low",
+        "Gantry printer": "low",
+        "Robot arm + prefab": "medium",
+        "Conventional formwork": "medium"
+      },
+      "note": "Aerial targets at-height and hard-to-reach sites (Nature, blog).",
+      "sources": [
+        "zhang2022_nature",
+        "general_knowledge"
+      ]
+    },
+    {
+      "criterion": "Ground congestion tolerance",
+      "ratings": {
+        "Aerial AM (drone team)": "high",
+        "Ground mobile printer": "low",
+        "Gantry printer": "medium",
+        "Robot arm + prefab": "medium",
+        "Conventional formwork": "low"
+      },
+      "note": "Ground robots stay on grade; congestion grows with the build (CAAM).",
+      "sources": [
+        "caam_abstract",
+        "general_knowledge"
+      ]
+    },
+    {
+      "criterion": "Accuracy",
+      "ratings": {
+        "Aerial AM (drone team)": "medium",
+        "Ground mobile printer": "medium",
+        "Gantry printer": "high",
+        "Robot arm + prefab": "high",
+        "Conventional formwork": "medium"
+      },
+      "note": "Aerial ~5 mm with delta arm (Nature).",
+      "sources": [
+        "zhang2022_nature",
+        "general_knowledge"
+      ]
+    },
+    {
+      "criterion": "Speed",
+      "ratings": {
+        "Aerial AM (drone team)": "low",
+        "Ground mobile printer": "medium",
+        "Gantry printer": "high",
+        "Robot arm + prefab": "high",
+        "Conventional formwork": "low"
+      },
+      "note": "Aerial cement 1 cm/s; 28 layers in 2 h 13 min (Nature).",
+      "sources": [
+        "zhang2022_nature",
+        "general_knowledge"
+      ]
+    },
+    {
+      "criterion": "Material strength",
+      "ratings": {
+        "Aerial AM (drone team)": "low",
+        "Ground mobile printer": "high",
+        "Gantry printer": "high",
+        "Robot arm + prefab": "high",
+        "Conventional formwork": "high"
+      },
+      "note": "Aerial limited to light mixes; ~25 MPa target (Nature).",
+      "sources": [
+        "zhang2022_nature",
+        "dams2024_frontiers_review",
+        "general_knowledge"
+      ]
+    },
+    {
+      "criterion": "Scaffolding avoided",
+      "ratings": {
+        "Aerial AM (drone team)": "high",
+        "Ground mobile printer": "medium",
+        "Gantry printer": "medium",
+        "Robot arm + prefab": "high",
+        "Conventional formwork": "low"
+      },
+      "note": "Adaptive design can avoid scaffolding on inclined forms (CAAM).",
+      "sources": [
+        "caam_abstract",
+        "general_knowledge"
+      ]
+    },
+    {
+      "criterion": "Weather robustness",
+      "ratings": {
+        "Aerial AM (drone team)": "low",
+        "Ground mobile printer": "medium",
+        "Gantry printer": "medium",
+        "Robot arm + prefab": "high",
+        "Conventional formwork": "medium"
+      },
+      "note": "Aerial untested outdoors; downwash and wind (Nature).",
+      "sources": [
+        "zhang2022_nature",
+        "general_knowledge"
+      ]
+    },
+    {
+      "criterion": "Technology maturity",
+      "ratings": {
+        "Aerial AM (drone team)": "low",
+        "Ground mobile printer": "medium",
+        "Gantry printer": "high",
+        "Robot arm + prefab": "high",
+        "Conventional formwork": "high"
+      },
+      "note": "Aerial shown in lab and simulation only.",
+      "sources": [
+        "zhang2022_nature",
+        "caam_abstract",
+        "general_knowledge"
+      ]
+    }
+  ],
+  "note": "Ratings for non-aerial methods are general industry knowledge, not from the papers."
+}

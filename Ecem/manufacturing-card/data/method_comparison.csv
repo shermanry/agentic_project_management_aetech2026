@@ -1,0 +1,10 @@
+criterion,Aerial AM (drone team),Ground mobile printer,Gantry printer,Robot arm + prefab,Conventional formwork,note,sources
+Build size vs machine envelope,high,medium,low,medium,high,Aerial: robots build larger than themselves (CAAM). Gantry limited to its frame.,caam_abstract; general_knowledge
+Site access / at height,high,low,low,medium,medium,"Aerial targets at-height and hard-to-reach sites (Nature, blog).",zhang2022_nature; general_knowledge
+Ground congestion tolerance,high,low,medium,medium,low,Ground robots stay on grade; congestion grows with the build (CAAM).,caam_abstract; general_knowledge
+Accuracy,medium,medium,high,high,medium,Aerial ~5 mm with delta arm (Nature).,zhang2022_nature; general_knowledge
+Speed,low,medium,high,high,low,Aerial cement 1 cm/s; 28 layers in 2 h 13 min (Nature).,zhang2022_nature; general_knowledge
+Material strength,low,high,high,high,high,Aerial limited to light mixes; ~25 MPa target (Nature).,zhang2022_nature; dams2024_frontiers_review; general_knowledge
+Scaffolding avoided,high,medium,medium,high,low,Adaptive design can avoid scaffolding on inclined forms (CAAM).,caam_abstract; general_knowledge
+Weather robustness,low,medium,medium,high,medium,Aerial untested outdoors; downwash and wind (Nature).,zhang2022_nature; general_knowledge
+Technology maturity,low,medium,high,high,high,Aerial shown in lab and simulation only.,zhang2022_nature; caam_abstract; general_knowledge

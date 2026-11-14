@@ -1,0 +1,307 @@
+{
+  "project": "Aerial AM example project",
+  "phases": [
+    {
+      "id": "A",
+      "name": "Define"
+    },
+    {
+      "id": "B",
+      "name": "Design"
+    },
+    {
+      "id": "C",
+      "name": "Prepare"
+    },
+    {
+      "id": "D",
+      "name": "Build · repeat per layer, ×72"
+    },
+    {
+      "id": "E",
+      "name": "Close"
+    }
+  ],
+  "stages": [
+    {
+      "id": "01",
+      "phase": "A",
+      "title": "Brief and site",
+      "what": "Goal, size, height, access, site conditions",
+      "owners": [
+        "pm",
+        "designer"
+      ],
+      "gate": null,
+      "questions": [
+        "What are we building, and what is it for?",
+        "How big and how high is it, and where?",
+        "Can a crane, gantry or ground robot reach the whole build?",
+        "What does success look like, and by when?"
+      ],
+      "loop": false
+    },
+    {
+      "id": "02",
+      "phase": "A",
+      "title": "Fabrication method",
+      "what": "Aerial AM or a ground method",
+      "owners": [
+        "designer",
+        "pm"
+      ],
+      "gate": "G1 · Method gate",
+      "questions": [
+        "Does size, access, congestion or scaffolding justify drones?",
+        "What would a ground method cost and take instead?",
+        "Is the team willing to carry the extra risk of a new method?"
+      ],
+      "loop": false
+    },
+    {
+      "id": "03",
+      "phase": "B",
+      "title": "Geometry",
+      "what": "Form within aerial limits",
+      "owners": [
+        "designer"
+      ],
+      "gate": null,
+      "questions": [
+        "Does the form slice into horizontal layers?",
+        "Are walls thin enough, and overhangs supported?",
+        "Which parts are inclined, and how steep?"
+      ],
+      "loop": false
+    },
+    {
+      "id": "04",
+      "phase": "B",
+      "title": "Material and tests",
+      "what": "Mix trials: weight, flow, shape, curing",
+      "owners": [
+        "designer"
+      ],
+      "gate": null,
+      "questions": [
+        "Foam or cement, and which mix?",
+        "Does it hold shape under downwash and the next layers?",
+        "How long does it stay workable, and how fast does it set?",
+        "Does it fit the payload per trip?"
+      ],
+      "loop": false
+    },
+    {
+      "id": "05",
+      "phase": "B",
+      "title": "Role and tolerance",
+      "what": "Structural role, acceptable deviation",
+      "owners": [
+        "designer"
+      ],
+      "gate": null,
+      "questions": [
+        "Is it enclosure, formwork, insulation or repair?",
+        "What deviation is acceptable for this role?",
+        "Does it need reinforcement or code approval?"
+      ],
+      "loop": false
+    },
+    {
+      "id": "06",
+      "phase": "B",
+      "title": "Digital twin and toolpath",
+      "what": "Slice, path, stage-stability check",
+      "owners": [
+        "designer"
+      ],
+      "gate": "G2 · Buildability gate",
+      "questions": [
+        "Does every interim stage stand on the twin?",
+        "Which toolpath gives the fewest trips?",
+        "Where would we redesign, re-sequence or scaffold?"
+      ],
+      "loop": false
+    },
+    {
+      "id": "07",
+      "phase": "B",
+      "title": "Plan and budget",
+      "what": "Trips, fleet, schedule, crew, permits",
+      "owners": [
+        "pm"
+      ],
+      "gate": "G3 · Design freeze",
+      "questions": [
+        "How many layers and trips, and how long?",
+        "How many robots, and how many crew per shift?",
+        "What is the budget for material, robots and crew?",
+        "Which permits and airspace approvals do we need?",
+        "What is frozen now, and what can still change?"
+      ],
+      "loop": false
+    },
+    {
+      "id": "08",
+      "phase": "C",
+      "title": "Site setup",
+      "what": "Positioning, refill station, safety zone, weather",
+      "owners": [
+        "site",
+        "pm"
+      ],
+      "gate": null,
+      "questions": [
+        "How do robots know where they are on this site?",
+        "Where is the refill and battery station?",
+        "Where is the safety zone, and who guards it?",
+        "How do we measure wind and temperature?"
+      ],
+      "loop": false
+    },
+    {
+      "id": "09",
+      "phase": "C",
+      "title": "Dry run",
+      "what": "Light-trace flight of the path, no material",
+      "owners": [
+        "site",
+        "designer"
+      ],
+      "gate": "G4 · Safety gate",
+      "questions": [
+        "Do the robots follow the path within tolerance?",
+        "Do they keep safe spacing at the tightest layer?",
+        "Is the team ready to start printing?"
+      ],
+      "loop": false
+    },
+    {
+      "id": "10",
+      "phase": "D",
+      "title": "Load",
+      "what": "Material and battery onto the drone",
+      "owners": [
+        "site"
+      ],
+      "gate": null,
+      "questions": [
+        "Is the mix still within its open time?",
+        "Is the battery enough for this layer?"
+      ],
+      "loop": true
+    },
+    {
+      "id": "11",
+      "phase": "D",
+      "title": "Deposit",
+      "what": "Fly the path and extrude",
+      "owners": [
+        "site"
+      ],
+      "gate": null,
+      "questions": [
+        "Is the robot tracking the path?",
+        "Is the flow matching the flight speed?"
+      ],
+      "loop": true
+    },
+    {
+      "id": "12",
+      "phase": "D",
+      "title": "Scan",
+      "what": "Camera drone maps the new layer",
+      "owners": [
+        "site"
+      ],
+      "gate": null,
+      "questions": [
+        "Is the scan complete, with no gaps?"
+      ],
+      "loop": true
+    },
+    {
+      "id": "13",
+      "phase": "D",
+      "title": "Evaluate",
+      "what": "Deviation, cure, stability, conditions",
+      "owners": [
+        "designer",
+        "site"
+      ],
+      "gate": null,
+      "questions": [
+        "Is the layer within tolerance?",
+        "Has the layer below cured enough?",
+        "Does the next stage stay stable?",
+        "Are wind and temperature within limits?"
+      ],
+      "loop": true
+    },
+    {
+      "id": "14",
+      "phase": "D",
+      "title": "Adapt",
+      "what": "Offset the next path or redesign",
+      "owners": [
+        "designer"
+      ],
+      "gate": null,
+      "questions": [
+        "Can an offset fix the drift?",
+        "Is the drift large enough to redesign upper layers?",
+        "Has the change been logged as a new version?"
+      ],
+      "loop": true
+    },
+    {
+      "id": "15",
+      "phase": "D",
+      "title": "Layer gate",
+      "what": "Go, hold or adjust",
+      "owners": [
+        "designer",
+        "site"
+      ],
+      "gate": "Layer gate",
+      "questions": [
+        "Go, hold or adjust for the next layer?",
+        "If a robot failed: reassign or stop at this layer?",
+        "Who decided, and on what evidence?"
+      ],
+      "loop": true
+    },
+    {
+      "id": "16",
+      "phase": "E",
+      "title": "Final validation",
+      "what": "Laser scan vs design",
+      "owners": [
+        "designer",
+        "pm"
+      ],
+      "gate": "G5 · Acceptance gate",
+      "questions": [
+        "Does the as-built match the design within tolerance?",
+        "Accept, accept with notes, or remediate?"
+      ],
+      "loop": false
+    },
+    {
+      "id": "17",
+      "phase": "E",
+      "title": "Handover",
+      "what": "Data, decision log, lessons",
+      "owners": [
+        "pm"
+      ],
+      "gate": null,
+      "questions": [
+        "What did we learn about limits, mixes and weather?",
+        "What goes into the next project's defaults?",
+        "Is every decision traceable to its evidence?"
+      ],
+      "loop": false
+    }
+  ]
+}
