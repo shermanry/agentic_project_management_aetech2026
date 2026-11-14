@@ -97,8 +97,13 @@ class LiveFeeds:
         self._stop = threading.Event()
 
     # ------------------------------------------------------------ graph setup
-    def ensure_nodes(self) -> dict[str, str]:
-        """Create any missing feed nodes (and their edges), register them as sources. Returns ref -> node id."""
+    gate: Callable[[], bool] | None = None      # set by the app: False while the replay is still setting the project up
+
+    def ensure_nodes(self, force: bool = False) -> dict[str, str]:
+        """Create any missing feed nodes (and their edges), register them as sources. Returns ref -> node id.
+        Returns {} without touching the graph while the gate is closed (unless forced)."""
+        if not force and self.gate and not self.gate():
+            return {}
         ids = {}
         for ref, f in FEEDS.items():
             n = self.store.node_by_ref(ref)
@@ -126,6 +131,8 @@ class LiveFeeds:
     # ------------------------------------------------------------ applying events
     def apply(self, ev: mon_base.Event) -> dict:
         ids = self.ensure_nodes()
+        if not ids:                                  # project not set up yet (replay is before the feeds step)
+            return {"skipped": "project is still being set up", "effects": []}
         feed_ref = MONITOR_TO_FEED.get(ev.source, "weather")
         feed_id = ids[feed_ref]
         how = classify(ev)

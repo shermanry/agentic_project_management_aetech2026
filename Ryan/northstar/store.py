@@ -130,7 +130,10 @@ class Store:
 
     def add_chunks(self, node_id: str, rows: list[dict], vectors: list[list[float]], model: str) -> int:
         with self.pool.connection() as c, c.transaction():
-            vid = c.execute("SELECT id FROM node_head WHERE node_id = %s", (int(node_id),)).fetchone()["id"]
+            head = c.execute("SELECT id FROM node_head WHERE node_id = %s", (int(node_id),)).fetchone()
+            if not head:
+                return 0                                   # node went away meanwhile (replay rebuilt the graph)
+            vid = head["id"]
             if c.execute("SELECT 1 FROM chunks WHERE node_version_id = %s AND role <> 'card' LIMIT 1", (vid,)).fetchone():
                 return 0                                   # someone else indexed it meanwhile
             for i, (r, v) in enumerate(zip(rows, vectors), 1):

@@ -52,12 +52,14 @@ def notify(msg: dict) -> None:
 async def _startup() -> None:
     global _loop, _seed_warning, replay, feeds
     _loop = asyncio.get_running_loop()
-    if store.empty():
-        _seed_warning = await asyncio.to_thread(pipeline.seed_graph, store)
+    feeds = livefeeds.LiveFeeds(store, notify, submit_text, DATA)
+    replay = Replay(store, DATA, PACKAGES, notify, _approve, feeds)
+    feeds.gate = lambda: not replay.in_setup()             # no feed nodes while the replay is still adding the project's own
+    if store.empty() and replay.fresh:                     # first run: start with the project set up, as before
+        await asyncio.to_thread(replay.goto, "setup")
+        _seed_warning = replay.warning
     await asyncio.to_thread(store.sweep)
     await asyncio.to_thread(analysis.load_active, store)   # approved rules from earlier analysis runs
-    replay = Replay(store, DATA, PACKAGES, notify, _approve)
-    feeds = livefeeds.LiveFeeds(store, notify, submit_text, DATA)
     if os.environ.get("FEEDS_ENABLED", "1").lower() not in ("0", "false", "no"):
         feeds.start()   # polls weather, airspace, rules, city events on their cadences
     threading.Thread(target=pipeline.warm_up, args=(DATA / "warmup",), daemon=True).start()
@@ -312,6 +314,15 @@ def replay_forward() -> dict:
         raise HTTPException(409, str(e))
 
 
+@app.post("/api/replay/goto")
+def replay_goto(to: str = "start") -> dict:
+    """Jump the replay: to=start is the empty project, to=setup is the project set up before the story."""
+    try:
+        return replay.goto(to)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
 @app.post("/api/replay/back")
 def replay_back() -> dict:
     try:
@@ -445,12 +456,8 @@ def item_image(item_id: str):
 async def reset() -> dict:
     """Demo helper: wipe the graph and history, reload the example project."""
     global _seed_warning
-    await asyncio.to_thread(store.reset)
-    replay.restart()
-    _seed_warning = await asyncio.to_thread(pipeline.seed_graph, store)
-    if feeds:
-        await asyncio.to_thread(feeds.ensure_nodes)
-    notify({"type": "graph", "reset": True})
+    await asyncio.to_thread(replay.goto, "setup")          # the project as planned, before the story steps
+    _seed_warning = replay.warning
     return {"ok": True, "warning": _seed_warning}
 
 

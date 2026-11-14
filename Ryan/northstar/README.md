@@ -9,28 +9,17 @@ The one interaction from [plan.md](../plan.md), section 1, working end to end:
 
 ## Replay mode
 
-The bar above the graph steps through the facade survey from the team's whiteboard, one thing at a time:
+The bar above the graph steps through the whole project from an **empty graph**, one thing at a time:
 
-- **Forward** brings in the next item (it runs through the real pipeline and shows as a proposed placement with its effects). Pressing it again, now labelled **Approve**, approves it.
-- **Back** undoes exactly one Forward: first un-approving, then withdrawing the item.
-- Left and right arrow keys do the same. **Reset demo** returns to the start.
+1. **Setup (13 presses):** the project's own nodes are added one per press, in the order of `seed.py`: the site, the drones, the flight plan, the wind limit, the permit package, the flight, and so on, each bringing its links to what is already there. The last setup press connects the live data feeds.
+2. **The story (7 steps, 2 presses each):** notice to proceed, site visit findings, insurance delay, the airspace rule change, one flyable day, "drone 4a needs maintenance", and the image metadata problem. The first press brings the item in (it runs through the real pipeline and shows as a proposed placement with its effects); the second, labelled **Approve**, approves it.
 
-The seven steps are in `replay.py`: notice to proceed, site visit findings, insurance delay, the airspace rule change, one flyable day, "drone 4a needs maintenance", and the image metadata problem. They are a reading of the whiteboard and should be checked by the drone experts.
+- **Forward / Back** move one press at a time; left and right arrow keys do the same. Back goes all the way to the empty project.
+- **⏮** jumps to the empty project. **Skip setup ⏭** (shown during setup) adds the rest of the project's own nodes at once.
+- **Reset demo** returns to "the project is set up", just before the story.
+- API: `POST /api/replay/forward`, `/api/replay/back`, `/api/replay/goto?to=start|setup`. `replay` in `/api/state` carries `pos`, `total`, `setup_total` and a ready-made `caption` (title and story) for any UI.
 
-The first time a step runs it is live (about 5 seconds for Jev). The approved proposal is then cached in the data folder, so going back and forward again is instant and identical. **Run through it once before a demo** so every step is cached. Back rebuilds the graph from the seed plus the cached steps, which also wipes anything added by hand during the replay.
-
-## Live data feeds
-
-The app runs the repo-root [`monitors/`](../../monitors/README.md) in a background thread: weather, NWS alerts, METAR, FAA TFRs, the LAANC grid, Federal Register rules, NYC permitted events and space weather, each on its own cadence (tighter within 3 days of the flight). They appear as five `data_feed` nodes. Following decision A4, feeds are the one thing that changes the graph without asking:
-
-| Monitor reports | What happens |
-| --- | --- |
-| Bad news: a day in the flight window turns unflyable, a TFR over the site, a LAANC ceiling change, a geomagnetic storm, a severe NWS alert | The feed node turns red and `effects.py` ripples from it as if a discovery blocked it: Thursday's flight at risk, the permit date re-opened, and so on. One revision by "Monitors" says why |
-| Good news: the day is flyable again, the TFR or alert ended | The flags for that same thing (`dedupe_key`) close; the feed goes back to healthy |
-| A discovery: a new FAA, DHS or TSA rule or notice, or an unmatched NY/NJ TFR | Submitted through normal intake, so Jev proposes a placement and a person approves it (at most 3 per run) |
-| Anything else | Recorded in the decision history and as a reading on the feed's `sources` row |
-
-**For demos,** real changes are rare, so canned ones go through the same path: `POST /api/feeds/inject/{scenario}` with `thursday_unflyable`, `thursday_flyable`, `tfr_over_site`, `tfr_ended`, `rule_change` or `gps_storm`. The site and flight limits come from `monitors/site.json` (or `site.example.json`: 120 Broadway); set `MONITOR_SITE` to use another file and `FEEDS_ENABLED=0` to turn polling off.
+The story steps are a reading of the whiteboard and should be checked by the drone experts. The first time a story step runs it is live (about 5 seconds for Jev); its approved proposal is then cached in the data folder, so going back and forward again is instant and identical. **Run through it once before a demo.** Back rebuilds the graph from scratch, which also wipes anything added by hand during the replay. While the replay is still in setup, the live feeds are held back so they don't add nodes out of order.
 
 ## Ask the project
 

@@ -4,8 +4,13 @@ Each scenario step is something that arrived during the real project. One press 
 next item in (it goes through the normal intake pipeline and shows as a proposed placement with its effects),
 or approves the item that is waiting. One press of Back undoes exactly one Forward.
 
-    cursor = 2k      k steps approved, nothing waiting
-    cursor = 2k + 1  k steps approved, step k is proposed and waiting for approval
+The timeline starts from an EMPTY project. Position `pos` counts Forward presses:
+
+    pos 0                      nothing: no nodes at all
+    pos 1 .. F                 setup: the project's own nodes are added one per press, in the order of seed.NODES
+                               (site, drones, plan, limits, permit, flight...), then the live data feeds
+    pos F + 2k                 k story steps approved, nothing waiting
+    pos F + 2k + 1             k approved, story step k is proposed and waiting for approval
 
 The first time a step runs it is live (Jev and embeddings). Its approved proposal is then cached in the data
 folder, so going back and forward again is instant and identical. Back rebuilds the graph from the seed plus
@@ -21,6 +26,7 @@ from pathlib import Path
 import effects
 import llm
 import pipeline
+import seed
 from store import IMPORTANCE, Store, new_id
 
 SCENARIO = [
@@ -61,16 +67,21 @@ SCENARIO = [
 
 
 class Replay:
-    def __init__(self, store: Store, data: Path, out_root: Path, notify, approve):
-        self.store, self.out_root, self.notify, self.approve = store, out_root, notify, approve
+    def __init__(self, store: Store, data: Path, out_root: Path, notify, approve, feeds=None):
+        self.store, self.out_root, self.notify, self.approve, self.feeds = store, out_root, notify, approve, feeds
         self.state_file, self.cache_file = data / "replay_state.json", data / "replay_cache.json"
         self.lock = threading.Lock()
-        st = self._read(self.state_file, {})
-        self.cursor: int = st.get("cursor", 0)
+        self.setup = [{"kind": "node", "node": n} for n in seed.NODES] + ([{"kind": "feeds"}] if feeds else [])
+        self.F = len(self.setup)
+        st = self._read(self.state_file, None)
+        self.fresh = st is None                                  # first run on this machine: caller sets the project up
+        st = st or {}
+        self.pos: int = st["pos"] if "pos" in st else self.F + st.get("cursor", 0)   # older state files only had cursor
         self.item_id: str | None = st.get("item_id")
         self.cache: dict = self._read(self.cache_file, {})
-        if self.cursor and store.empty():          # database was wiped underneath us
-            self.cursor, self.item_id = 0, None
+        self.warning: str | None = None
+        if store.empty():                                        # database was wiped underneath us
+            self.pos, self.item_id = 0, None
 
     @staticmethod
     def _read(p: Path, default):
@@ -80,25 +91,92 @@ class Replay:
             return default
 
     def _save(self) -> None:
-        self.state_file.write_text(json.dumps({"cursor": self.cursor, "item_id": self.item_id}))
+        self.state_file.write_text(json.dumps({"pos": self.pos, "item_id": self.item_id}))
 
     def _key(self, step: dict) -> str:
         return step["id"] + ":" + hashlib.sha1((step["text"] + llm.jev_model()).encode()).hexdigest()[:10]
 
+    @property
+    def cursor(self) -> int:
+        """Position within the story steps (0 while the project is still being set up)."""
+        return max(0, self.pos - self.F)
+
+    def in_setup(self) -> bool:
+        return self.pos < self.F
+
     # ---------------------------------------------------------------- status
+    def _setup_title(self, s: dict) -> str:
+        return s["node"]["title"] if s["kind"] == "node" else "Live data feeds"
+
     def status(self) -> dict:
         k, waiting = divmod(self.cursor, 2)
         it = self.store.item(self.item_id) if self.item_id else None
-        phase = "idle"
-        if waiting:
+        n = len(SCENARIO)
+        if self.pos == 0:
+            phase, cap = "start", ("An empty project", "Nothing has been added yet. Forward adds the first node.")
+        elif self.pos < self.F:
+            s, nxt = self.setup[self.pos - 1], self.setup[self.pos]
+            phase = "setup"
+            cap = (f"Setting up · {self.pos} of {self.F}: {self._setup_title(s)}",
+                   f"Next: {self._setup_title(nxt)}. The project as planned, before anything went wrong.")
+        elif waiting:
             phase = {"processing": "processing", "refining": "processing", "ready": "proposed", "failed": "failed"}.get(
                 (it or {}).get("status"), "failed")
-        return {"cursor": self.cursor, "last": 2 * len(SCENARIO), "step": k, "phase": phase, "item_id": self.item_id if waiting else None,
-                "error": (it or {}).get("error") if phase == "failed" else None,
+            s = SCENARIO[k]
+            cap = {"processing": (f"Step {k + 1} of {n}: {s['title']}", f"{s['author']} added it. Working out where it goes…"),
+                   "proposed": (f"Step {k + 1} of {n}: {s['title']} · proposed", s["story"] + " Forward approves it."),
+                   "failed": (f"Step {k + 1} of {n}: {s['title']}", "That step failed (" + ((it or {}).get("error") or "unknown error") + "). Forward tries again.")}[phase]
+        else:
+            phase = "idle"
+            if k == 0:
+                cap = ("The project is set up", f"This is the plan. Forward brings in what happened next: {SCENARIO[0]['title']}.")
+            elif k >= n:
+                cap = (f"All {n} steps replayed", "Back steps through them in reverse, all the way to the empty project.")
+            else:
+                nxt = SCENARIO[k]
+                cap = (f"Step {k} of {n} approved: {SCENARIO[k - 1]['title']}",
+                       f"Next: {nxt['title']}" + ("" if self._key(nxt) in self.cache else " (runs live, a few seconds)"))
+        return {"pos": self.pos, "total": self.F + 2 * n, "setup_total": self.F, "caption": {"title": cap[0], "story": cap[1]},
+                "setup": [{"title": self._setup_title(s), "type": s["node"]["type"] if s["kind"] == "node" else "data_feed"} for s in self.setup],
+                # story-step fields (unchanged shape; cursor is 0 during setup)
+                "cursor": self.cursor, "last": 2 * n, "step": k, "phase": phase, "item_id": self.item_id if waiting else None,
+                "error": (it or {}).get("error") if phase == "failed" else None, "warning": self.warning,
                 "steps": [{"title": s["title"], "author": s["author"], "text": s["text"], "story": s["story"],
                            "cached": self._key(s) in self.cache} for s in SCENARIO]}
 
-    # ---------------------------------------------------------------- forward
+    # ---------------------------------------------------------------- setup steps (the project's own nodes)
+    def _embed_cards(self, steps: list[dict]) -> tuple[list, str | None]:
+        nodes = [s["node"] for s in steps if s["kind"] == "node"]
+        try:
+            return (pipeline.embeddings.embed([seed.card_text(n) for n in nodes], kind="document") if nodes else []), pipeline.embeddings.model_id()
+        except Exception as e:
+            self.warning = f"Added without embeddings ({str(e)[:140]}). Matching falls back to names."
+            return [None] * len(nodes), None
+
+    def _add_setup(self, steps: list[dict], first_index: int) -> None:
+        """Add setup steps in order. A node brings the seed edges whose other end is already in the graph."""
+        vecs, model = self._embed_cards(steps)
+        vi = 0
+        for offset, s in enumerate(steps):
+            if first_index + offset == 0:
+                self.store.log("system", "project.created", f"Project “{seed.PROJECT['name']}” created")
+            if s["kind"] == "feeds":
+                if self.feeds:
+                    self.feeds.ensure_nodes(force=True)
+                    self.store.log("Monitors", "feeds.connected", "Live data feeds connected", "Weather, airspace, rule changes, city events")
+                continue
+            n = s["node"]
+            nid = self.store.put_node(n, vector=vecs[vi], vector_model=model, created_by=n.get("owner") or "system")
+            vi += 1
+            for src, dst, typ, reason in seed.EDGES:
+                if n["ref"] in (src, dst):
+                    a, b = self.store.node_by_ref(src), self.store.node_by_ref(dst)
+                    if a and b:
+                        self.store.put_edge(a["id"], b["id"], typ, reason, 1.0, "seed")
+            self.store.log(n.get("owner") or "system", "node.created", f"Added “{n['title']}” to the project",
+                           payload={"node_id": nid, "source": "project setup", "added_by": n.get("owner") or "system"})
+
+    # ---------------------------------------------------------------- story steps
     def _bring_in(self, step: dict) -> None:
         """Create the intake item for a step: from the cache if we have it, otherwise live through the pipeline."""
         item_id = new_id("it")
@@ -119,12 +197,18 @@ class Replay:
 
     def forward(self) -> dict:
         with self.lock:
+            if self.pos < self.F:                                   # setup: one node per press
+                self._add_setup([self.setup[self.pos]], self.pos)
+                self.pos += 1
+                self._save()
+                self.notify({"type": "graph", "reset": False})
+                return self.status()
             k, waiting = divmod(self.cursor, 2)
             if not waiting:
                 if k >= len(SCENARIO):
                     raise ValueError("That was the last step")
                 self._bring_in(SCENARIO[k])
-                self.cursor += 1
+                self.pos += 1
             else:
                 step, it = SCENARIO[k], self.store.item(self.item_id) if self.item_id else None
                 if not it or it["status"] == "failed":          # retry a failed step
@@ -139,36 +223,54 @@ class Replay:
                     self.cache_file.write_text(json.dumps(self.cache))
                     self.approve(it, prop["type"], prop["title"], prop["links"], step["approver"], step["reason"])
                     self.item_id = None
-                    self.cursor += 1
+                    self.pos += 1
             self._save()
             return self.status()
 
     # ---------------------------------------------------------------- back
     def back(self) -> dict:
         with self.lock:
-            k, waiting = divmod(self.cursor, 2)
-            if self.cursor == 0:
+            if self.pos == 0:
                 raise ValueError("Already at the start")
-            if waiting:                                   # just withdraw the waiting item; the graph is untouched
+            k, waiting = divmod(self.cursor, 2)
+            if self.pos <= self.F:                               # undo one setup node
+                self.rebuild(self.pos - 1, 0)
+                self.pos -= 1
+            elif waiting:                                        # just withdraw the waiting item; the graph is untouched
                 if self.item_id:
                     it = self.store.item(self.item_id)
                     if it and it["status"] in ("processing", "refining"):
                         raise ValueError("Still working on this step")
                     self.store.delete_item(self.item_id)
                 self.item_id = None
-                self.cursor -= 1
-            else:                                         # un-approve step k-1: rebuild, then show it as proposed again
-                self.rebuild(k - 1)
+                self.pos -= 1
+            else:                                                # un-approve step k-1: rebuild, then show it as proposed again
+                self.rebuild(self.F, k - 1)
                 self._bring_in(SCENARIO[k - 1])
-                self.cursor = 2 * (k - 1) + 1
+                self.pos = self.F + 2 * (k - 1) + 1
             self._save()
             self.notify({"type": "graph", "reset": False})
             return self.status()
 
-    def rebuild(self, approved: int) -> None:
-        """Seed project + the first `approved` steps, re-applied from the cache (no model calls)."""
+    def goto(self, to: str) -> dict:
+        """Jump to the empty start ("start") or to the fully set-up project before the story ("setup")."""
+        if to not in ("start", "setup"):
+            raise ValueError("to must be start or setup")
+        with self.lock:
+            target = 0 if to == "start" else self.F
+            self.rebuild(target, 0)
+            self.pos, self.item_id = target, None
+            self._save()
+            self.notify({"type": "graph", "reset": True})
+            return self.status()
+
+    def rebuild(self, setup_n: int, approved: int) -> None:
+        """Empty project + the first `setup_n` setup steps + the first `approved` story steps, re-applied from
+        the cache (no model calls). Node ids come out the same every time, so cached links stay valid."""
         self.store.reset()
-        pipeline.seed_graph(self.store)
+        self.warning = None
+        if setup_n:
+            self._add_setup(self.setup[:setup_n], 0)
         for step in SCENARIO[:approved]:
             prop = dict(self.cache[self._key(step)])
             prop["effects"] = effects.compute(prop["type"], prop["title"], prop["links"], self.store.nodes(), self.store.edges(), self.store.caused())
@@ -186,10 +288,5 @@ class Replay:
             prop.update(type=type_, title=title, links=links)
             self.cache[self._key(step)] = prop
             self.cache_file.write_text(json.dumps(self.cache))
-            self.item_id, self.cursor = None, self.cursor + 1
-            self._save()
-
-    def restart(self) -> None:
-        with self.lock:
-            self.cursor, self.item_id = 0, None
+            self.item_id, self.pos = None, self.pos + 1
             self._save()

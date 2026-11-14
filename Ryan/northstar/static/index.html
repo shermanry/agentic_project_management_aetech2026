@@ -124,9 +124,9 @@ img.prev{max-width:100%;max-height:150px;border-radius:6px;margin-top:8px;border
   </section>
   <section>
     <h2>Project graph</h2>
-    <div id="replay"><button id="rback" title="Undo one step (left arrow)">◀ Back</button>
+    <div id="replay"><button id="rstart" title="Back to the empty project">⏮</button><button id="rback" title="Undo one step (left arrow)">◀ Back</button>
       <div class="cap"><b id="rtitle">Replay</b><span id="rstory"></span><div class="bar"><i id="rbar" style="width:0"></i></div></div>
-      <button id="rfwd" class="primary" title="Next step (right arrow)">Forward ▶</button></div>
+      <button id="rskip" title="Add the rest of the project's own nodes at once">Skip setup ⏭</button><button id="rfwd" class="primary" title="Next step (right arrow)">Forward ▶</button></div>
     <div id="canvas"><svg id="svg"></svg>
       <div class="legend"><span><i style="background:var(--red)"></i>blocked / at risk</span><span><i style="background:var(--amber)"></i>re-opened</span><span><i style="border:1.5px dashed var(--acc)"></i>proposed, not saved</span><span><i style="border:1.5px dashed var(--green)"></i>would be cleared</span><span><i style="border:2px solid var(--acc)"></i>used in the answer</span></div>
     </div>
@@ -184,23 +184,19 @@ const payload = (extra={}) => ({type: draft.type, title: draft.title, by: who(),
 function render() { renderReplay(); renderTray(); renderGraph(); renderPanel(); renderHist(); }
 
 function renderReplay() {
-  const r = S.replay, n = r.steps.length, s = r.steps[r.step], prev = r.steps[r.step - 1];
-  let title, story;
-  if (r.phase === "processing") { title = `Step ${r.step+1} of ${n}: ${s.title}`; story = `${s.author} added it. Working out where it goes…`; }
-  else if (r.phase === "failed") { title = `Step ${r.step+1} of ${n}: ${s.title}`; story = "That step failed (" + (r.error || "unknown error") + "). Forward tries again."; }
-  else if (r.phase === "proposed") { title = `Step ${r.step+1} of ${n}: ${s.title} · proposed`; story = s.story + " Forward approves it."; }
-  else if (r.cursor === 0) { title = "Replay: the facade survey, step by step"; story = "This is the project as planned. Forward brings in what happened next."; }
-  else if (r.step >= n) { title = `All ${n} steps replayed`; story = "Back steps through them in reverse. Reset demo starts over."; }
-  else { title = `Step ${r.step} of ${n} approved: ${prev.title}`; story = `Next: ${s.title}` + (s.cached ? "" : " (runs live, a few seconds)"); }
-  $("#rtitle").textContent = title; $("#rstory").textContent = story;
-  $("#rbar").style.width = (100 * r.cursor / r.last) + "%";
-  $("#rback").disabled = busy || r.cursor === 0 || r.phase === "processing";
-  $("#rfwd").disabled = busy || r.cursor >= r.last || r.phase === "processing";
+  const r = S.replay;
+  $("#rtitle").textContent = r.caption.title; $("#rstory").textContent = r.caption.story + (r.warning ? " " + r.warning : "");
+  $("#rbar").style.width = (100 * r.pos / r.total) + "%";
+  const working = busy || r.phase === "processing";
+  $("#rstart").disabled = working || r.pos === 0;
+  $("#rback").disabled = working || r.pos === 0;
+  $("#rfwd").disabled = working || r.pos >= r.total;
+  $("#rskip").style.display = r.pos < r.setup_total ? "" : "none"; $("#rskip").disabled = working;
   $("#rfwd").textContent = r.phase === "proposed" ? "Approve ▶" : r.phase === "failed" ? "Retry ▶" : "Forward ▶";
 }
 async function step(dir) {
   if (busy) return; busy = true; renderReplay();
-  try { await api("/api/replay/" + dir, {method: "POST"}); if (dir === "back") { selNode = null; } selItem = null; draft = null; followed = null; }
+  try { await api("/api/replay/" + dir, {method: "POST"}); if (dir !== "forward") { selNode = null; } if (dir.startsWith("goto")) pos = {}; selItem = null; draft = null; followed = null; qa = null; }
   catch (e) { toast(e.message); }
   busy = false; await refresh();
 }
@@ -449,6 +445,8 @@ $("#rulesb").onclick = () => { rv = rv ? null : {focus: null}; if (rv) { selItem
 $("#q").onkeydown = e => { if (e.key === "Enter") askQuestion(); };
 $("#rfwd").onclick = () => step("forward");
 $("#rback").onclick = () => step("back");
+$("#rstart").onclick = () => step("goto?to=start");
+$("#rskip").onclick = () => step("goto?to=setup");
 document.addEventListener("keydown", e => { if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
   if (e.key === "ArrowRight" && !$("#rfwd").disabled) step("forward"); if (e.key === "ArrowLeft" && !$("#rback").disabled) step("back"); });
 $("#send").onclick = () => send();
