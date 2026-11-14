@@ -4,6 +4,8 @@ _Draft for team critique · 2026-11-14 · background in [PROJECT_BRIEF.md](PROJE
 
 **Worked example:** [usecase-facade-survey.md](usecase-facade-survey.md) walks a real facade survey through the system and proposes how it decides what to surface to whom, and when (the "attention engine"), plus a Slack "messenger nanny" that chases deliverables and dropped balls.
 
+**Agent architecture:** [agent-architecture.md](agent-architecture.md) describes the Opus-class analysis loop that generates specialist agents, skills, connectors and per-node-type rules on top of the graph.
+
 **How to use this doc:** nothing here is final. Each section is marked **Decided**, **Proposed** or **Open**. Challenge anything marked Proposed, and answer what you can in sections 11 and 12.
 
 ## 1. What we're building
@@ -128,6 +130,7 @@ These are sketches to react to, not designs. All three show the same project and
 | Area | Choice | Status |
 | --- | --- | --- |
 | Fast decision engine | **Jev through OpenRouter**: tagging, metadata via tools, link types, importance, Q&A, next-step suggestions | Decided (exact OpenRouter model ID: Open) |
+| Analysis loop | An Opus-class model (e.g. Claude Opus) runs a slow, deep loop that proposes rules, skills and specialist agents; people approve them. See [agent-architecture.md](agent-architecture.md) | Proposed |
 | Model access | One team OpenRouter API key, kept in `.env`, never committed | Decided |
 | Local development | Everything runs with `docker compose up` | Decided |
 | Embeddings | Behind one swappable interface; model choice in section 7 | Open |
@@ -178,7 +181,7 @@ Proposed `docker-compose.yml` services:
 {
   "node": {
     "id": "n_102",
-    "kind": "document | decision | weather | regulation | rfi | message | model | flight | ai_artifact",
+    "type": "decision | discovery | event | data_feed | deliverable | blocker | constraint | document",
     "title": "Wind forecast, Thu",
     "source": {"type": "api", "ref": "weather", "fetched_at": "2026-11-14T13:00Z"},
     "tags": ["weather", "schedule-risk"],
@@ -234,6 +237,7 @@ Proposed `docker-compose.yml` services:
 | 7. Role views | Client, PM and pilot views of the same project | Front-end answers in section 12 |
 | 7b. Attention engine | Events are matched to the graph, scored for urgency and impact, and surfaced by level (flashing red to grey). See the worked example | Phases 3, 4 |
 | 7c. Messenger nanny | Slack agent DMs owners about due items and dropped balls, then escalates to the PM. See the worked example, section 4 | Phase 7b, Slack app install |
+| 7d. Rules and analysis loop | Typed nodes, a small JSON rule engine, a seeded rule pack, and one live run of the analysis loop proposing a new rule. See agent-architecture.md, section 7 | Phases 3, 7b |
 | 8. Stretch | Slack-watching agent, Q&A, branches for alternatives, 3D graph | Time |
 
 Meanwhile, the three example project cards (inspection, monitoring, manufacturing) feed phases 1 to 6 with realistic test data, including a believable decision history for each.
