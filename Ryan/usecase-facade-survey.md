@@ -155,7 +155,46 @@ Each role gets a different cut of the same events. For "only 1 of 5 days is flya
 - **Merge duplicates:** five forecast updates about the same day become one item that updates in place.
 - **Escalate quietly:** an ignored amber item rises as its deadline nears; an ignored red item goes to the PM.
 
-## 4. What this needs from the data model
+## 4. Messenger nanny: chasing deliverables and dropped balls in Slack (Proposed)
+
+Surfacing inside the app only helps people who are looking at the app. The nanny is an agent that lives in Slack and makes sure owned items actually get done: it pokes, follows up, and escalates when needed.
+
+**What it watches**
+
+- **Deliverables and deadlines:** any open attention item or node with an owner and a due date (permit package items, client deliverables, reviews).
+- **Blockers waiting on someone:** "insurance proof from legal", "work letter from the property owner", "team documents".
+- **Dropped balls:**
+  - Commitments made in chat. Jev reads messages like "I'll send the flight plan tomorrow" and records a commitment with an owner and a date.
+  - Questions nobody answered. An unanswered question is matched by embedding to the open item it relates to.
+  - Items with no owner, and suggestions nobody approved or dismissed.
+
+**The nudge ladder**
+
+| Step | When | What the nanny does |
+| --- | --- | --- |
+| 1. Heads-up | Item enters its lead-time window | DM to the owner: what is due, when, and why it matters ("blocks the NYPD submission") |
+| 2. Reminder | No response, urgency rising | Second DM that states the consequence and offers help: a drafted reply, the form, the file |
+| 3. Public poke | Item is red | Posts in the project channel thread, tagging the owner |
+| 4. Escalate | Item is flashing red, or the owner is unresponsive | Tells the PM: what's stuck, who has it, what slips if it isn't done, and options (reassign, extend, drop) |
+| 5. Reassign or accept | PM decides | The decision is recorded as a revision; the nanny starts over with the new owner or date |
+
+**How people answer it.** Every message has buttons: **Done**, **Need more time** (pick a date), **Blocked** (say by what), **Not mine**. Each answer updates the graph and is saved in the revision history, so the record shows who was asked, when, and what they said.
+
+**People outside Slack.** For legal, the property owner or the client, the nanny drafts the email or message and asks the PM to send it. It then tracks the reply as a blocker like any other.
+
+**Keeping it tolerable**
+
+- Timing follows the urgency score from section 3, so it starts gentle and only gets loud when time is short.
+- One message per person per item per step; several items for one person are bundled into a single digest.
+- Quiet hours and "snooze until" are respected, except for flashing red.
+- It never escalates without first telling the owner it is about to.
+- Tone is helpful, not nagging: every poke includes the reason and something that makes the task easier.
+
+**On the whiteboard project** it would have: chased legal for the insurance proof and the owner for the work letter from the day the package started; reminded each crew member to upload their documents; pinged the other PMs about crew availability the moment the 5-day window arrived; and escalated to the PM when the submit-by date for NYPD was three days out with the package incomplete.
+
+**Build note.** A Slack app using Socket Mode works from a laptop in Docker with no public URL. It needs a Slack bot token in `.env` and a workspace where we're allowed to install an app.
+
+## 5. What this needs from the data model
 
 Additions to the node sketch in [plan.md](plan.md), section 9:
 
@@ -181,14 +220,24 @@ Additions to the node sketch in [plan.md](plan.md), section 9:
     "suggested_action": "Confirm crew for 10 Dec",
     "scores": {"urgency": 0.95, "impact": 0.8, "confidence": 0.9},
     "for": {"pilot": "flashing_red", "pm": "red", "client": "status_line"},
-    "state": "open | snoozed | dismissed | done"
+    "state": "open | snoozed | dismissed | done",
+    "nudges": [{"step": 1, "to": "user id", "at": "2026-12-05T09:00Z", "via": "slack_dm", "response": "need_more_time"}]
+  },
+  "commitment": {
+    "id": "com_12",
+    "source": "slack permalink",
+    "owner": "user id",
+    "text": "I'll send the flight plan tomorrow",
+    "due": "2026-12-06",
+    "relates_to": ["n_045"],
+    "state": "open | done | lapsed"
   }
 }
 ```
 
 A **project template** for "facade survey in NYC" would pre-load the lifecycle phases, the permit package checklist and the known lead times, so the countdowns start on day one.
 
-## 5. Suggested demo slice
+## 6. Suggested demo slice
 
 Replaying this whiteboard project as a timeline is a strong demo: scrub through the weeks and watch the system raise each item before the team in the real project found out.
 
@@ -196,9 +245,10 @@ Replaying this whiteboard project as a timeline is a strong demo: scrub through 
 2. Advance time: the "submit to NYPD by" item goes amber, then red.
 3. Inject the rule-change notice: it attaches itself to the permit node and flashes for the pilot.
 4. Authorization arrives: the 5-day window is drawn with weather; one day is green.
-5. Switch to the client view: the same events as a calm, plain-language feed.
+5. The package is incomplete three days before the submit-by date: the nanny DMs the owner in Slack, then escalates to the PM.
+6. Switch to the client view: the same events as a calm, plain-language feed.
 
-## 6. Questions this raises
+## 7. Questions this raises
 
 **For the drone experts:**
 
@@ -207,10 +257,12 @@ Replaying this whiteboard project as a timeline is a strong demo: scrub through 
 3. Which of the discoveries would you have most wanted a week earlier?
 4. What's a false alarm that would make you stop trusting the system?
 5. What does the permit package contain exactly, and which items most often hold it up?
+6. When someone drops the ball today, who chases them and how? At what point does it go to their manager?
 
 **For the team:**
 
 1. Is the replay of this project our headline demo?
 2. How much of the lifecycle do we template by hand versus letting Jev infer from documents?
 3. Do we score in code (as proposed) or let Jev score directly? Code is explainable; Jev is more flexible.
-4. Does flashing red also notify outside the app (Slack), or only inside it?
+4. How pushy should the nanny be by default, and who can it escalate to? Can it message people in the real hackathon Slack for the demo, or do we need a test workspace?
+5. Does the nanny read all channel messages to find commitments, or only channels it's invited to?

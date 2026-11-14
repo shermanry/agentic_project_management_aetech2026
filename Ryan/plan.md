@@ -2,7 +2,7 @@
 
 _Draft for team critique · 2026-11-14 · background in [PROJECT_BRIEF.md](PROJECT_BRIEF.md)_
 
-**Worked example:** [usecase-facade-survey.md](usecase-facade-survey.md) walks a real facade survey through the system and proposes how it decides what to surface to whom, and when (the "attention engine").
+**Worked example:** [usecase-facade-survey.md](usecase-facade-survey.md) walks a real facade survey through the system and proposes how it decides what to surface to whom, and when (the "attention engine"), plus a Slack "messenger nanny" that chases deliverables and dropped balls.
 
 **How to use this doc:** nothing here is final. Each section is marked **Decided**, **Proposed** or **Open**. Challenge anything marked Proposed, and answer what you can in sections 11 and 12.
 
@@ -47,6 +47,7 @@ flowchart LR
         D2["Scheduler<br/>weather and airspace windows"]
         D3["Background linker<br/>finds associations, suggests placement"]
         D4["Next-step advisor<br/>reads the decision history"]
+        D5["Messenger nanny<br/>Slack nudges and escalation"]
     end
 
     subgraph UI["5 Canvas and role views"]
@@ -67,6 +68,7 @@ flowchart LR
     C1 --> D2
     C1 <-. "suggested links and nodes" .-> D3
     C2 --> D4
+    C1 --> D5
     AG --> UI
     C1 --> UI
 ```
@@ -163,6 +165,7 @@ Proposed `docker-compose.yml` services:
 | `web` | Front end (canvas, graph, role views) | 3000 |
 | `api` | FastAPI: ingestion, graph queries, agents, calls to OpenRouter | 8080 |
 | `db` | Postgres + pgvector | 5432 |
+| `nanny` | Slack agent (Socket Mode, no public URL needed): nudges, follow-ups, escalation | none |
 | `worker` | Background jobs: polling weather and FAA, embedding large uploads, the background linker | none |
 
 - Setup for a new teammate: clone, copy `.env.example` to `.env`, paste the OpenRouter key, run `docker compose up`.
@@ -230,6 +233,7 @@ Proposed `docker-compose.yml` services:
 | 6. What's next | Jev reads the revision history and suggests the next step | Phases 3, 5 |
 | 7. Role views | Client, PM and pilot views of the same project | Front-end answers in section 12 |
 | 7b. Attention engine | Events are matched to the graph, scored for urgency and impact, and surfaced by level (flashing red to grey). See the worked example | Phases 3, 4 |
+| 7c. Messenger nanny | Slack agent DMs owners about due items and dropped balls, then escalates to the PM. See the worked example, section 4 | Phase 7b, Slack app install |
 | 8. Stretch | Slack-watching agent, Q&A, branches for alternatives, 3D graph | Time |
 
 Meanwhile, the three example project cards (inspection, monitoring, manufacturing) feed phases 1 to 6 with realistic test data, including a believable decision history for each.
