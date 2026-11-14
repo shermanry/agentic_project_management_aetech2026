@@ -1,0 +1,439 @@
+<title>Node Design Study</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Newsreader:ital,wght@1,400&display=swap">
+<style>
+/* Layout: a long study page. Each section = short lead + a dot-grid "stage" holding real node components. One accent (cobalt) for selection and the active path; kind colors are small dots only. */
+:root{
+  --bg:#F2F4F5; --stage:#EAEDEF; --dot:#D3D9DD; --surface:#FFFFFF; --well:#F4F6F7; --ink:#161B1F; --muted:#5F6B73; --faint:#8A959C; --line:#DCE1E4;
+  --accent:#2B5FD9; --accent-soft:#E3EAFB; --warm:#B8620F; --warm-soft:#FBEEDD; --good:#2C7A4D; --good-soft:#E2F2E8; --crit:#B23E2E; --crit-soft:#F8E5E2;
+  --k-doc:#6B5BA6; --k-photo:#0F7F86; --k-quote:#8A4F7D; --k-metric:#B0602A; --k-live:#2C7A4D; --k-msg:#7A6A2E; --k-model:#3D6FB0; --k-q:#9A5B1E; --k-dec:#2B5FD9;
+  --sky:#DCE8F2; --ground:#CFD8CF; --mass:#FFFFFF;
+  --shadow:0 1px 2px rgba(16,24,32,.05),0 6px 18px rgba(16,24,32,.07);
+  --sans:"Geist",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"Geist Mono",ui-monospace,Consolas,monospace; --serif:"Newsreader",Georgia,serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E1215; --stage:#12171B; --dot:#222A30; --surface:#192026; --well:#1F272E; --ink:#E7ECEF; --muted:#9AA6AE; --faint:#6E7A82; --line:#2A333A;
+  --accent:#7DA2F5; --accent-soft:#1D2A47; --warm:#EDA25C; --warm-soft:#3A2A17; --good:#6CC08D; --good-soft:#18301F; --crit:#EE8575; --crit-soft:#3A1E1A;
+  --k-doc:#A99BE0; --k-photo:#5BC3C9; --k-quote:#D08DC0; --k-metric:#E39A62; --k-live:#6CC08D; --k-msg:#CDB86A; --k-model:#7FA9E3; --k-q:#E0A465; --k-dec:#7DA2F5;
+  --sky:#1E2D3A; --ground:#1F2B24; --mass:#2A343C;
+  --shadow:0 1px 2px rgba(0,0,0,.35),0 6px 18px rgba(0,0,0,.3); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1215; --stage:#12171B; --dot:#222A30; --surface:#192026; --well:#1F272E; --ink:#E7ECEF; --muted:#9AA6AE; --faint:#6E7A82; --line:#2A333A;
+  --accent:#7DA2F5; --accent-soft:#1D2A47; --warm:#EDA25C; --warm-soft:#3A2A17; --good:#6CC08D; --good-soft:#18301F; --crit:#EE8575; --crit-soft:#3A1E1A;
+  --k-doc:#A99BE0; --k-photo:#5BC3C9; --k-quote:#D08DC0; --k-metric:#E39A62; --k-live:#6CC08D; --k-msg:#CDB86A; --k-model:#7FA9E3; --k-q:#E0A465; --k-dec:#7DA2F5;
+  --sky:#1E2D3A; --ground:#1F2B24; --mass:#2A343C;
+  --shadow:0 1px 2px rgba(0,0,0,.35),0 6px 18px rgba(0,0,0,.3); color-scheme:dark}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1120px;margin:0 auto;padding-block:40px 80px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+h1{font-size:clamp(30px,4.4vw,44px);line-height:1.08;letter-spacing:-.02em;margin:10px 0 12px;font-weight:600;text-wrap:balance}
+.intro{max-width:64ch;color:var(--muted);font-size:15.5px;margin:0}
+.rules{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.rules span{font-size:12.5px;border:1px solid var(--line);border-radius:20px;padding:4px 11px;background:var(--surface)}
+section{margin-top:64px}
+section>h2{font-size:22px;letter-spacing:-.01em;margin:6px 0 6px;font-weight:600;text-wrap:balance}
+section>p.lead{max-width:68ch;color:var(--muted);margin:0 0 18px}
+.stage{position:relative;background-color:var(--stage);background-image:radial-gradient(var(--dot) 1.1px,transparent 1.2px);background-size:20px 20px;border:1px solid var(--line);border-radius:16px;padding:28px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:22px;align-items:start}
+.cap{font-size:12px;color:var(--muted);margin-top:8px;text-align:center}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:16px}
+.notes div{font-size:13px;color:var(--muted);line-height:1.45}
+.notes b{display:block;color:var(--ink);font-weight:600;margin-bottom:2px}
+
+/* ---------- node component ---------- */
+.n{position:relative;width:100%;max-width:260px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);transition:box-shadow .15s,border-color .15s,opacity .15s;margin:0 auto}
+.n:hover{border-color:color-mix(in srgb,var(--muted) 55%,var(--line))}
+.n .port{position:absolute;top:50%;width:10px;height:10px;margin-top:-5px;border-radius:50%;background:var(--surface);border:1.5px solid var(--faint);opacity:0;transition:opacity .15s}
+.n .port.l{left:-6px}.n .port.r{right:-6px}
+.n:hover .port,.n.sel .port,.n.showports .port{opacity:1}
+.nh{display:flex;align-items:center;gap:6px;padding:10px 12px 0;font-size:11.5px;color:var(--muted)}
+.kd{width:7px;height:7px;border-radius:2px;flex:none}
+.nh .st{margin-left:auto;display:flex;gap:6px;align-items:center}
+.nh svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8}
+.nt{padding:3px 12px 0;font-weight:600;font-size:13.5px;line-height:1.3;letter-spacing:-.005em;text-wrap:balance}
+.pv{margin:10px 12px 0;border-radius:8px;background:var(--well);overflow:hidden;position:relative}
+.nf{display:flex;align-items:center;gap:8px;padding:9px 12px 11px;font-size:11.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+.nf .sp{margin-left:auto}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;padding:1px 7px;border-radius:10px;line-height:1.6}
+.chip.open{background:var(--warm-soft);color:var(--warm)}
+.chip.lock{background:var(--accent-soft);color:var(--accent)}
+.chip.good{background:var(--good-soft);color:var(--good)}
+.chip.crit{background:var(--crit-soft);color:var(--crit)}
+.chip.ghost{border:1px dashed var(--faint);color:var(--muted)}
+
+/* previews */
+.doc{height:104px;display:grid;place-items:center;background:linear-gradient(var(--well),var(--well))}
+.page{width:74px;height:92px;background:var(--surface);border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.12);padding:8px 7px;display:flex;flex-direction:column;gap:4px;transform:rotate(-2deg)}
+.page i{display:block;height:3px;border-radius:2px;background:var(--line)}
+.page i.t{height:5px;width:70%;background:var(--muted);opacity:.6}
+.page i.hl{background:color-mix(in srgb,var(--warm) 55%,transparent)}
+.page.b{position:absolute;transform:rotate(4deg) translate(18px,2px);opacity:.75}
+.quote{padding:14px 14px 12px;font-family:var(--serif);font-style:italic;font-size:16px;line-height:1.35}
+.quote small{display:block;font-family:var(--sans);font-style:normal;font-size:11px;color:var(--muted);margin-top:8px}
+.metric{padding:12px 12px 12px}
+.metric .big{font-size:26px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.metric .sub{font-size:11.5px;color:var(--muted)}
+.bar{position:relative;height:8px;border-radius:4px;background:var(--line);margin-top:10px}
+.bar b{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--k-metric)}
+.bar i{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+.bar-l{display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);margin-top:5px;font-variant-numeric:tabular-nums}
+.msg{padding:10px;display:flex;flex-direction:column;gap:6px}
+.bub{font-size:12px;line-height:1.35;padding:6px 9px;border-radius:10px 10px 10px 3px;background:var(--surface);max-width:85%;border:1px solid var(--line)}
+.bub.me{align-self:flex-end;border-radius:10px 10px 3px 10px;background:var(--accent-soft);border-color:transparent}
+.bub small{display:block;font-size:10.5px;color:var(--faint)}
+.qbox{padding:12px;display:flex;flex-direction:column;gap:8px}
+.qbox .q{font-size:15px;font-weight:500;line-height:1.3}
+.who{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+.av{width:20px;height:20px;border-radius:50%;display:inline-grid;place-items:center;font-size:9.5px;font-weight:600;color:#fff;background:var(--k-model);border:2px solid var(--surface)}
+.avs{display:inline-flex}.avs .av+.av{margin-left:-6px}
+svg.pvsvg{display:block;width:100%;height:auto}
+
+/* decision node */
+.n.dec{max-width:300px;border-color:color-mix(in srgb,var(--k-dec) 40%,var(--line))}
+.n.dec .nt{font-size:15px}
+.opts{margin:10px 12px 0;display:flex;flex-direction:column;gap:5px}
+.opt{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:6px 9px;border-radius:8px;background:var(--well)}
+.opt .r{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--faint);flex:none}
+.opt.won{background:var(--accent-soft);font-weight:500}
+.opt.won .r{border-color:var(--accent);background:radial-gradient(var(--accent) 45%,transparent 50%)}
+.opt .sc{margin-left:auto;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.ev{margin:10px 12px 0;display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted)}
+.evbar{flex:1;display:flex;height:6px;border-radius:3px;overflow:hidden;gap:2px}
+.evbar b{background:var(--good)}.evbar i{background:var(--crit)}
+
+/* states */
+.n.sel{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft),var(--shadow)}
+.n.multi{border-color:var(--warm);box-shadow:0 0 0 3px var(--warm-soft),var(--shadow)}
+.n.unplaced{border-style:dashed;border-color:var(--faint);box-shadow:none;background:color-mix(in srgb,var(--surface) 70%,transparent)}
+.n.dim{opacity:.35}
+.n.review{border-color:var(--warm)}
+.n.internal::after{content:"";position:absolute;right:0;top:0;width:26px;height:26px;border-top-right-radius:12px;background:repeating-linear-gradient(135deg,var(--line) 0 2px,transparent 2px 5px);-webkit-mask:linear-gradient(225deg,#000 50%,transparent 50%);mask:linear-gradient(225deg,#000 50%,transparent 50%)}
+
+/* semantic zoom */
+.zoomctl{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:2px;gap:2px}
+.seg button{border:0;background:transparent;padding:5px 11px;border-radius:7px;font-size:13px;color:var(--muted);font-weight:500}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.zstage{min-height:330px;display:flex;align-items:center;justify-content:center}
+.zfield{position:relative;width:100%;max-width:820px;height:300px}
+.zn{position:absolute;transition:all .35s cubic-bezier(.2,.7,.2,1)}
+.zfar .zn .n{display:none}.zfar .zn .dotlbl{display:flex}
+.zn .dotlbl{display:none;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap}
+.zn .dotlbl i{width:12px;height:12px;border-radius:4px}
+.zmid .zn .pv,.zmid .zn .nf,.zmid .zn .opts,.zmid .zn .ev{display:none}
+.zmid .zn .n{max-width:200px}
+.zmid .zn .nt{padding-bottom:10px}
+svg.zlinks{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+
+/* links */
+.linkrows{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.lrow{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.lrow svg{display:block;width:100%;height:56px}
+.lrow b{font-size:13px;font-weight:600}
+.lrow p{margin:2px 0 0;font-size:12.5px;color:var(--muted);line-height:1.4}
+.mini{fill:var(--surface);stroke:var(--line)}
+.minit{font-family:var(--sans);font-size:11px;fill:var(--ink)}
+.sugg{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px dashed var(--faint);border-radius:14px;padding:3px 4px 3px 10px;font-size:12px}
+.sugg button{border:0;border-radius:10px;padding:2px 8px;font-size:11.5px;font-weight:500;background:var(--well)}
+.sugg button.y{background:var(--accent);color:#fff}
+
+/* UI shell */
+.shell{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow)}
+.sbar{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.sbar .pn{font-weight:600}
+.sbar .pn small{display:block;font-weight:400;font-size:11.5px;color:var(--muted)}
+.vsw{display:inline-flex;gap:2px;background:var(--well);border-radius:9px;padding:2px;margin-left:auto}
+.vsw span{padding:5px 12px;border-radius:7px;font-size:13px;color:var(--muted);font-weight:500}
+.vsw span.on{background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line)}
+.persp{font-size:13px;border:1px solid var(--line);border-radius:8px;padding:5px 10px;display:inline-flex;gap:6px;align-items:center}
+.persp i{width:8px;height:8px;border-radius:50%;background:var(--good)}
+.sbody{display:grid;grid-template-columns:52px 1fr 300px;min-height:520px}
+.srail{border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 0}
+.srail span{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;color:var(--muted);position:relative}
+.srail span.on{background:var(--accent-soft);color:var(--accent)}
+.srail svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7}
+.srail em{position:absolute;top:3px;right:3px;min-width:14px;height:14px;border-radius:7px;background:var(--warm);color:#fff;font-size:9px;font-style:normal;display:grid;place-items:center;font-weight:600;padding:0 3px}
+.scanvas{position:relative;background-color:var(--stage);background-image:radial-gradient(var(--dot) 1.1px,transparent 1.2px);background-size:20px 20px;overflow:hidden}
+.scanvas .n{position:absolute;width:210px;margin:0}
+.scanvas .n .pv{height:70px}
+.sinsp{border-left:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:14px;font-size:13px;overflow:hidden}
+.sinsp h4{margin:0;font-size:16px;line-height:1.3}
+.sinsp .lab{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:5px}
+.sinsp .row{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:12.5px}
+.sinsp .row .r2{margin-left:auto;font-size:11px;color:var(--muted)}
+.sinsp .layer{border-top:1px solid var(--line);padding-top:10px;color:var(--muted);font-size:12.5px;display:flex;justify-content:space-between}
+.askpill{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:6px 6px 6px 14px;box-shadow:var(--shadow);font-size:13px;color:var(--muted);width:min(380px,80%)}
+.askpill b{margin-left:auto;background:var(--accent);color:#fff;font-weight:500;border-radius:16px;padding:4px 12px;font-size:12.5px}
+
+/* decision layouts */
+.layouts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.lay{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow)}
+.lay h3{margin:0;font-size:15px}
+.lay .for{font-size:12px;color:var(--muted)}
+table.cmp{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+table.cmp th{font-weight:500;color:var(--muted);text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);font-size:11.5px}
+table.cmp td{padding:6px;border-bottom:1px solid var(--line)}
+table.cmp td.w{background:var(--accent-soft);font-weight:600}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{background:var(--well);border-radius:9px;padding:9px 10px}
+.tile small{display:block;font-size:11px;color:var(--muted)}
+.tile b{font-size:18px;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.tl{display:flex;flex-direction:column;gap:0;font-size:12.5px}
+.tl div{display:grid;grid-template-columns:54px 14px 1fr;gap:8px;align-items:start;padding-bottom:10px}
+.tl small{color:var(--faint);font-variant-numeric:tabular-nums;padding-top:1px}
+.tl i{width:9px;height:9px;border-radius:50%;background:var(--line);margin-top:5px;box-shadow:0 0 0 3px var(--surface)}
+.tl i.on{background:var(--accent)}
+.foot{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+
+@media (max-width:860px){.sbody{grid-template-columns:44px 1fr}.sinsp{display:none}}
+@media (max-width:560px){.stage{padding:18px}.scanvas{min-height:460px}.zfield{height:340px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Front end · working draft · 14 Nov 2026</div>
+  <h1>Node design study</h1>
+  <p class="intro">A visual language for the canvas: nodes that show their content, links that say what they mean, and a layout that stays quiet until you need more. The examples use the Harbor Street Clinic project, and all its data is invented.</p>
+  <div class="rules"><span>Show the content, not a label for it</span><span>Color means something, or it isn't used</span><span>Detail grows with zoom</span><span>Suggested is visibly different from confirmed</span><span>Decisions stand out</span></div>
+
+  <!-- ANATOMY -->
+  <section>
+    <div class="eyebrow">Anatomy</div>
+    <h2>Every node has the same four parts</h2>
+    <p class="lead">A fixed structure lets people read a hundred nodes without relearning each one. Only the preview changes between kinds.</p>
+    <div class="stage" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:28px;align-items:center">
+      <div class="n showports" style="max-width:280px">
+        <span class="port l"></span><span class="port r"></span>
+        <div class="nh"><span class="kd" style="background:var(--k-doc)"></span>Brief<span class="st"><span class="chip good">Shared</span></span></div>
+        <div class="nt">Client brief v2</div>
+        <div class="pv doc"><div style="position:relative"><div class="page b"><i class="t"></i><i></i><i></i><i></i><i></i></div><div class="page"><i class="t"></i><i></i><i></i><i class="hl"></i><i></i><i></i><i style="width:60%"></i></div></div></div>
+        <div class="nf"><span>3 links</span><span>·</span><span>PDF, 14 pp</span><span class="sp">Oct 30</span></div>
+      </div>
+      <div class="notes" style="margin:0;grid-template-columns:1fr 1fr">
+        <div><b>1 · Header</b>Kind as a small colored square and a word. Status sits on the right: shared, locked, open.</div>
+        <div><b>2 · Title</b>Written by a person or proposed by the assistant. Two lines at most.</div>
+        <div><b>3 · Preview</b>The content itself: a page, photo, quote, number or chart. Highlights show what's being cited.</div>
+        <div><b>4 · Footer</b>Quiet facts: number of links, source, date. Never actions.</div>
+        <div><b>Ports</b>They appear on hover. Drag from one to link. Without them, the canvas looks calm at rest.</div>
+        <div><b>Width</b>Fixed at 240 to 260 px, so columns line up and the canvas reads as a grid.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PREVIEWS -->
+  <section>
+    <div class="eyebrow">Content previews</div>
+    <h2>The preview carries the meaning</h2>
+    <p class="lead">This is the lesson from FLORA, Weave and TouchDesigner: a node that shows its content is understood at a glance and is more pleasant to look at. A kind decides its preview from what it holds, so a custom kind gets a good preview without any setup.</p>
+    <div class="stage"><div class="grid">
+
+      <div><div class="n"><div class="nh"><span class="kd" style="background:var(--k-quote)"></span>Excerpt</div><div class="nt">Client wants daylight in waiting</div>
+        <div class="pv quote">“Patients wait a long time here. Make it bright.”<small>Clinic director · email, Oct 28</small></div>
+        <div class="nf"><span>Cited by 1 decision</span></div></div><div class="cap">Excerpt: the exact words, with who said them</div></div>
+
+      <div><div class="n"><div class="nh"><span class="kd" style="background:var(--k-metric)"></span>Constraint<span class="st"><span class="chip crit">Hard limit</span></span></div><div class="nt">Construction budget</div>
+        <div class="pv metric"><div class="big">$14.2M</div><div class="sub">cap set by the client board</div><div class="bar"><b style="width:91%"></b><i style="left:96%"></i></div><div class="bar-l"><span>Estimate $13.6M</span><span>Cap</span></div></div>
+        <div class="nf"><span>board-minutes-oct.docx</span></div></div><div class="cap">Number: the value, measured against its limit</div></div>
+
+      <div><div class="n"><div class="nh"><span class="kd" style="background:var(--k-photo)"></span>Photo</div><div class="nt">Site, south edge</div>
+        <div class="pv" style="height:112px"><svg class="pvsvg" viewBox="0 0 240 112" role="img" aria-label="Sketch of the site: a street and a park with trees"><rect width="240" height="112" fill="var(--sky)"/><rect y="70" width="240" height="42" fill="var(--ground)"/><rect y="82" width="240" height="8" fill="var(--line)"/><g fill="var(--k-photo)" opacity=".55"><circle cx="40" cy="60" r="14"/><circle cx="62" cy="56" r="17"/><circle cx="170" cy="58" r="15"/><circle cx="196" cy="62" r="12"/></g><g fill="var(--muted)" opacity=".45"><rect x="38" y="66" width="3" height="10"/><rect x="61" y="66" width="3" height="10"/><rect x="169" y="66" width="3" height="10"/><rect x="195" y="66" width="3" height="10"/></g><rect x="96" y="44" width="48" height="30" fill="var(--mass)" stroke="var(--line)"/><g fill="var(--line)"><rect x="102" y="50" width="8" height="8"/><rect x="116" y="50" width="8" height="8"/><rect x="130" y="50" width="8" height="8"/></g></svg></div>
+        <div class="nf"><span>IMG_2214.jpg</span><span class="sp">Nov 3</span></div></div><div class="cap">Image: the image itself, cropped to fit</div></div>
+
+      <div><div class="n"><div class="nh"><span class="kd" style="background:var(--k-msg)"></span>Message</div><div class="nt">Green roof question</div>
+        <div class="pv msg"><div class="bub"><small>Clinic director · Teams</small>Can we fit a green roof?</div><div class="bub me"><small>Architect</small>Depends on two vs three stories.</div></div>
+        <div class="nf"><span>#harbor-street</span><span class="sp">2 h ago</span></div></div><div class="cap">Message: the last two turns of the thread</div></div>
+
+      <div><div class="n"><div class="nh"><span class="kd" style="background:var(--k-model)"></span>Model</div><div class="nt">Massing option A, two stories</div>
+        <div class="pv" style="height:112px"><svg class="pvsvg" viewBox="0 0 240 112" role="img" aria-label="Isometric massing of a two-story building"><g stroke="var(--k-model)" stroke-width="1.2" fill="var(--mass)"><path d="M70 70 L120 45 L180 70 L130 95 Z"/><path d="M70 70 L70 50 L120 25 L120 45 Z" fill="color-mix(in srgb,var(--k-model) 14%,var(--mass))"/><path d="M120 25 L180 50 L180 70 L120 45 Z" fill="color-mix(in srgb,var(--k-model) 24%,var(--mass))"/><path d="M70 50 L120 25 L180 50 L130 75 Z"/><path d="M70 50 L130 75 L130 95 L70 70 Z" fill="color-mix(in srgb,var(--k-model) 10%,var(--mass))"/><path d="M130 75 L180 50 L180 70 L130 95 Z" fill="color-mix(in srgb,var(--k-model) 30%,var(--mass))"/></g><path d="M70 60 L130 85 L180 60" stroke="var(--k-model)" stroke-width=".8" fill="none" stroke-dasharray="2 2"/></svg></div>
+        <div class="nf"><span>Rhino · 2 levels</span><span class="sp">31 ft</span></div></div><div class="cap">3D model: a fixed view of the model, with its key dimension</div></div>
+
+      <div><div class="n"><div class="nh"><span class="kd" style="background:var(--k-live)"></span>Live data</div><div class="nt">Cost index, regional</div>
+        <div class="pv" style="padding:10px 10px 6px"><svg class="pvsvg" viewBox="0 0 220 64" role="img" aria-label="Line rising over twelve months"><path d="M0 52 L20 50 L40 47 L60 48 L80 42 L100 40 L120 36 L140 37 L160 30 L180 26 L200 22 L218 18" fill="none" stroke="var(--k-live)" stroke-width="2"/><path d="M0 52 L20 50 L40 47 L60 48 L80 42 L100 40 L120 36 L140 37 L160 30 L180 26 L200 22 L218 18 L218 64 L0 64Z" fill="var(--k-live)" opacity=".1"/><circle cx="218" cy="18" r="3.5" fill="var(--k-live)"/></svg><div class="bar-l" style="margin-top:2px"><span>12 months</span><span>+6.1%</span></div></div>
+        <div class="nf"><span class="chip good" style="padding:0 6px">● Live</span><span class="sp">Updated 1 h ago</span></div></div><div class="cap">Live feed: a sparkline, with how fresh it is</div></div>
+
+      <div><div class="n"><div class="nh"><span class="kd" style="background:var(--k-q)"></span>Question<span class="st"><span class="chip open">Waiting</span></span></div><div class="nt">Do we have soil data yet?</div>
+        <div class="pv qbox"><div class="who"><span class="avs"><span class="av" style="background:var(--k-doc)">SE</span></span>Asked by structural engineer</div><div class="who"><span class="avs"><span class="av" style="background:var(--k-photo)">CE</span></span>Sent to civil engineer · due Nov 20</div></div>
+        <div class="nf"><span>Blocks 1 decision</span></div></div><div class="cap">Question: who asked, and who owns the answer</div></div>
+
+      <div><div class="n"><div class="nh"><span class="kd" style="background:var(--faint)"></span>Item</div><div class="nt">Neighbors worried about parking</div>
+        <div class="pv" style="padding:10px 12px;font-size:12.5px;line-height:1.45;color:var(--muted)">Raised at the community meeting. Three residents asked whether the clinic adds street parking demand.</div>
+        <div class="nf"><span>Typed note</span><span class="sp">Nov 8</span></div></div><div class="cap">Plain item: text only, and no less useful</div></div>
+
+    </div></div>
+  </section>
+
+  <!-- DECISION NODE -->
+  <section>
+    <div class="eyebrow">Decisions</div>
+    <h2>A decision node is a small summary of the decision</h2>
+    <p class="lead">It's the most important node on the canvas, so it looks different: wider, with a colored border, and showing the choice instead of a preview. The options, the balance of evidence and who approves are visible without opening it. Opening it leads into the Decisions view.</p>
+    <div class="stage"><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">
+
+      <div><div class="n dec"><div class="nh"><span class="kd" style="background:var(--k-dec)"></span>Decision<span class="st"><span class="chip open">Open</span></span></div><div class="nt">Two stories or three?</div>
+        <div class="opts"><div class="opt"><span class="r"></span>Two stories<span class="sc">4 for · 0 against</span></div><div class="opt"><span class="r"></span>Three stories<span class="sc">1 for · 3 against</span></div></div>
+        <div class="ev"><span>Evidence</span><span class="evbar"><b style="flex:5"></b><i style="flex:3"></i></span><span>8</span></div>
+        <div class="nf"><span class="avs"><span class="av" style="background:var(--k-q)">CD</span><span class="av" style="background:var(--k-model)">PM</span></span><span>Needs 2 approvals</span><span class="sp">Due Nov 21</span></div></div><div class="cap">Open: options weighed, nothing chosen yet</div></div>
+
+      <div><div class="n dec"><div class="nh"><span class="kd" style="background:var(--k-dec)"></span>Decision<span class="st"><span class="chip lock"><svg viewBox="0 0 24 24" width="11" height="11"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> Locked</span></span></div><div class="nt">Two stories or three?</div>
+        <div class="opts"><div class="opt won"><span class="r"></span>Two stories<span class="sc">Chosen</span></div><div class="opt" style="opacity:.6"><span class="r"></span>Three stories<span class="sc">Not chosen</span></div></div>
+        <div class="ev"><span>Evidence</span><span class="evbar"><b style="flex:5"></b><i style="flex:3"></i></span><span>8</span></div>
+        <div class="nf"><span class="avs"><span class="av" style="background:var(--k-q)">CD</span><span class="av" style="background:var(--k-model)">PM</span></span><span>Approved Nov 21</span><span class="sp">v2</span></div></div><div class="cap">Decided: the choice is shown, and the alternative stays visible</div></div>
+
+      <div><div class="n dec review"><div class="nh"><span class="kd" style="background:var(--k-dec)"></span>Decision<span class="st"><span class="chip open">Review</span></span></div><div class="nt">Waiting room on the south side</div>
+        <div class="opts"><div class="opt won"><span class="r"></span>South, facing the park<span class="sc">Chosen</span></div></div>
+        <div class="ev" style="color:var(--warm)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Evidence changed: daylight study v2</div>
+        <div class="nf"><span>Fed by 3 items</span><span class="sp">Locked Nov 12</span></div></div><div class="cap">Needs review: an input changed after the decision was locked</div></div>
+
+    </div></div>
+  </section>
+
+  <!-- SEMANTIC ZOOM -->
+  <section>
+    <div class="eyebrow">Semantic zoom</div>
+    <h2>Detail grows as you get closer</h2>
+    <p class="lead">Zoomed out, a node is a colored dot and a name, so a project with hundreds of items reads as a map. In the middle you see titles. Close up, you get full previews. This keeps a large canvas both calm and useful, and it carries into the 3D graph, where the far level is the default.</p>
+    <div class="zoomctl"><div class="seg" role="group" aria-label="Zoom level" id="zseg"><button data-z="zfar" aria-pressed="false">Far</button><button data-z="zmid" aria-pressed="false">Middle</button><button data-z="znear" aria-pressed="true">Close</button></div><span class="note" style="font-size:12.5px;color:var(--muted)">Same five nodes at three distances</span></div>
+    <div class="stage zstage"><div class="zfield znear" id="zfield">
+      <svg class="zlinks" id="zlinks"></svg>
+      <div class="zn" data-x="0" data-y="0"><span class="dotlbl"><i style="background:var(--k-metric)"></i>Budget</span><div class="n"><div class="nh"><span class="kd" style="background:var(--k-metric)"></span>Constraint</div><div class="nt">Budget cap $14.2M</div><div class="pv metric" style="padding:8px 10px"><div class="bar" style="margin:0"><b style="width:91%"></b><i style="left:96%"></i></div></div></div></div>
+      <div class="zn" data-x="0" data-y="1"><span class="dotlbl"><i style="background:var(--k-quote)"></i>Daylight request</span><div class="n"><div class="nh"><span class="kd" style="background:var(--k-quote)"></span>Excerpt</div><div class="nt">Client wants daylight</div><div class="pv quote" style="font-size:13px;padding:8px 10px">“Make it bright.”</div></div></div>
+      <div class="zn" data-x="1" data-y=".5"><span class="dotlbl"><i style="background:var(--k-dec)"></i><b style="color:var(--ink)">Two or three stories?</b></span><div class="n dec"><div class="nh"><span class="kd" style="background:var(--k-dec)"></span>Decision<span class="st"><span class="chip open">Open</span></span></div><div class="nt">Two stories or three?</div><div class="opts"><div class="opt"><span class="r"></span>Two</div><div class="opt"><span class="r"></span>Three</div></div><div class="nf"></div></div></div>
+      <div class="zn" data-x="2" data-y="0"><span class="dotlbl"><i style="background:var(--k-model)"></i>Massing A</span><div class="n"><div class="nh"><span class="kd" style="background:var(--k-model)"></span>Model</div><div class="nt">Massing A, two stories</div><div class="pv" style="height:52px;display:grid;place-items:center;font-size:11px;color:var(--muted)">31 ft · 2 levels</div></div></div>
+      <div class="zn" data-x="2" data-y="1"><span class="dotlbl"><i style="background:var(--k-q)"></i>Soil data?</span><div class="n"><div class="nh"><span class="kd" style="background:var(--k-q)"></span>Question</div><div class="nt">Do we have soil data?</div><div class="pv" style="padding:8px 10px;font-size:11.5px;color:var(--muted)">Sent to civil engineer</div></div></div>
+    </div></div>
+  </section>
+
+  <!-- LINKS -->
+  <section>
+    <div class="eyebrow">Links</div>
+    <h2>Links say what they mean, quietly</h2>
+    <p class="lead">Most links are thin and gray. Their meaning shows in the line style and the end mark, not in loud color. Color appears only where it carries meaning (supports, opposes) or when a path is selected. Suggested links are dashed and ask for a decision; they never pose as fact.</p>
+    <div class="linkrows">
+      <div class="lrow"><svg viewBox="0 0 300 56"><defs><marker id="m1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--faint)"/></marker></defs><rect class="mini" x="2" y="14" width="86" height="28" rx="7"/><text class="minit" x="45" y="32" text-anchor="middle">Brief</text><rect class="mini" x="212" y="14" width="86" height="28" rx="7"/><text class="minit" x="255" y="32" text-anchor="middle">Decision</text><path d="M88 28 C150 28 150 28 210 28" stroke="var(--faint)" stroke-width="1.4" fill="none" marker-end="url(#m1)"/></svg><b>Informs</b><p>The default link. A thin line with an arrowhead.</p></div>
+      <div class="lrow"><svg viewBox="0 0 300 56"><defs><marker id="m2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M7 0V10" stroke="var(--ink)" stroke-width="2.4"/></marker></defs><rect class="mini" x="2" y="14" width="86" height="28" rx="7"/><text class="minit" x="45" y="32" text-anchor="middle">Height limit</text><rect class="mini" x="212" y="14" width="86" height="28" rx="7"/><text class="minit" x="255" y="32" text-anchor="middle">Decision</text><path d="M88 28 H208" stroke="var(--ink)" stroke-width="1.6" fill="none" marker-end="url(#m2)"/></svg><b>Constrains</b><p>A darker line ending in a bar, like a wall. Limits read differently from inputs.</p></div>
+      <div class="lrow"><svg viewBox="0 0 300 56"><defs><marker id="m3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--good)"/></marker><marker id="m4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--crit)"/></marker></defs><rect class="mini" x="2" y="2" width="86" height="24" rx="7"/><text class="minit" x="45" y="18" text-anchor="middle">Cost data</text><rect class="mini" x="2" y="30" width="86" height="24" rx="7"/><text class="minit" x="45" y="46" text-anchor="middle">Site photo</text><rect class="mini" x="212" y="14" width="86" height="28" rx="7"/><text class="minit" x="255" y="32" text-anchor="middle">Option: two</text><path d="M88 14 C150 14 150 24 210 24" stroke="var(--good)" stroke-width="1.4" fill="none" marker-end="url(#m3)"/><path d="M88 42 C150 42 150 32 210 32" stroke="var(--crit)" stroke-width="1.4" fill="none" stroke-dasharray="5 3" marker-end="url(#m4)"/></svg><b>Supports · opposes</b><p>Links to an option in a decision. Green means supports; red and dashed means opposes, so it doesn't depend on color alone.</p></div>
+      <div class="lrow"><svg viewBox="0 0 300 56"><rect class="mini" x="2" y="14" width="86" height="28" rx="7"/><text class="minit" x="45" y="32" text-anchor="middle">Study v2</text><rect class="mini" x="212" y="14" width="86" height="28" rx="7" opacity=".55"/><text class="minit" x="255" y="32" text-anchor="middle" opacity=".55">Study v1</text><path d="M88 25 H210 M88 31 H210" stroke="var(--faint)" stroke-width="1.2" fill="none"/></svg><b>Supersedes</b><p>A double line. The older version fades but stays reachable.</p></div>
+      <div class="lrow" style="grid-column:1/-1"><svg viewBox="0 0 640 56" style="height:56px"><rect class="mini" x="2" y="14" width="110" height="28" rx="7"/><text class="minit" x="57" y="32" text-anchor="middle">Geotech email</text><rect class="mini" x="528" y="14" width="110" height="28" rx="7"/><text class="minit" x="583" y="32" text-anchor="middle">Decision</text><path d="M112 28 H526" stroke="var(--accent)" stroke-width="1.4" fill="none" stroke-dasharray="3 5" id="suggPath"/></svg>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:4px"><span class="sugg" id="sugg">Suggested: informs · 0.82 match <button class="y" id="sYes">Keep</button><button id="sNo">Dismiss</button></span><span style="font-size:12.5px;color:var(--muted)" id="sNote">Try it: keep turns it into a confirmed link.</span></div>
+        <b style="display:block;margin-top:8px">Suggested by the assistant</b><p>Dashed and lighter, with a label giving the relation and how close the match is. It stays a suggestion until someone confirms it, so the record stays trustworthy.</p></div>
+    </div>
+  </section>
+
+  <!-- STATES -->
+  <section>
+    <div class="eyebrow">States</div>
+    <h2>One component, eight states</h2>
+    <p class="lead">States change the frame of the node, never its contents, so a node stays recognizable while its situation changes.</p>
+    <div class="stage"><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+      <div><div class="n"><div class="nh"><span class="kd" style="background:var(--k-doc)"></span>Brief</div><div class="nt">Client brief v2</div><div class="nf">At rest</div></div><div class="cap">Default</div></div>
+      <div><div class="n showports" style="border-color:color-mix(in srgb,var(--muted) 55%,var(--line))"><span class="port l"></span><span class="port r"></span><div class="nh"><span class="kd" style="background:var(--k-doc)"></span>Brief</div><div class="nt">Client brief v2</div><div class="nf">Ports show</div></div><div class="cap">Hover</div></div>
+      <div><div class="n sel"><span class="port l" style="opacity:1"></span><span class="port r" style="opacity:1"></span><div class="nh"><span class="kd" style="background:var(--k-doc)"></span>Brief</div><div class="nt">Client brief v2</div><div class="nf">Its links light up</div></div><div class="cap">Selected</div></div>
+      <div><div class="n multi"><div class="nh"><span class="kd" style="background:var(--k-doc)"></span>Brief</div><div class="nt">Client brief v2</div><div class="nf">Shift-click</div></div><div class="cap">In a selection</div></div>
+      <div><div class="n unplaced"><div class="nh"><span class="kd" style="background:var(--faint)"></span>From Outlook</div><div class="nt">Geotech report attached</div><div class="nf"><span class="chip ghost">Suggested: Constraint</span></div></div><div class="cap">Unplaced, from the inbox</div></div>
+      <div><div class="n internal"><div class="nh"><span class="kd" style="background:var(--faint)"></span>Item<span class="st"><svg viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c7 0 11 7 11 7a18 18 0 0 1-3.2 4M6.6 6.6A18 18 0 0 0 1 12s4 7 11 7a10.6 10.6 0 0 0 5.4-1.5"/></svg></span></div><div class="nt">Cost data, past clinics</div><div class="nf">Never shown to clients</div></div><div class="cap">Internal</div></div>
+      <div><div class="n review"><div class="nh"><span class="kd" style="background:var(--k-doc)"></span>Study<span class="st"><span class="chip open">Changed</span></span></div><div class="nt">Daylight study v2</div><div class="nf">2 decisions to review</div></div><div class="cap">Changed after use</div></div>
+      <div><div class="n dim"><div class="nh"><span class="kd" style="background:var(--k-doc)"></span>Brief</div><div class="nt">Client brief v2</div><div class="nf">Not related</div></div><div class="cap">Faded while another is selected</div></div>
+    </div></div>
+  </section>
+
+  <!-- UI SHELL -->
+  <section>
+    <div class="eyebrow">Overall UI</div>
+    <h2>Calm frame, content in the middle</h2>
+    <p class="lead">The frame takes as little room as possible. The rail is icons only, the inspector opens on demand, and the ask bar floats. Three views share one selection: Canvas, Decisions and Graph. The perspective menu sets who the screen is being prepared for.</p>
+    <div class="shell">
+      <div class="sbar"><div class="pn">Harbor Street Clinic<small>Early design</small></div>
+        <div class="vsw"><span class="on">Canvas</span><span>Decisions</span><span>Graph</span></div>
+        <span class="persp"><i></i>Perspective: Team ▾</span></div>
+      <div class="sbody">
+        <div class="srail">
+          <span title="Inbox"><svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/></svg><em>3</em></span>
+          <span class="on" title="Canvas"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 17.5h7M17.5 14v7"/></svg></span>
+          <span title="Kinds"><svg viewBox="0 0 24 24"><circle cx="7" cy="7" r="3"/><rect x="14" y="4" width="6" height="6" rx="1"/><path d="M7 14l3 6H4z"/><circle cx="17" cy="17" r="3"/></svg></span>
+          <span title="Sources"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>
+          <span title="People"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-6 7-6s7 2.5 7 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M22 20c0-3-2-5-4.5-5.7"/></svg></span>
+        </div>
+        <div class="scanvas" id="shellCanvas">
+          <svg style="position:absolute;inset:0;width:100%;height:100%;overflow:visible" aria-hidden="true"><defs><marker id="sa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--accent)"/></marker><marker id="sc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M7 0V10" stroke="var(--accent)" stroke-width="2.4"/></marker></defs>
+            <path d="M234 92 C 280 92 280 210 318 210" stroke="var(--accent)" stroke-width="1.6" fill="none" marker-end="url(#sc)"/>
+            <path d="M234 300 C 280 300 280 236 318 236" stroke="var(--accent)" stroke-width="1.6" fill="none" marker-end="url(#sa)"/>
+            <path d="M572 120 C 560 120 566 210 552 214" stroke="var(--accent)" stroke-width="1.4" fill="none" stroke-dasharray="3 5"/>
+          </svg>
+          <div class="n" style="left:24px;top:28px"><div class="nh"><span class="kd" style="background:var(--k-metric)"></span>Constraint</div><div class="nt">Budget cap $14.2M</div><div class="pv metric" style="height:auto;padding:8px 10px"><div class="bar" style="margin:0"><b style="width:91%"></b><i style="left:96%"></i></div><div class="bar-l"><span>$13.6M est.</span><span>cap</span></div></div><div class="nf" style="padding-bottom:9px">board minutes</div></div>
+          <div class="n" style="left:24px;top:226px"><div class="nh"><span class="kd" style="background:var(--k-quote)"></span>Excerpt</div><div class="nt">Client wants daylight</div><div class="pv quote" style="height:auto;font-size:14px;padding:9px 11px">“Make it bright.”</div><div class="nf" style="padding-bottom:9px">email, Oct 28</div></div>
+          <div class="n dec sel" style="left:320px;top:150px;width:232px"><div class="nh"><span class="kd" style="background:var(--k-dec)"></span>Decision<span class="st"><span class="chip open">Open</span></span></div><div class="nt">Two stories or three?</div><div class="opts"><div class="opt"><span class="r"></span>Two stories</div><div class="opt"><span class="r"></span>Three stories</div></div><div class="ev"><span class="evbar"><b style="flex:5"></b><i style="flex:3"></i></span><span>8</span></div><div class="nf">Needs 2 approvals</div></div>
+          <div class="n unplaced" style="left:572px;top:70px;width:180px"><div class="nh"><span class="kd" style="background:var(--faint)"></span>From Outlook</div><div class="nt">Geotech report</div><div class="nf"><span class="chip ghost">Suggested link</span></div></div>
+          <div class="n dim" style="left:572px;top:330px;width:180px"><div class="nh"><span class="kd" style="background:var(--k-photo)"></span>Photo</div><div class="nt">Site, south edge</div><div class="nf">Not related</div></div>
+          <div class="askpill">Ask about this project<b>Ask</b></div>
+        </div>
+        <div class="sinsp">
+          <div><div class="nh" style="padding:0"><span class="kd" style="background:var(--k-dec)"></span>Decision · <span class="chip open">Open</span></div><h4 style="margin-top:6px">Two stories or three?</h4></div>
+          <div><div class="lab">Question</div>Which massing fits the height limit and budget while giving daylight to the waiting room?</div>
+          <div><div class="lab">Options</div><div style="display:flex;flex-direction:column;gap:5px"><div class="row">Two stories<span class="r2">4 for · 0 against</span></div><div class="row">Three stories<span class="r2">1 for · 3 against</span></div></div></div>
+          <div><div class="lab">Fed by</div><div style="display:flex;flex-direction:column;gap:5px"><div class="row"><span class="kd" style="background:var(--k-metric)"></span>Budget cap<span class="r2">constrains</span></div><div class="row"><span class="kd" style="background:var(--k-quote)"></span>Daylight request<span class="r2">informs</span></div></div></div>
+          <div class="layer"><span>Open in Decisions view</span><span>→</span></div>
+          <div class="layer"><span>Details · Under the hood</span><span>›</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DECISION LAYOUTS -->
+  <section>
+    <div class="eyebrow">Decisions view</div>
+    <h2>Each decision gets the layout that suits it</h2>
+    <p class="lead">A decision is more than its inputs in one place. Its kind, or a template, picks a layout that suits the choice: a comparison for weighing options, a dashboard for live conditions, a record for what has to hold up later. All three draw on the same data, so a decision can switch layouts without losing anything. The drone dashboard a teammate is designing would be one of these layouts.</p>
+    <div class="layouts">
+      <div class="lay"><div><h3>Compare</h3><div class="for">For weighing options against criteria</div></div>
+        <table class="cmp"><thead><tr><th>Criterion</th><th>Two stories</th><th>Three stories</th></tr></thead><tbody><tr><td>Height (≤45 ft)</td><td class="w">31 ft</td><td>44 ft</td></tr><tr><td>Cost vs $14.2M</td><td class="w">$13.6M</td><td>$14.9M</td></tr><tr><td>Elevators</td><td class="w">1</td><td>2</td></tr><tr><td>Waiting daylight</td><td class="w">South, ground</td><td>North, L2</td></tr></tbody></table>
+        <div class="ev" style="margin:0"><span>Evidence</span><span class="evbar"><b style="flex:5"></b><i style="flex:3"></i></span><span>5 for · 3 against</span></div></div>
+      <div class="lay"><div><h3>Dashboard</h3><div class="for">For decisions that depend on live conditions</div></div>
+        <div class="tiles"><div class="tile"><small>Estimate vs cap</small><b>96%</b></div><div class="tile"><small>Open questions</small><b>2</b></div><div class="tile"><small>Cost index, 12 mo</small><b>+6.1%</b></div><div class="tile"><small>Days to approval</small><b>7</b></div></div>
+        <svg viewBox="0 0 280 60" style="width:100%;height:auto" role="img" aria-label="Estimate trending toward the cap"><line x1="0" y1="14" x2="280" y2="14" stroke="var(--crit)" stroke-dasharray="4 4" stroke-width="1"/><text x="276" y="10" text-anchor="end" font-size="9.5" fill="var(--crit)" font-family="var(--sans)">cap $14.2M</text><path d="M0 50 L40 46 L80 40 L120 36 L160 30 L200 26 L240 22 L278 20" fill="none" stroke="var(--accent)" stroke-width="2"/><circle cx="278" cy="20" r="3" fill="var(--accent)"/></svg>
+        <div class="for">The drone team's flight dashboard is this kind of layout.</div></div>
+      <div class="lay"><div><h3>Record</h3><div class="for">For what has to be explained later, or to a client</div></div>
+        <div class="tl"><div><small>Nov 6</small><i></i><span>Both options compared at the design meeting</span></div><div><small>Nov 12</small><i></i><span>Cost check: three stories over the cap by $0.7M</span></div><div><small>Nov 21</small><i class="on"></i><span><b>Two stories chosen</b>, approved by the clinic director and PM</span></div></div>
+        <div style="background:var(--well);border-radius:9px;padding:10px 11px;font-size:12.5px;line-height:1.45"><div class="lab" style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:3px">Client summary · approved</div>Two stories keeps the clinic under the height limit and the budget, and puts the waiting room on the sunny park side.</div></div>
+    </div>
+    <div class="notes">
+      <div><b>Same data underneath</b>The question, options, evidence for and against, approvers and history all live in one record, whatever the layout.</div>
+      <div><b>The layout is part of the kind</b>A team chooses or builds a layout when it defines a kind of decision. A template can ship one, as the drone template would.</div>
+      <div><b>A client summary, not hidden counts</b>Clients see a summary someone approved. Nothing tells them that internal inputs exist.</div>
+    </div>
+  </section>
+
+  <div class="foot">Visual references: FLORA and Figma Weave (content-first canvas), Rive and Origami (compact node language), TouchDesigner (live previews), Kumu and Neo4j Bloom (filtering and perspectives). All data on this page is invented.</div>
+</div>
+
+<script>
+/* semantic zoom */
+const field=document.getElementById("zfield"),zl=document.getElementById("zlinks");
+const LINKS=[[0,2],[1,2],[2,3],[2,4]];
+function placeZoom(){
+  const z=field.className.split(" ").find(c=>c.startsWith("z")&&c!=="zfield");
+  const W=field.clientWidth,H=field.clientHeight,nodes=[...field.querySelectorAll(".zn")];
+  const colW={zfar:.22,zmid:.32,znear:.38}[z],cx=[W*(.5-colW),W*.5,W*(.5+colW)];
+  const rowH={zfar:.16,zmid:.26,znear:.34}[z];
+  nodes.forEach(n=>{const x=cx[+n.dataset.x],y=H*(.5+(+n.dataset.y-.5)*rowH*2);n.style.left=x+"px";n.style.top=y+"px";n.style.transform="translate(-50%,-50%)"});
+  requestAnimationFrame(()=>setTimeout(()=>{
+    const r=field.getBoundingClientRect();let d="";
+    LINKS.forEach(([a,b])=>{const A=nodes[a].getBoundingClientRect(),B=nodes[b].getBoundingClientRect();
+      const x1=A.right-r.left,y1=A.top+A.height/2-r.top,x2=B.left-r.left,y2=B.top+B.height/2-r.top;
+      const [s,e]=a<b?[[x1,y1],[x2,y2]]:[[x2,y2],[x1,y1]];const k=(e[0]-s[0])/2;
+      d+=`<path d="M${s[0]} ${s[1]} C${s[0]+k} ${s[1]} ${e[0]-k} ${e[1]} ${e[0]} ${e[1]}" stroke="var(--faint)" stroke-width="1.3" fill="none"/>`});
+    zl.innerHTML=d},380));
+}
+document.getElementById("zseg").onclick=e=>{const b=e.target.closest("button");if(!b)return;document.querySelectorAll("#zseg button").forEach(x=>x.setAttribute("aria-pressed",x===b));field.className="zfield "+b.dataset.z;placeZoom()};
+window.addEventListener("resize",placeZoom);placeZoom();
+
+/* suggested link */
+const sp=document.getElementById("suggPath"),sg=document.getElementById("sugg"),sn=document.getElementById("sNote");
+document.getElementById("sYes").onclick=()=>{sp.setAttribute("stroke-dasharray","");sp.setAttribute("stroke","var(--faint)");sg.innerHTML='<span style="color:var(--good);font-weight:500">Confirmed: informs</span> <button id="sUndo">Undo</button>';sn.textContent="Now a normal link, with who confirmed it kept in its history.";document.getElementById("sUndo").onclick=reset};
+document.getElementById("sNo").onclick=()=>{sp.style.opacity=0;sg.innerHTML='<span style="color:var(--muted)">Dismissed. It won\'t be suggested again.</span> <button id="sUndo">Undo</button>';sn.textContent="";document.getElementById("sUndo").onclick=reset};
+function reset(){location.reload()}
+</script>
