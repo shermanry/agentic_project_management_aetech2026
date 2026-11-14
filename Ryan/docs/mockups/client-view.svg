@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 580" width="960" height="580" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="960" height="580" rx="0" fill="#f6f7f9" stroke="none" stroke-width="1"/>
+<rect x="0" y="0" width="960" height="44" rx="0" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<text x="16" y="28" font-size="14" fill="#1f2933" font-weight="600" text-anchor="start">East Tower facade survey</text>
+<rect x="891.6" y="12" width="52.400000000000006" height="20" rx="10" fill="#2563eb" stroke="none" stroke-width="1"/>
+<text x="917.8000000000001" y="26" font-size="11" fill="#fff" font-weight="600" text-anchor="middle">Client</text>
+<rect x="775.6" y="12" width="110.0" height="20" rx="10" fill="#e8ecf0" stroke="none" stroke-width="1"/>
+<text x="830.6" y="26" font-size="11" fill="#66788a" font-weight="600" text-anchor="middle">Project manager</text>
+<rect x="723.6" y="12" width="46.0" height="20" rx="10" fill="#e8ecf0" stroke="none" stroke-width="1"/>
+<text x="746.6" y="26" font-size="11" fill="#66788a" font-weight="600" text-anchor="middle">Pilot</text>
+<text x="713.6" y="27" font-size="11" fill="#66788a" text-anchor="end">View as:</text>
+<text x="300" y="28" font-size="11.5" fill="#66788a" text-anchor="start">Read-only</text>
+<rect x="12" y="56" width="306" height="96" rx="6" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<rect x="12" y="56" width="6" height="96" rx="3" fill="#f59e0b" stroke="none" stroke-width="1"/>
+<text x="32" y="80" font-size="10.5" fill="#66788a" font-weight="600" text-anchor="start">NEXT FLIGHT</text>
+<text x="32" y="108" font-size="17" fill="#1f2933" font-weight="600" text-anchor="start">Mon 23 Nov, 8–11am</text>
+<text x="32" y="132" font-size="11" fill="#66788a" text-anchor="start">Moved from Thu: wind over safe limit</text>
+<rect x="326" y="56" width="306" height="96" rx="6" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<rect x="326" y="56" width="6" height="96" rx="3" fill="#16a34a" stroke="none" stroke-width="1"/>
+<text x="346" y="80" font-size="10.5" fill="#66788a" font-weight="600" text-anchor="start">PROGRESS</text>
+<text x="346" y="108" font-size="17" fill="#1f2933" font-weight="600" text-anchor="start">4 of 9 flights done</text>
+<text x="346" y="132" font-size="11" fill="#66788a" text-anchor="start">On track for 18 Dec handover</text>
+<rect x="640" y="56" width="306" height="96" rx="6" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<rect x="640" y="56" width="6" height="96" rx="3" fill="#dc2626" stroke="none" stroke-width="1"/>
+<text x="660" y="80" font-size="10.5" fill="#66788a" font-weight="600" text-anchor="start">WAITING ON YOU</text>
+<text x="660" y="108" font-size="17" fill="#1f2933" font-weight="600" text-anchor="start">1 question</text>
+<text x="660" y="132" font-size="11" fill="#66788a" text-anchor="start">RFI #12: confirm mullion spacing</text>
+<rect x="12" y="162" width="600" height="406" rx="6" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<text x="24" y="186" font-size="10.5" fill="#66788a" font-weight="600" text-anchor="start">WHY THINGS CHANGED</text>
+<line x1="40" y1="204" x2="40" y2="548" stroke="#d5dbe1" stroke-width="2"/>
+<circle cx="40" cy="228" r="6" fill="#2563eb"/>
+<text x="58" y="220" font-size="10" fill="#66788a" text-anchor="start">Today</text>
+<text x="58" y="238" font-size="12.5" fill="#1f2933" font-weight="600" text-anchor="start">Thursday&#x27;s flight moved to Monday</text>
+<text x="58" y="256" font-size="11" fill="#66788a" text-anchor="start">Wind forecast is above the safe limit for facade passes.</text>
+<text x="58" y="272" font-size="10" fill="#66788a" text-anchor="start">Decided by: pilot, approved by project manager</text>
+<text x="596" y="238" font-size="10.5" fill="#2563eb" font-weight="600" text-anchor="end">See evidence →</text>
+<circle cx="40" cy="314" r="6" fill="#2563eb"/>
+<text x="58" y="306" font-size="10" fill="#66788a" text-anchor="start">Today</text>
+<text x="58" y="324" font-size="12.5" fill="#1f2933" font-weight="600" text-anchor="start">Safe wind limit lowered to 20 mph</text>
+<text x="58" y="342" font-size="11" fill="#66788a" text-anchor="start">A wind simulation showed gusts funnel along the east face.</text>
+<text x="58" y="358" font-size="10" fill="#66788a" text-anchor="start">Decided by: pilot</text>
+<text x="596" y="324" font-size="10.5" fill="#2563eb" font-weight="600" text-anchor="end">See evidence →</text>
+<circle cx="40" cy="400" r="6" fill="#2563eb"/>
+<text x="58" y="392" font-size="10" fill="#66788a" text-anchor="start">Fri</text>
+<text x="58" y="410" font-size="12.5" fill="#1f2933" font-weight="600" text-anchor="start">Extra observation point added on the north side</text>
+<text x="58" y="428" font-size="11" fill="#66788a" text-anchor="start">Answers your question about the level 14 corner (RFI #9).</text>
+<text x="58" y="444" font-size="10" fill="#66788a" text-anchor="start">Decided by: pilot</text>
+<text x="596" y="410" font-size="10.5" fill="#2563eb" font-weight="600" text-anchor="end">See evidence →</text>
+<circle cx="40" cy="486" r="6" fill="#2563eb"/>
+<text x="58" y="478" font-size="10" fill="#66788a" text-anchor="start">6 Nov</text>
+<text x="58" y="496" font-size="12.5" fill="#1f2933" font-weight="600" text-anchor="start">Flights now every 2 weeks</text>
+<text x="58" y="514" font-size="11" fill="#66788a" text-anchor="start">Requested in your email of 6 Nov.</text>
+<text x="58" y="530" font-size="10" fill="#66788a" text-anchor="start">Decided by: project manager</text>
+<text x="596" y="496" font-size="10.5" fill="#2563eb" font-weight="600" text-anchor="end">See evidence →</text>
+<rect x="622" y="162" width="326" height="240" rx="6" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<text x="634" y="186" font-size="10.5" fill="#66788a" font-weight="600" text-anchor="start">ASK ABOUT THIS PROJECT</text>
+<rect x="634" y="198" width="302" height="34" rx="6" fill="#eef4ff" stroke="none" stroke-width="1"/>
+<text x="644" y="219" font-size="11" fill="#1f2933" text-anchor="start">Will the delay affect the handover date?</text>
+<rect x="634" y="240" width="302" height="110" rx="6" fill="#fafbfc" stroke="#d5dbe1" stroke-width="1"/>
+<text x="644" y="260" font-size="10.5" fill="#1f2933" text-anchor="start">No. Monday&#x27;s window keeps all 9 flights</text>
+<text x="644" y="277" font-size="10.5" fill="#1f2933" text-anchor="start">inside the schedule. Handover stays 18 Dec.</text>
+<text x="644" y="294" font-size="10.5" fill="#66788a" text-anchor="start"></text>
+<text x="644" y="311" font-size="10.5" fill="#66788a" text-anchor="start">Based on: schedule rev 14, weather forecast,</text>
+<text x="644" y="328" font-size="10.5" fill="#66788a" text-anchor="start">flight plan v3.</text>
+<rect x="634" y="360" width="240" height="30" rx="6" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<text x="644" y="379" font-size="11" fill="#66788a" text-anchor="start">Type a question…</text>
+<rect x="882" y="363" width="54" height="24" rx="5" fill="#2563eb" stroke="#2563eb" stroke-width="1"/>
+<text x="909.0" y="379" font-size="11" fill="#fff" font-weight="600" text-anchor="middle">Ask</text>
+<rect x="622" y="412" width="326" height="156" rx="6" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<text x="634" y="436" font-size="10.5" fill="#66788a" font-weight="600" text-anchor="start">LATEST DELIVERABLES</text>
+<text x="634" y="462" font-size="11.5" fill="#1f2933" font-weight="600" text-anchor="start">Facade model, flights 1–4</text>
+<text x="634" y="478" font-size="10" fill="#66788a" text-anchor="start">3D model · updated Fri</text>
+<text x="936" y="462" font-size="10.5" fill="#2563eb" font-weight="600" text-anchor="end">Open ↗</text>
+<text x="634" y="498" font-size="11.5" fill="#1f2933" font-weight="600" text-anchor="start">Progress report #2</text>
+<text x="634" y="514" font-size="10" fill="#66788a" text-anchor="start">PDF · prepared by agent, reviewed by PM</text>
+<text x="936" y="498" font-size="10.5" fill="#2563eb" font-weight="600" text-anchor="end">Open ↗</text>
+<text x="634" y="534" font-size="11.5" fill="#1f2933" font-weight="600" text-anchor="start">Photo set: east face</text>
+<text x="634" y="550" font-size="10" fill="#66788a" text-anchor="start">214 images</text>
+<text x="936" y="534" font-size="10.5" fill="#2563eb" font-weight="600" text-anchor="end">Open ↗</text>
+</svg>

@@ -17,7 +17,7 @@ All paths below are relative to the repo root.
 
 ## What this is and who depends on it
 
-Part of the drone-project knowledge-graph hackathon project (see `PROJECT_BRIEF.md`; on `main` it has moved to `Ryan/PROJECT_BRIEF.md`). This module is only the **converter**: any dropped file becomes a Universal Embedding Package (UEP) folder (`manifest.json` + `chunks.jsonl` + `assets/`). Teammates build **embedding** and **graph** on top of those packages.
+Part of the drone-project knowledge-graph hackathon project (see `Ryan/PROJECT_BRIEF.md`). This module is only the **converter**: any dropped file becomes a Universal Embedding Package (UEP) folder (`manifest.json` + `chunks.jsonl` + `assets/`). Teammates build **embedding** and **graph** on top of those packages.
 
 - **The package format is a contract.** Teammates read `manifest.json`, `chunks.jsonl` and `converter_output/index.jsonl`. Adding fields is fine. Renaming or removing fields, or changing the meaning of `id` / `role` / `locator` / `links`, breaks them. If you must, bump `SCHEMA_VERSION` in `core.py` and update `converter/README.md`.
 - **Local and offline by design.** No model calls, no network calls. Anything needing a model (OCR, captions, model tags, transcripts beyond faster-whisper) is left as an explicit `pending` field for downstream. Keep it that way unless the team decides otherwise.

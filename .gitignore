@@ -1,3 +1,10 @@
+# secrets (from main)
+.env
+.env.*
+!.env.example
+*.key
+
+# converter
 .venv/
 __pycache__/
 *.pyc
