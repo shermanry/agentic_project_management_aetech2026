@@ -1,6 +1,6 @@
 """Ask the project a question. Answers come only from what is in the graph, and say which parts were used.
 
-    question -> embed -> pgvector search over every chunk (node cards + document passages)
+    question -> embed -> hybrid search (pgvector meaning + Postgres keywords) over every chunk (node cards + document passages)
              -> add the open flags on the graph (why something is blocked or at risk)
              -> Jev answers from those numbered sources and quotes the words it relied on
              -> the UI highlights the cited nodes on the graph and the quoted words in each passage
@@ -14,7 +14,7 @@ import llm
 from pipeline import embeddings
 from store import Store
 
-TOP_K, PER_NODE, MAX_SOURCES, MAX_CHARS = 30, 6, 12, 1500
+TOP_K, PER_NODE, MAX_SOURCES, MAX_CHARS = 36, 10, 12, 1500
 
 SYSTEM = """You answer questions about a drone survey project using ONLY the numbered SOURCES provided.
 Sources are passages from project documents, node summaries, and current status flags from the project graph.
@@ -52,7 +52,7 @@ def ask(question: str, store: Store) -> dict:
     timings["embed"] = round(time.time() - t, 2)
 
     t = time.time()
-    hits = store.search(qvec, embeddings.model_id(), TOP_K)
+    hits = store.search_hybrid(question, qvec, embeddings.model_id(), TOP_K)   # meaning + keywords
     nodes = {n["id"]: n for n in store.nodes()}
     timings["search"] = round(time.time() - t, 2)
 
@@ -65,7 +65,8 @@ def ask(question: str, store: Store) -> dict:
         n = nodes[h["node_id"]]
         sources.append({"kind": "summary" if h["role"] == "card" else "passage", "node_id": n["id"], "title": n["title"],
                         "type": n["type"], "status": n["status"], "locator": _locator(h["pointer"]),
-                        "text": _norm(h["text"])[:MAX_CHARS], "similarity": round(h["sim"], 3)})
+                        "text": _norm(h["text"])[:MAX_CHARS], "similarity": round(h["sim"], 3) if h["sim"] is not None else None,
+                        "matched": h["matched"]})
     for f in store.flags()[:6]:                     # why things are blocked, at risk or re-opened right now
         n = nodes.get(f["node_id"])
         if n:

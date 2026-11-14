@@ -63,6 +63,7 @@ class Store:
             for table, f in (("nodes", "001_schema.sql"), ("intake_items", "010_northstar.sql")):
                 if c.execute("SELECT to_regclass(%s) AS t", (f"public.{table}",)).fetchone()["t"] is None:
                     c.execute((DB_DIR / f).read_text())
+            c.execute((DB_DIR / "020_search.sql").read_text())      # idempotent indexes
             c.execute("INSERT INTO projects (id, name) VALUES (%s, %s) ON CONFLICT (id) DO NOTHING",
                       (self.project["id"], self.project["name"]))
 
@@ -144,6 +145,111 @@ class Store:
             FROM chunks c JOIN node_head h ON h.id = c.node_version_id JOIN nodes n ON n.id = h.node_id
             WHERE c.embedding IS NOT NULL AND c.embedding_model = %s AND n.project_id = %s AND n.status = 'confirmed'
             ORDER BY c.embedding <=> %s::vector LIMIT %s""", (_vec(vector), model, self.project["id"], _vec(vector), k))
+
+    # ---------------------------------------------------------------- hybrid search, node detail, neighbours
+    _OR_QUERY = "replace(plainto_tsquery('english', %s)::text, '&', '|')::tsquery"      # any of the words, ranked
+
+    def _node_filter(self, types, owner, since) -> tuple[str, list]:
+        sql, args = "n.project_id = %s AND n.status = 'confirmed'", [self.project["id"]]
+        if types:
+            sql += " AND n.type = ANY (%s)"; args.append(list(types))
+        if owner:
+            sql += " AND n.owner_id IN (SELECT id FROM users WHERE lower(name) = lower(%s))"; args.append(owner)
+        if since:
+            sql += " AND n.created_at >= %s::timestamptz"; args.append(since)
+        return sql, args
+
+    def search_hybrid(self, text: str, vector: list[float] | None, model: str | None, k: int = 30,
+                      types=None, owner: str | None = None, since: str | None = None) -> list[dict]:
+        """Chunks ranked by meaning (pgvector) and by keywords (Postgres full-text), fused with reciprocal rank.
+        Either side can be missing: no vector -> keywords only; no words that match -> meaning only."""
+        where, wargs = self._node_filter(types, owner, since)
+        base = "FROM chunks c JOIN node_head h ON h.id = c.node_version_id JOIN nodes n ON n.id = h.node_id WHERE " + where
+        pool = max(k * 2, 40)
+        hits: dict[int, dict] = {}
+        if vector and model:
+            for rank, r in enumerate(self._q(f"""
+                    SELECT c.id, n.id::text AS node_id, c.role, c.text, c.pointer, 1 - (c.embedding <=> %s::vector) AS sim
+                    {base} AND c.embedding IS NOT NULL AND c.embedding_model = %s
+                    ORDER BY c.embedding <=> %s::vector LIMIT %s""", [_vec(vector), *wargs, model, _vec(vector), pool]), 1):
+                hits[r["id"]] = {**r, "sim": float(r["sim"]), "kw": None, "snippet": None, "score": 1 / (60 + rank), "matched": ["meaning"]}
+        if text.strip():
+            for rank, r in enumerate(self._q(f"""
+                    WITH q AS (SELECT {self._OR_QUERY} AS tsq)
+                    SELECT c.id, n.id::text AS node_id, c.role, c.text, c.pointer,
+                           ts_rank_cd(to_tsvector('english', c.text), q.tsq) AS kw,
+                           ts_headline('english', c.text, q.tsq, 'MaxFragments=1,MaxWords=45,MinWords=20,StartSel=[[,StopSel=]]') AS snippet
+                    {base.replace('FROM chunks c', 'FROM q, chunks c')} AND to_tsvector('english', c.text) @@ q.tsq
+                    ORDER BY kw DESC LIMIT %s""", [text, *wargs, pool]), 1):
+                h = hits.get(r["id"])
+                if h:
+                    h.update(kw=float(r["kw"]), snippet=r["snippet"], score=h["score"] + 1 / (60 + rank), matched=["meaning", "keyword"])
+                else:
+                    hits[r["id"]] = {**r, "sim": None, "kw": float(r["kw"]), "score": 1 / (60 + rank), "matched": ["keyword"]}
+        return sorted(hits.values(), key=lambda h: h["score"], reverse=True)[:k]
+
+    def list_nodes(self, types=None, owner=None, since=None, limit: int = 50) -> list[str]:
+        where, wargs = self._node_filter(types, owner, since)
+        return [r["id"] for r in self._q(f"SELECT n.id::text AS id FROM nodes n WHERE {where} ORDER BY n.created_at DESC LIMIT %s", [*wargs, limit])]
+
+    def node_detail(self, node_id: str, limit: int = 50, offset: int = 0) -> dict | None:
+        nodes = {n["id"]: n for n in self.nodes()}
+        n = nodes.get(str(node_id))
+        if not n:
+            return None
+        nid = int(node_id)
+        brief = lambda i: {k: nodes[i][k] for k in ("id", "title", "type", "status", "owner")} if i in nodes else {"id": i}
+        text, _ = self.node_text(node_id)
+        total = self._q("""SELECT count(*) AS c FROM chunks c JOIN node_head h ON h.id = c.node_version_id
+                           WHERE h.node_id = %s AND c.role <> 'card'""", (nid,))[0]["c"]
+        passages = self._q("""SELECT c.idx, c.role, c.modality, c.text, c.pointer FROM chunks c JOIN node_head h ON h.id = c.node_version_id
+                              WHERE h.node_id = %s AND c.role <> 'card' ORDER BY c.idx LIMIT %s OFFSET %s""", (nid, limit, offset))
+        edges = self._q("""SELECT id::text AS id, from_node::text AS src, to_node::text AS dst, type, reason, confidence, origin
+                           FROM edges WHERE status = 'accepted' AND (from_node = %s OR to_node = %s) ORDER BY id""", (nid, nid))
+        history = self._q("""SELECT e.id AS seq, extract(epoch FROM e.at)::float AS at, u.name AS actor, e.verb AS kind, e.payload
+                             FROM events e JOIN users u ON u.id = e.actor_id
+                             WHERE e.project_id = %s AND (e.object_id = %s OR e.payload->>'node_id' = %s
+                                   OR e.payload->'effects' @> %s::jsonb) ORDER BY e.id DESC LIMIT 50""",
+                          (self.project["id"], nid, str(node_id), json.dumps([{"node_id": str(node_id)}])))
+        for h in history:
+            h["title"], h["reason"] = h["payload"].get("title", h["kind"]), h["payload"].get("reason", "")
+        flags = [f for f in self.flags() if f["node_id"] == str(node_id)]
+        raised = [{**brief(t), "because": n["title"]} for t in self.caused().get(str(node_id), [])]
+        d = n.get("data") or {}
+        return {"node": {**n, "text": text},
+                "source": {"kind": "file" if d.get("package_id") else ("message" if d.get("source") == "message" else "seed"),
+                           "name": d.get("source"), "added_by": d.get("added_by"), "package_id": d.get("package_id"), "item_id": d.get("item_id")},
+                "passages": {"total": total, "offset": offset, "items": passages},
+                "links_out": [{**e, "node": brief(e["dst"])} for e in edges if e["src"] == str(node_id)],
+                "links_in": [{**e, "node": brief(e["src"])} for e in edges if e["dst"] == str(node_id)],
+                "flags": flags, "raised": raised, "history": history}
+
+    _STEPS = {   # (src, dst): following an edge from src reaches dst
+        "affects": """SELECT to_node AS src, from_node AS dst, id, type FROM edges WHERE type = 'depends_on' AND status = 'accepted' AND project_id = %(p)s
+                      UNION ALL SELECT from_node, to_node, id, type FROM edges WHERE type = 'blocks' AND status = 'accepted' AND project_id = %(p)s""",
+        "rests_on": """SELECT from_node AS src, to_node AS dst, id, type FROM edges WHERE type = 'depends_on' AND status = 'accepted' AND project_id = %(p)s
+                       UNION ALL SELECT to_node, from_node, id, type FROM edges WHERE type = 'blocks' AND status = 'accepted' AND project_id = %(p)s""",
+        "any": """SELECT from_node AS src, to_node AS dst, id, type FROM edges WHERE status = 'accepted' AND project_id = %(p)s
+                  UNION ALL SELECT to_node, from_node, id, type FROM edges WHERE status = 'accepted' AND project_id = %(p)s""",
+    }
+
+    def neighbours(self, node_id: str, direction: str = "any", depth: int = 2) -> list[dict]:
+        """Walk the graph in the database (recursive query). affects = what would be hit if this changed;
+        rests_on = what this depends on; any = plain neighbourhood. Returns each node once, at its shortest distance."""
+        rows = self._q(f"""
+            WITH RECURSIVE step AS ({self._STEPS[direction]}),
+            walk(id, depth, via, edge_type, path) AS (
+                SELECT %(id)s::bigint, 0, NULL::bigint, NULL::text, ARRAY[%(id)s::bigint]
+                UNION ALL
+                SELECT s.dst, w.depth + 1, w.id, s.type, w.path || s.dst
+                FROM walk w JOIN step s ON s.src = w.id
+                WHERE w.depth < %(depth)s AND NOT s.dst = ANY (w.path))
+            SELECT DISTINCT ON (id) id::text AS id, depth, via::text AS via, edge_type, array_to_string(path, '>') AS path
+            FROM walk WHERE depth > 0 ORDER BY id, depth""", {"p": self.project["id"], "id": int(node_id), "depth": depth})
+        nodes = {n["id"]: n for n in self.nodes()}
+        out = [{**{k: nodes[r["id"]][k] for k in ("id", "title", "type", "status", "owner")}, "depth": r["depth"], "via": r["via"],
+                "edge_type": r["edge_type"], "path": r["path"].split(">")} for r in rows if r["id"] in nodes]
+        return sorted(out, key=lambda r: (r["depth"], r["title"]))
 
     def flags(self) -> list[dict]:
         """Open attention flags, newest first: which node, what status, why, and which node caused it."""

@@ -292,6 +292,75 @@ def ask(q: Question) -> dict:
         raise HTTPException(502, f"Could not answer: {str(e)[:200]}")
 
 
+def _csv(v: str) -> list[str]:
+    return [x.strip() for x in v.split(",") if x.strip()]
+
+
+@app.get("/api/search")
+def search(q: str = "", type: str = "", owner: str = "", since: str = "", k: int = 10, passages: int = 3) -> dict:
+    """Find nodes without calling a model. Combines meaning (embeddings) and keywords, with optional filters:
+    type=decision,blocker  owner=Mary  since=2026-11-14. With no q it lists matching nodes, newest first."""
+    t0 = now()
+    k, passages = max(1, min(k, 50)), max(0, min(passages, 10))
+    types = _csv(type)
+    bad = [t for t in types if t not in NODE_TYPES]
+    if bad:
+        raise HTTPException(400, f"unknown type {bad}; use {NODE_TYPES}")
+    nodes = {n["id"]: n for n in store.nodes()}
+    brief = lambda n: {x: n[x] for x in ("id", "title", "type", "status", "state", "owner", "summary", "tags")}
+    try:
+        if not q.strip():
+            ids = store.list_nodes(types, owner or None, since or None, k)
+            return {"query": "", "mode": "list", "seconds": round(now() - t0, 3),
+                    "results": [{"node": brief(nodes[i]), "score": None, "matched": [], "passages": []} for i in ids if i in nodes]}
+        mode, vec, model = "hybrid", None, None
+        try:
+            vec, model = pipeline.embeddings.embed(q[:1000], kind="query")[0], pipeline.embeddings.model_id()
+        except Exception:
+            mode = "keyword"                                   # embedding server unreachable: keywords still work
+        hits = store.search_hybrid(q[:1000], vec, model, k * 6, types, owner or None, since or None)
+    except Exception as e:
+        raise HTTPException(400, f"search failed: {str(e)[:160]}")
+    grouped: dict[str, dict] = {}
+    for h in hits:
+        n = nodes.get(h["node_id"])
+        if not n:
+            continue
+        g = grouped.setdefault(n["id"], {"node": brief(n), "score": 0.0, "matched": set(), "passages": []})
+        g["score"] = max(g["score"], h["score"]) + (0.002 if g["passages"] else 0)      # more hits in one node nudges it up
+        g["matched"].update(h["matched"])
+        if len(g["passages"]) < passages:
+            g["passages"].append({"kind": "summary" if h["role"] == "card" else "passage", "locator": h["pointer"] or {},
+                                  "text": h["text"][:600], "snippet": h.get("snippet"), "matched": h["matched"],
+                                  "similarity": round(h["sim"], 3) if h["sim"] is not None else None})
+    results = sorted(grouped.values(), key=lambda g: g["score"], reverse=True)[:k]
+    for g in results:
+        g["matched"], g["score"] = sorted(g["matched"]), round(g["score"], 4)
+    return {"query": q, "mode": mode, "results": results, "seconds": round(now() - t0, 3)}
+
+
+@app.get("/api/nodes/{node_id}")
+def node_detail(node_id: str, limit: int = 50, offset: int = 0) -> dict:
+    """Everything about one node: text, source, its passages (paged), links both ways, open flags, what it has
+    flagged on other nodes, and its history."""
+    d = store.node_detail(node_id, max(1, min(limit, 200)), max(0, offset)) if node_id.isdigit() else None
+    if not d:
+        raise HTTPException(404, "No such node")
+    return d
+
+
+@app.get("/api/nodes/{node_id}/neighbours")
+def neighbours(node_id: str, direction: str = "any", depth: int = 2) -> dict:
+    """Walk outward from a node. direction=affects (what is hit if this changes), rests_on (what this depends on),
+    or any. depth 1-6."""
+    if direction not in ("affects", "rests_on", "any"):
+        raise HTTPException(400, "direction must be affects, rests_on or any")
+    if not node_id.isdigit() or not store.node(node_id):
+        raise HTTPException(404, "No such node")
+    depth = max(1, min(depth, 6))
+    return {"node_id": node_id, "direction": direction, "depth": depth, "nodes": store.neighbours(node_id, direction, depth)}
+
+
 @app.post("/api/nodes/{node_id}/resolve")
 def resolve(node_id: str, d: Dismiss) -> dict:
     """Mark a blocker, discovery or constraint as resolved by hand. Clears the flags it raised."""

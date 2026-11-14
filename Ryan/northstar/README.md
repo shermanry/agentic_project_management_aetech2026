@@ -41,7 +41,34 @@ The box under the graph answers questions from what is in the graph, and shows w
 - **Highlighting:** the nodes used light up on the graph with their source numbers and everything else dims. The panel lists each source with its page and the quoted words highlighted. Clicking a number or a node jumps to that source.
 - Questions and answers are not saved to the graph.
 
-Limits: retrieval is by meaning only (no keyword search), at most 12 sources reach Jev, and documents added before this feature are indexed in the background at startup. Images inside documents are not searched.
+Limits: at most 12 sources reach Jev, so a fact buried in a long document can still be missed, and documents added before this feature are indexed in the background at startup. Images inside documents are not searched.
+
+## Querying the graph (for other features to build on)
+
+Three read-only endpoints. None of them calls a language model.
+
+**`GET /api/search`**: find nodes and passages.
+
+| Parameter | Meaning |
+| --- | --- |
+| `q` | Free text. Matched two ways and fused: by meaning (pgvector over every node card and document passage) and by keywords (Postgres full-text, any of the words). Leave empty to just list nodes, newest first |
+| `type` | Comma-separated node types, e.g. `decision,blocker` |
+| `owner` | Owner name, e.g. `Mary` |
+| `since` | ISO date or timestamp; nodes created on or after it |
+| `k` | Number of nodes back (default 10, max 50) |
+| `passages` | Passages per node (default 3, max 10) |
+
+Each result has the node (id, title, type, status, owner, summary, tags), a score, which side matched (`meaning`, `keyword`), and its best passages with their locator (page, sheet, view…), text, and a keyword `snippet` with matches wrapped in `[[ ]]`. If the embedding server is unreachable it falls back to keywords (`"mode": "keyword"`).
+
+```bash
+curl -G localhost:8100/api/search --data-urlencode "q=application fee" --data-urlencode "type=document"
+```
+
+**`GET /api/nodes/{id}`**: everything about one node: its text and source, its passages (paged with `limit` and `offset`), links in both directions with the neighbour's title and status, open flags on it, what it has flagged on other nodes, and its history. This is what an evidence drawer needs.
+
+**`GET /api/nodes/{id}/neighbours?direction=&depth=`**: walk the graph in the database (one recursive query). `direction=affects` returns what would be hit if this node changed, `rests_on` what it depends on, `any` the plain neighbourhood. `depth` 1 to 6. Each node comes back once, at its shortest distance, with the path.
+
+`/api/ask` uses the same hybrid search, then has Jev answer from the top sources.
 
 ## How it works
 
@@ -65,6 +92,7 @@ drop / paste / chat
 | `effects.py` | The dry run. Rules are plain code for now; the plan is JSON rules written by the analysis loop |
 | `store.py` | Postgres + pgvector on the team's shared schema: nodes, versions, card vectors, aliases, edges, approvals, events, attention items |
 | `db/001_schema.sql` | Vendored copy of Sharare's decision-engine schema (branch `sharare/decision-engine`, commit d1d0b9d). Delete once that branch is merged and mount hers instead |
+| `db/020_search.sql` | Keyword-search and edge indexes, applied at every startup |
 | `db/010_northstar.sql` | One extra table, `intake_items`: things being processed or waiting for review |
 | `qa.py` | Question answering over the graph with cited sources |
 | `replay.py` | The replay scenario and the Back / Forward logic |
@@ -115,6 +143,9 @@ Settings (environment or `.env`): `DATABASE_URL`, `FEEDS_ENABLED`, `MONITOR_SITE
 | GET | `/api/feeds` | Live data monitors: site, last and next run, errors, demo scenarios |
 | POST | `/api/feeds/run?only=` | Run monitors now (all, or a comma-separated list) |
 | POST | `/api/feeds/inject/{scenario}` | Demo: push a canned feed change through the real path |
+| GET | `/api/search` | Hybrid search with filters; no model call. See "Querying the graph" |
+| GET | `/api/nodes/{id}` | Node detail: text, source, passages, links, flags, history |
+| GET | `/api/nodes/{id}/neighbours` | Graph walk: `affects`, `rests_on` or `any`, to a depth |
 | POST | `/api/ask` | `{question}` -> answer, cited sources with quotes, timings. Saves nothing |
 | POST | `/api/nodes/{id}/resolve` | Mark a blocker, discovery or constraint resolved; clears the flags it raised |
 | POST | `/api/replay/forward`, `/api/replay/back` | Step the replay |
