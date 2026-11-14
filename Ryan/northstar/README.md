@@ -19,6 +19,19 @@ The seven steps are in `replay.py`: notice to proceed, site visit findings, insu
 
 The first time a step runs it is live (about 5 seconds for Jev). The approved proposal is then cached in the data folder, so going back and forward again is instant and identical. **Run through it once before a demo** so every step is cached. Back rebuilds the graph from the seed plus the cached steps, which also wipes anything added by hand during the replay.
 
+## Live data feeds
+
+The app runs the repo-root [`monitors/`](../../monitors/README.md) in a background thread: weather, NWS alerts, METAR, FAA TFRs, the LAANC grid, Federal Register rules, NYC permitted events and space weather, each on its own cadence (tighter within 3 days of the flight). They appear as five `data_feed` nodes. Following decision A4, feeds are the one thing that changes the graph without asking:
+
+| Monitor reports | What happens |
+| --- | --- |
+| Bad news: a day in the flight window turns unflyable, a TFR over the site, a LAANC ceiling change, a geomagnetic storm, a severe NWS alert | The feed node turns red and `effects.py` ripples from it as if a discovery blocked it: Thursday's flight at risk, the permit date re-opened, and so on. One revision by "Monitors" says why |
+| Good news: the day is flyable again, the TFR or alert ended | The flags for that same thing (`dedupe_key`) close; the feed goes back to healthy |
+| A discovery: a new FAA, DHS or TSA rule or notice, or an unmatched NY/NJ TFR | Submitted through normal intake, so Jev proposes a placement and a person approves it (at most 3 per run) |
+| Anything else | Recorded in the decision history and as a reading on the feed's `sources` row |
+
+**For demos,** real changes are rare, so canned ones go through the same path: `POST /api/feeds/inject/{scenario}` with `thursday_unflyable`, `thursday_flyable`, `tfr_over_site`, `tfr_ended`, `rule_change` or `gps_storm`. The site and flight limits come from `monitors/site.json` (or `site.example.json`: 120 Broadway); set `MONITOR_SITE` to use another file and `FEEDS_ENABLED=0` to turn polling off.
+
 ## How it works
 
 ```
@@ -43,6 +56,7 @@ drop / paste / chat
 | `db/001_schema.sql` | Vendored copy of Sharare's decision-engine schema (branch `sharare/decision-engine`, commit d1d0b9d). Delete once that branch is merged and mount hers instead |
 | `db/010_northstar.sql` | One extra table, `intake_items`: things being processed or waiting for review |
 | `replay.py` | The replay scenario and the Back / Forward logic |
+| `livefeeds.py` | Runs the monitors, maps their events to feed nodes, ripples bad news, clears good news, sends discoveries to intake; demo scenarios |
 | `seed.py` | Example project: East Tower facade survey. Placeholder details |
 | `llm.py` | OpenRouter call that must return one JSON object |
 | `static/index.html` | The canvas UI, no build step |
@@ -74,7 +88,7 @@ uv pip install -r requirements.txt -r ../../Minh/converter/requirements.txt
 - **Converter:** file conversion uses Minh's package at `Minh/converter`, found automatically (override with `CONVERTER_PATH`). The Docker image installs its requirements too, but the converter has not been tested inside the image (`rhino3dm` may need a build step on ARM Linux).
 - On the Mac that hosts the embedding server, put `LOCAL_EMBEDDING_URL=http://localhost:8000` in front of the uvicorn command.
 
-Settings (environment or `.env`): `DATABASE_URL`, `JEV_MODEL` (default `typesafe/jev-router`), `JEV_REASONING_EFFORT`, `NORTHSTAR_DATA`, `CONVERTER_PATH`, plus the embedding settings in `.env.example`.
+Settings (environment or `.env`): `DATABASE_URL`, `FEEDS_ENABLED`, `MONITOR_SITE`, `JEV_MODEL` (default `typesafe/jev-router`), `JEV_REASONING_EFFORT`, `NORTHSTAR_DATA`, `CONVERTER_PATH`, plus the embedding settings in `.env.example`.
 
 ## API
 
@@ -86,6 +100,9 @@ Settings (environment or `.env`): `DATABASE_URL`, `JEV_MODEL` (default `typesafe
 | POST | `/api/items/{id}/preview` | Dry-run effects for an edited placement. Saves nothing |
 | POST | `/api/items/{id}/approve` | Add the node, apply effects, record a revision |
 | POST | `/api/items/{id}/dismiss` | Record a dismissal with a reason |
+| GET | `/api/feeds` | Live data monitors: site, last and next run, errors, demo scenarios |
+| POST | `/api/feeds/run?only=` | Run monitors now (all, or a comma-separated list) |
+| POST | `/api/feeds/inject/{scenario}` | Demo: push a canned feed change through the real path |
 | POST | `/api/reset` | Demo helper: reload the example project |
 
 ## Known gaps

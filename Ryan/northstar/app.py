@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import effects
+import livefeeds
 import pipeline
 import seed
 from replay import Replay
@@ -31,6 +32,7 @@ for d in (UPLOADS, PACKAGES):
 store = Store(os.environ.get("DATABASE_URL", "postgresql://drone:drone@localhost:5433/drone"), seed.PROJECT)
 app = FastAPI(title="North star intake")
 replay: Replay = None  # type: ignore  (created at startup, once notify works)
+feeds: livefeeds.LiveFeeds | None = None
 _subscribers: list[asyncio.Queue] = []
 _loop: asyncio.AbstractEventLoop | None = None
 _seed_warning: str | None = None
@@ -46,11 +48,14 @@ def notify(msg: dict) -> None:
 
 @app.on_event("startup")
 async def _startup() -> None:
-    global _loop, _seed_warning, replay
+    global _loop, _seed_warning, replay, feeds
     _loop = asyncio.get_running_loop()
     if store.empty():
         _seed_warning = await asyncio.to_thread(pipeline.seed_graph, store)
     replay = Replay(store, DATA, PACKAGES, notify, _approve)
+    feeds = livefeeds.LiveFeeds(store, notify, submit_text, DATA)
+    if os.environ.get("FEEDS_ENABLED", "1").lower() not in ("0", "false", "no"):
+        feeds.start()   # polls weather, airspace, rules, city events on their cadences
     threading.Thread(target=pipeline.warm_up, args=(DATA / "warmup",), daemon=True).start()
     for it in store.items():  # anything interrupted by a restart
         if it["status"] in ("processing", "refining"):
@@ -73,7 +78,33 @@ def _public_item(it: dict) -> dict:
 def state() -> dict:
     return {"project": seed.PROJECT, "people": seed.PEOPLE, "node_types": NODE_TYPES, "edge_types": EDGE_TYPES,
             "nodes": store.nodes(), "edges": store.edges(), "items": [_public_item(i) for i in store.items()],
-            "events": store.events(), "replay": replay.status(), "config": {**pipeline.available(), "seed_warning": _seed_warning}}
+            "events": store.events(), "replay": replay.status(), "config": {**pipeline.available(), "seed_warning": _seed_warning},
+            "feeds": feeds.snapshot() if feeds else None}
+
+
+@app.get("/api/feeds")
+def feeds_status() -> dict:
+    """Live data monitors: site, last and next run per monitor, errors, demo scenarios."""
+    return feeds.snapshot()
+
+
+@app.post("/api/feeds/run")
+async def feeds_run(only: str = "") -> dict:
+    """Run monitors now (all, or a comma-separated list) instead of waiting for their cadence."""
+    names = [n.strip() for n in only.split(",") if n.strip()] or None
+    bad = [n for n in names or [] if n not in feeds.monitors]
+    if bad:
+        raise HTTPException(400, f"unknown monitors {bad}; choose from {sorted(feeds.monitors)}")
+    return await asyncio.to_thread(feeds.run, names)
+
+
+@app.post("/api/feeds/inject/{scenario}")
+async def feeds_inject(scenario: str) -> dict:
+    """Demo: feed a canned change through the real path (e.g. thursday_unflyable, tfr_over_site, rule_change)."""
+    try:
+        return await asyncio.to_thread(feeds.inject, scenario)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
 
 
 @app.get("/api/events")
@@ -116,15 +147,29 @@ async def intake(text: str = Form(""), author: str = Form("Sam"), files: list[Up
         store.put_item(it)
         created.append(item_id)
     if not real:
-        item_id = new_id("it")
-        it = {"id": item_id, "status": "processing", "label": text[:70], "author": author,
-              "source": {"kind": "text", "text": text}, "created_at": now()}
-        store.put_item(it)
-        created.append(item_id)
+        created.append(_new_text_item(text, author))
     for item_id in created:
-        notify({"type": "item", "id": item_id, "status": "processing"})
-        threading.Thread(target=pipeline.process, args=(item_id, store, PACKAGES, notify), daemon=True).start()
+        _start_processing(item_id)
     return {"items": created}
+
+
+def _new_text_item(text: str, author: str) -> str:
+    item_id = new_id("it")
+    store.put_item({"id": item_id, "status": "processing", "label": text.splitlines()[0][:70], "author": author,
+                    "source": {"kind": "text", "text": text}, "created_at": now()})
+    return item_id
+
+
+def _start_processing(item_id: str) -> None:
+    notify({"type": "item", "id": item_id, "status": "processing"})
+    threading.Thread(target=pipeline.process, args=(item_id, store, PACKAGES, notify), daemon=True).start()
+
+
+def submit_text(text: str, author: str) -> str:
+    """Text intake from code (live feeds): same path as typing into the chat box."""
+    item_id = _new_text_item(text, author)
+    _start_processing(item_id)
+    return item_id
 
 
 class Link(BaseModel):
@@ -244,6 +289,8 @@ async def reset() -> dict:
     await asyncio.to_thread(store.reset)
     replay.restart()
     _seed_warning = await asyncio.to_thread(pipeline.seed_graph, store)
+    if feeds:
+        await asyncio.to_thread(feeds.ensure_nodes)
     notify({"type": "graph", "reset": True})
     return {"ok": True, "warning": _seed_warning}
 

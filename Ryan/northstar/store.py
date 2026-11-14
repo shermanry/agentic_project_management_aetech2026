@@ -69,7 +69,8 @@ class Store:
     def user(self, name: str | None) -> str:
         """Users table id for a display name; creates the user on first use."""
         name = (name or "someone").strip()
-        fixed = {"system": ("svc_northstar", "North star", "service"), "jev": ("agent_jev", "Jev", "agent")}
+        fixed = {"system": ("svc_northstar", "North star", "service"), "jev": ("agent_jev", "Jev", "agent"),
+                 "monitors": ("svc_monitors", "Monitors", "service")}
         uid, label, kind = fixed.get(name.lower(), ("u_" + re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_"), name, "human"))
         self._q("INSERT INTO users (id, name, kind) VALUES (%s, %s, %s) ON CONFLICT (id) DO NOTHING", (uid, label, kind))
         return uid
@@ -195,6 +196,50 @@ class Store:
                                  (self.project["id"], uid, Jsonb({"title": f"Dismissed “{title}”", "reason": reason,
                                                                   "item_id": item["id"], "approval_id": approval_id}))).fetchone()["id"]
             c.execute("UPDATE intake_items SET status = 'dismissed', updated_at = now() WHERE id = %s", (item["id"],))
+        return event_id
+
+    # ---------------------------------------------------------------- live data feeds (livefeeds.py)
+    def node_by_ref(self, ref: str) -> dict | None:
+        return next((n for n in self.nodes() if n.get("ref") == ref), None)
+
+    def set_state(self, node_id: str, state: str) -> None:
+        self._q("UPDATE nodes SET state = %s WHERE id = %s AND state <> %s", (state, int(node_id), state))
+
+    def register_source(self, node_id: str, connector: str, config: dict, cron: str) -> None:
+        self._q("""INSERT INTO sources (node_id, connector, config, refresh_policy, cron) VALUES (%s, %s, %s, 'periodic', %s)
+                   ON CONFLICT (node_id) DO UPDATE SET connector = EXCLUDED.connector, config = EXCLUDED.config, cron = EXCLUDED.cron""",
+                (int(node_id), connector, Jsonb(config), cron))
+
+    def feed_event(self, feed_id: str, verb: str, payload: dict, fx: dict | None, dedupe_key: str) -> int:
+        """A monitor reported a change: reading + event, and (for bad news) attention flags on what it puts at risk.
+        Any earlier open flags for the same real-world thing (dedupe_key) are closed first, so updates replace."""
+        uid = self.user("monitors")
+        with self.pool.connection() as c, c.transaction():
+            c.execute("UPDATE sources SET last_captured_at = now() WHERE node_id = %s", (int(feed_id),))
+            if c.execute("SELECT 1 FROM sources WHERE node_id = %s", (int(feed_id),)).fetchone():
+                c.execute("INSERT INTO readings (source_node_id, ts, payload) VALUES (%s, clock_timestamp(), %s)",
+                          (int(feed_id), Jsonb(payload)))
+            c.execute("""UPDATE attention_items SET state = 'done' WHERE project_id = %s AND state = 'open'
+                         AND %s = ANY(matched_by)""", (self.project["id"], f"feed:{dedupe_key}"))
+            event_id = c.execute("""INSERT INTO events (project_id, actor_id, verb, object_type, object_id, payload)
+                                    VALUES (%s, %s, %s, 'node', %s, %s) RETURNING id""",
+                                 (self.project["id"], uid, verb, int(feed_id), Jsonb(payload))).fetchone()["id"]
+            for e in (fx or {}).get("effects", []):
+                if not e["new_status"]:
+                    continue
+                c.execute("""INSERT INTO attention_items (project_id, event_id, type, touches, matched_by, reason, suggested_action, levels, scores)
+                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                          (self.project["id"], event_id, _ATTENTION_TYPE.get(e["new_status"], "discovery"), [int(e["node_id"])],
+                           [f"effect:{e['new_status']}", f"feed:{dedupe_key}", "chain:" + ">".join(e["chain"])],
+                           e["why"], e["change"],
+                           Jsonb({"pilot": "red", "pm": "red", "client": "status_line"} if e["new_status"] in ("blocked", "at_risk")
+                                 else {"pilot": "amber", "pm": "amber"}),
+                           Jsonb({"confidence": payload.get("confidence", 0.9)})))
+            open_flags = c.execute("""SELECT count(*) AS n FROM attention_items WHERE project_id = %s AND state = 'open'
+                                      AND %s = ANY(touches) AND EXISTS (SELECT 1 FROM unnest(matched_by) m WHERE m LIKE 'feed:%%')""",
+                                   (self.project["id"], int(feed_id))).fetchone()["n"]
+            c.execute("UPDATE nodes SET state = %s WHERE id = %s",
+                      ("changed" if open_flags else "healthy", int(feed_id)))
         return event_id
 
     # ---------------------------------------------------------------- intake items

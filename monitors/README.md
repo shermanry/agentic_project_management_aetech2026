@@ -12,6 +12,8 @@ python3 monitors/run.py --odds 12-08 12-12                   # historical share 
 
 The first run of each monitor records a baseline and emits nothing; later runs emit only changes. Events are appended to `monitors/data/events.jsonl`; snapshots live in `monitors/data/state/`. Both are git-ignored.
 
+**In the app:** the north star app runs these monitors itself and turns their events into graph changes; see [Ryan/northstar/README.md](../Ryan/northstar/README.md#live-data-feeds).
+
 ## Monitors
 
 | Monitor | Source | Cadence (near flight) | Emits |

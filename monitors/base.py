@@ -23,6 +23,13 @@ HERE = Path(__file__).resolve().parent
 DATA = HERE / "data"
 USER_AGENT = "aec-drone-pm-monitor/0.1 (hackathon prototype)"
 
+try:  # some Pythons (e.g. uv's) don't see the OS certificate store; certifi's bundle fixes that when installed
+    import certifi
+    import ssl
+    _SSL = ssl.create_default_context(cafile=certifi.where())
+except ImportError:
+    _SSL = None
+
 
 # ---------- site config ----------
 
@@ -114,7 +121,7 @@ def get_json(url: str, params: Optional[dict] = None, timeout: int = 30, retries
     last: Exception | None = None
     for attempt in range(retries + 1):
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
+            with urllib.request.urlopen(req, timeout=timeout, context=_SSL) as r:
                 return json.loads(r.read())
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
             last = e
