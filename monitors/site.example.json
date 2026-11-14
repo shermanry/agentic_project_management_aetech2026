@@ -1,0 +1,21 @@
+{
+  "id": "facade-120-broadway",
+  "name": "Facade survey, 120 Broadway (example)",
+  "address": "120 Broadway, New York",
+  "lat": 40.708233,
+  "lon": -74.010542,
+  "bin": "1001026",
+  "borough": "Manhattan",
+  "police_precinct": "1",
+  "radius_nm": 3.0,
+  "flight_window": {"start": "2026-11-18", "end": "2026-11-22"},
+  "airports": ["KLGA", "KJFK", "KEWR"],
+  "limits": {
+    "max_wind_mph": 20,
+    "max_gust_mph": 25,
+    "max_precip_prob": 30,
+    "min_visibility_m": 4828,
+    "flight_altitude_m": 120,
+    "daylight_only": true
+  }
+}

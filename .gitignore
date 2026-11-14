@@ -2,3 +2,6 @@
 .env.*
 !.env.example
 *.key
+monitors/data/
+monitors/site.json
+__pycache__/
