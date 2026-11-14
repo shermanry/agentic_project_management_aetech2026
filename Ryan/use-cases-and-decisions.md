@@ -66,7 +66,7 @@ Use case 13 is worth noting: **we can dogfood it this weekend.** Our own Slack c
 ### 1.3 Adapters: turning any file into things the embedding model can read
 
 - **Now (Minh):** each file type gets an adapter that pulls out images and text the embedding model handles natively. A 3D model becomes rendered views plus element names and properties; a PDF becomes page text and page images; a video becomes keyframes.
-- **Proposed contract,** so adapters plug into the backbone without coordination:
+- **Update:** the `converter` branch already defines a fuller package format (`uep/0.1`) with chunks, entities, markups and typed links. Use that as the contract. The sketch below is kept only to show the idea:
 
 ```json
 {
@@ -122,7 +122,7 @@ Each has a recommendation so we can disagree with something concrete. **Owner** 
 | E1 | Which model | Gemini Embedding 2 on OpenRouter; a cheaper text + image model; local EmbeddingGemma 2 | Gemini Embedding 2. Decide today: changing later means re-embedding everything | |
 | E2 | What gets a vector | Whole file; each part (chunk, page, view); the annotator's summary | Both: every part, plus one "card" vector per node made from its summary and tags. Parts find details; cards link across types | |
 | E3 | Where vectors live | pgvector in Postgres; a separate vector database | pgvector. One database, one backup, joins with node metadata | |
-| E4 | Adapter contract | Each adapter does its own thing; one shared output shape | Shared shape (section 1.3). Agree with Minh now | Minh |
+| E4 | Adapter contract | Each adapter does its own thing; one shared output shape | Adopt the converter's package format from the `converter` branch (`uep/0.1`: manifest, chunks, assets, entities, links) as the contract, in place of the sketch in section 1.3 | Minh |
 | E5 | When similarity becomes a link | Fixed threshold; top-k neighbours; Jev confirms each | Top-k neighbours as suggestions, Jev confirms the strongest; tune the threshold on real data | |
 
 ### 3.2 Annotator agent
@@ -132,7 +132,7 @@ Each has a recommendation so we can disagree with something concrete. **Owner** 
 | A1 | Output shape | Free text; strict JSON schema | Strict schema: type, summary, tags, entities, time, links, confidence. Reject and retry on invalid output | |
 | A2 | Tag vocabulary | Free tags; fixed list; both | Small fixed list for things rules depend on (permit, weather, equipment, schedule) plus free tags | |
 | A3 | Entity resolution | None; string match; registry of known entities | A registry of people, equipment, places and permits, matched by name and embedding. "drone 4a" must resolve to one node | |
-| A4 | Auto-add vs ask | Everything auto; everything asks; by source | By source: dropped files and data feeds are added directly; Slack, email and anything inferred become candidates | |
+| A4 | Auto-add vs ask | Everything auto; everything asks; by source | **Updated to match the MVP north star:** everything a user adds (file, paste, chat, Slack) becomes a proposed placement the user approves. Only live data feeds update their own nodes without asking. Later, high-confidence items could be auto-approved | |
 | A5 | Who gets asked | The poster; the matched node's owner; the PM | Owner of the matched node, PM as fallback, poster only for missing details | |
 | A6 | Which model | Jev for everything; a stronger model for hard cases | Jev by default; escalate to a stronger model when confidence is low | |
 
@@ -157,6 +157,7 @@ Deciding R1 as "every change is an event" also gives us the **replay demo** and 
 | G3 | Edge types | Free-form; small fixed vocabulary | Fixed: depends_on, blocks, evidence_for, about, supersedes, derived_from, similar_to | |
 | G4 | Candidates | Separate inbox table; a status on the node | A status (`candidate`, `confirmed`, `dismissed`) so candidates can already be linked and shown ghosted | |
 | G5 | Scope | Everything per project; shared entities across projects | Entities such as drones, people and sites are shared across projects; everything else is per project | |
+| G7 | Previewing effects | Compute on approval only; dry run before approval | Dry run: apply the proposed node in memory, run the rules, show what would change, save nothing until approved | |
 | G6 | Live updates to the front end | Polling; push | Push (server-sent events or WebSocket). The Slack demo needs the canvas to change by itself | |
 
 ### 3.5 Agent loop
@@ -168,6 +169,8 @@ Deciding R1 as "every change is an event" also gives us the **replay demo** and 
 | L3 | Agent framework | Hand-rolled tool-calling loop; an agent SDK | Hand-rolled for the hackathon: fewer surprises. Keep tools MCP-shaped so real connectors can replace them | |
 | L4 | Analysis loop model and route | Opus-class through OpenRouter; direct | Through OpenRouter on the team key, so there is one bill and one client | |
 | L5 | Where approvals happen | In the app; in Slack; both | Both, backed by one approval record, so tapping Add in Slack and clicking Approve on the canvas are the same thing | |
+| L7 | Fast or slow path | Jev decides; the converter decides; a time limit | The converter decides first (known format with readable content goes fast; unknown or "pending" parts go to the interpreter agent). Add a time limit so a slow fast-path item falls back to "we'll notify you" | |
+| L8 | How the user is notified | In-app only; Slack; both | In-app badge on the ghost card for the MVP; Slack DM as a follow-on | |
 | L6 | Slack workspace for the demo | The hackathon workspace; our own test workspace | Check today whether we can install an app in the hackathon workspace; create a test workspace as fallback | |
 
 ### Decide first
