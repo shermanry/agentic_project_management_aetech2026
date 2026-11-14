@@ -1,12 +1,18 @@
-# secrets (from main)
+# secrets
 .env
 .env.*
 !.env.example
 *.key
 
-# converter
+# python
 .venv/
 __pycache__/
 *.pyc
+
+# monitors
+monitors/data/
+monitors/site.json
+
+# converter
 converter_output/
 samples/generated/

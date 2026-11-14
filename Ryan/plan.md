@@ -6,21 +6,82 @@ _Draft for team critique · 2026-11-14 · background in [PROJECT_BRIEF.md](PROJE
 
 **Agent architecture:** [agent-architecture.md](agent-architecture.md) describes the Opus-class analysis loop that generates specialist agents, skills, connectors and per-node-type rules on top of the graph.
 
+**Use cases, demo target and decisions:** [use-cases-and-decisions.md](use-cases-and-decisions.md) covers the Slack intake use case, what to finish for the demo, and the backbone decisions we need to make.
+
+**Working MVP:** [northstar/](northstar/README.md) is a running version of the section 1 interaction: add something, see the proposed placement and its effects, approve it.
+
 **How to use this doc:** nothing here is final. Each section is marked **Decided**, **Proposed** or **Open**. Challenge anything marked Proposed, and answer what you can in sections 11 and 12.
 
-## 1. What we're building
+## 1. North star for the MVP (Decided)
 
-A project system for drone flight work (surveys, inspections, monitoring). Users drop files and data onto a canvas. The system turns each item into a node in a knowledge graph, links related nodes, keeps a revision history of every decision, and gives each role a view matched to what they can decide.
+**The user drags in a file, pastes a piece of information, or types into a chat box. The system works out where it belongs in the graph, proposes that placement, and the user explores the effects and approves it.**
+
+That one interaction is the MVP. Everything else in this plan supports it or builds on it.
+
+```mermaid
+flowchart LR
+    IN["User adds something<br/>drag a file, paste, or chat"]
+    CV["Converter<br/>file to text, images, metadata"]
+    FAST["Fast path: seconds<br/>embeddings + Jev"]
+    SLOW["Slow path: minutes<br/>interpreter agent"]
+    PROP["Proposed placement<br/>node type, position,<br/>connections, what it affects"]
+    NOTE["User is notified<br/>when it's ready"]
+    REV["User explores the effects"]
+    OK{"Approve?"}
+    G[("Graph +<br/>revision recorded")]
+    X["Edited, or dismissed<br/>with a reason"]
+
+    IN --> CV
+    CV -- "text, images, known formats" --> FAST
+    CV -- "can't be read directly" --> SLOW
+    FAST --> PROP
+    SLOW --> PROP
+    PROP --> NOTE --> REV --> OK
+    OK -- "yes" --> G
+    OK -- "no or change" --> X
+    X -. "edit and re-propose" .-> PROP
+```
+
+**What the system works out for each new item**
+
+- **Node type:** decision, discovery, event, data feed, deliverable, blocker, constraint or document.
+- **Where it goes:** which project, phase and neighbouring nodes.
+- **Connections:** proposed links with a type, a confidence and a one-line reason.
+- **What it affects:** which decisions it re-opens, which flights or deliverables become at risk, which rules would fire.
+
+**Two speeds, one experience**
+
+| | Fast path | Slow path |
+| --- | --- | --- |
+| For | Text, images, PDFs, chat messages, and anything the converter already handles | Formats or content that need interpreting: an unfamiliar file type, handwriting on a markup, a long video, a model that needs deeper reading |
+| How | Converter, then embeddings and Jev | An interpreter agent that works out how to read it (see the `converter` branch) |
+| Target | A few seconds. Feels close to instant | As long as it takes; the user is not kept waiting |
+| What the user sees | A brief spinner on a ghost card, then the proposal | The ghost card shows "working on it"; the user carries on and gets a notification when the proposal is ready |
+
+- **The user is never blocked.** Several items can be in flight at once; each shows as a ghost card with its status.
+- **Progressive results.** A slow item can show a quick first guess from its filename and any readable text, then refine when the agent finishes.
+- **Eventually, almost anything.** The slow path is how coverage grows: when the agent learns to read a new kind of file, that becomes a fast-path converter next time.
+
+**Exploring the effects before approving**
+
+The proposal is shown as a ghost node on the canvas with dashed links. Selecting it lists what would change if it were approved, computed by running the rules against the graph with the item added, without saving anything:
+
+- "Links to: Flight Thu 9am, Permit package (82%, same date and mentions drone 4A)"
+- "Would put at risk: Flight Thu 9am"
+- "Would re-open: Decision: which drone to fly"
+- "Would notify: Mary (PM)"
+
+The user can approve it as proposed, change the type or links first, or dismiss it with a reason. Whichever they choose is recorded in the revision history.
 
 **The demo we're aiming for (Proposed):**
 
-1. A pilot drops a site photo, a PDF and a schedule onto the canvas.
-2. Each becomes a node, tagged by Jev and linked to related nodes.
-3. Live weather and airspace data arrive as nodes on their own.
-4. An agent flags a conflict, e.g. "Thursday's flight is in a wind window above the limit", and suggests the next good date.
-5. The pilot approves. The change is recorded as a decision revision: who, what, why, and the evidence it rested on.
-6. Jev reads the revision history and suggests what comes next, e.g. "notify the client, as you did last time a flight moved".
-7. The same project is shown in the client view (read-only, decisions traced) and the pilot view (full control).
+1. A pilot drags a site photo and a permit PDF onto the canvas. Each shows a spinner for a moment, then a proposed placement with its links.
+2. The pilot opens one proposal, sees what it affects, and approves it. The node goes solid and a revision is recorded.
+3. The pilot drops a 3D model. Its card says "working on it"; the pilot carries on. A notification arrives when the proposal is ready.
+4. Someone types "drone 4a needs maintenance" into the chat box (or Slack). The proposal shows Thursday's flight would be put at risk. Approving it turns that flight red.
+5. The pilot moves the flight with a reason. The decision timeline gains a revision with its evidence.
+6. Jev reads the revision history and suggests what comes next.
+7. The same project is shown in the client view (read-only, decisions traced).
 
 ## 2. System outline
 

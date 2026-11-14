@@ -1,0 +1,17 @@
+# From the repo root:  docker compose -f Ryan/northstar/docker-compose.yml up --build
+# Needs the repo-root .env (OpenRouter key, embedding settings). Then open http://localhost:8100
+services:
+  northstar:
+    build:
+      context: ../..
+      dockerfile: Ryan/northstar/Dockerfile
+    env_file: ../../.env
+    environment:
+      # the EmbeddingGemma server runs on the host Mac, not in Docker (Docker can't use the Apple GPU)
+      LOCAL_EMBEDDING_URL: ${LOCAL_EMBEDDING_URL_DOCKER:-http://host.docker.internal:8000}
+    ports:
+      - "8100:8100"
+    volumes:
+      - northstar-data:/data
+volumes:
+  northstar-data:

@@ -7,7 +7,7 @@
     photo_vec = embed_file("site_photo.jpg")
 
 Settings come from .env (see .env.example):
-    EMBEDDING_PROVIDER   "openrouter" (default) or "local"
+    EMBEDDING_PROVIDER   "local" (default) or "openrouter"
     EMBEDDING_MODEL      OpenRouter model id, default google/gemini-embedding-2
     EMBEDDING_DIMENSIONS default 768 (both providers support it)
     OPENROUTER_API_KEY   for provider=openrouter
@@ -64,7 +64,7 @@ def _cfg(name: str, default: str | None = None) -> str:
 
 
 def provider() -> str:
-    p = os.environ.get("EMBEDDING_PROVIDER", "openrouter").strip().lower()
+    p = os.environ.get("EMBEDDING_PROVIDER", "local").strip().lower()
     if p not in ("openrouter", "local"):
         raise RuntimeError(f"EMBEDDING_PROVIDER must be 'openrouter' or 'local', got {p!r}")
     return p
