@@ -32,6 +32,7 @@ Needs `OPENROUTER_API_KEY` in `.env` at the **repo root** (copy `../.env.example
 Flow (`agent.ask`):
 1. **interpret** (router model): prompt + filenames become per-file context: author, role, channel, note, intent, project. No library lookup.
 2. **convert** (local converter, unchanged) with that context.
+2b. **media pass** (`converter/media_pass.py`, `CONVERTER_MEDIA_MODEL`, default `typesafe/jev-router`, which takes audio, video, files and images natively): each 30 s audio segment becomes a verbatim `transcript` chunk; each 30 s video clip becomes a `transcript` plus a `clip_description` (what is visible, timestamped moments); PDF pages with no text layer become `page_text` (all labels, dimensions, title block). Chunks are marked `suggested_by: "agent-media:<model>"` and `media_for: <source chunk>`, so re-reads skip finished items. The text also feeds entity extraction. Measured on the samples: a 31 s voice note, a narrated 9 s clip and a scanned drawing each took about 13 s and $0.005 to $0.006 for the media pass ($0.01 to $0.02 per file including the reading).
 3. **understand** (agent model): manifest essentials + text chunks (about 24k chars) + up to 10 of the most informative images become JSON with title, summary, tags, **key_points** (self-contained statements of what the file says or shows, each citing its source chunk/page/image), **figures** (with optional crops) and **markup_text** (handwriting on images). The prompt explicitly forbids judging importance, classifying, or relating to other nodes.
 4. **write back**: new chunks are *appended* (existing chunk ids stay stable) with roles `agent_summary | key_point | figure | markup_text` and `meta.suggested_by = "agent:<model>"`; `manifest.agent` holds title, summary, counts and usage. `agent.undo()` removes exactly those additions; re-running replaces them.
 
@@ -55,6 +56,7 @@ From inside `Minh/` (Windows; on macOS/Linux use `.venv/bin/python`):
 .venv/Scripts/python samples/make_samples.py            # synthetic test files -> samples/generated/
 .venv/Scripts/python -m converter convert samples/generated
 .venv/Scripts/python samples/make_samples.py --markups  # markups drawn on the first converted view_axonometric.png
+.venv/Scripts/python samples/make_samples.py --media-ai # spoken voice note, narrated video, scanned drawing (Windows TTS)
 ```
 
 There is **no test suite yet**. Regression testing = regenerate the samples, convert them, and check the output. What a good run looks like:
@@ -67,7 +69,8 @@ There is **no test suite yet**. Regression testing = regenerate the samples, con
 | `client_markup_on_render.png` | `markup`, method `diff`, `metadata.markup.drawn_on` = the model view, `layers` filled |
 | `teams_screenshot_markup.png` (cropped) and `teams_chat_screenshot.png` (inside fake Teams UI) | `markup`, method `aligned-diff`, **3 regions** (circle, arrow, written note), all red, `drawn_on` filled |
 | `drone_photo.jpg` | `image` (NOT markup), GPS + DJI XMP in metadata |
-| `flyover.mp4` / `voice_memo.m4a` | keyframes + 30 s clips / wav segments, warning "no transcript" unless faster-whisper is installed |
+| `flyover.mp4` / `voice_memo.m4a` | keyframes + 30 s clips / wav segments, warning "no transcript" (local) |
+| `site_voice_note.m4a` / `drone_flyover_narrated.mp4` / `scanned_north_elevation.pdf` (AI mode) | verbatim transcript; transcript + clip description; page text incl. title block A-201 Rev C. Undo restores the local-only state exactly |
 
 Markup output is easiest to judge by drawing `locator.bbox` of the `markup_region` chunks onto the source image and looking at it.
 
@@ -81,6 +84,7 @@ converter/
   markup.py      perceptual hash, find original (hash, then ORB features), diff / aligned-diff / colour detection,
                  region chunks, Rhino layer-under-mark mapping
   entities.py    regex entities (rfi, level, elevation, grid, sheet, date, person, regulation, element)
+  media_pass.py  AI media pass: audio/video/scanned pages -> transcript, clip_description, page_text
   tagging.py     keyword tag rules
   server.py      FastAPI: /api/convert (multipart + context form fields), /api/packages[/id|/zip], DELETE, /files static
   static/index.html  single-file vanilla JS UI (drop, Ctrl+V paste, context box, library, detail drawer)
@@ -132,7 +136,7 @@ Not tested on real data yet: real client markups, real Outlook `.msg` files, lar
 1. **Tests**: turn the table above into pytest using `samples/make_samples.py` fixtures (markup region counts are the fragile part).
 2. **Watched folder**: drag emails from Outlook into a folder and they auto-convert. Outlook can't drop straight into the browser, so this would be the handiest workflow.
 3. **`markup_text` / OCR**: read typed or handwritten notes on markups (local Tesseract, or a vision model if the team allows network).
-4. **Transcripts by default** (faster-whisper), and an `.srt` telemetry sidecar parser for DJI video.
+4. **Media**: an `.srt` telemetry sidecar parser for DJI video (GPS/altitude per second); optional local faster-whisper for offline transcripts. (AI-mode transcripts, video descriptions and scan reading are done via the media pass.)
 5. **More AEC formats**: IFC (ifcopenshell), DWG/DXF (ezdxf for DXF), E57/LAS point clouds, Revit via exported IFC, HEIC photos (pillow-heif).
 6. **Teams/Slack connector** (Graph API) for the "passive streams" in the brief: pull messages and files in for conversion; placement stays with the graph.
 7. **Scale**: a dhash index file instead of scanning all `chunks.jsonl` in `find_original`.

@@ -50,7 +50,7 @@ manifest = convert_file("site_model.3dm", "converter_output")
 | text / web / data | .txt .md .json .html … | markdown split by heading, html stripped | – | links, json keys |
 | unknown | anything else | text if the file is mostly printable | – | stored with a warning |
 
-\* Transcripts need `pip install faster-whisper`, which runs locally. Without it, audio and video still produce segments, and the manifest gets a warning plus `"transcript": "pending"`.
+\* In AI mode, transcripts (and video clip descriptions, and text from scanned pages) come from the media pass via Jev on OpenRouter. In "Convert only" mode, transcripts need `pip install faster-whisper`, which runs locally. Without it, audio and video still produce segments, and the manifest gets a warning plus `"transcript": "pending"`.
 
 ## Context and markups: making the content meaningful
 
@@ -178,7 +178,7 @@ def convert_pointcloud(pkg: Package, ctx: Context) -> None:
 
 ## Not covered yet
 
-- OCR for scanned PDFs (pages still get rendered as images, so a vision embedder can use them)
+- Local OCR for scanned PDFs (AI mode reads them via the media pass; Convert only still renders pages as images for a vision embedder)
 - Slide images for .pptx (needs PowerPoint/LibreOffice). Embedded media is extracted instead.
 - Revit (.rvt), IFC, DWG, point clouds (.e57/.las), drone flight logs (.srt telemetry sidecars, DJI .txt)
 - HEIC photos (`pip install pillow-heif` would add them)

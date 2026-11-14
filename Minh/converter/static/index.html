@@ -697,12 +697,19 @@ function drawDetail() {
   document.querySelectorAll("#drawer [data-open]").forEach(b => b.onclick = e => { e.preventDefault(); openPkg(b.dataset.open); });
   document.querySelectorAll("#drawer .gallery img, #drawer .chunk img, #drawer .region img").forEach(i => i.onclick = () => { $("#lightbox img").src = i.src; $("#lightbox").style.display = "grid"; });
 }
+const fmtT = s => { s = Math.round(+s || 0); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 function agentSection(m, chunks, base) {
   const ag = m.agent;
   const ask = `<div style="display:flex;gap:8px;margin-top:14px"><input id="agprompt" class="field" placeholder="${ag ? "Re-read with a different focus…" : "Optional: what should the AI focus on?"}">
      <button class="btn ${ag ? "" : "primary"}" data-ag="run" ${agentOn ? "" : "disabled"} style="flex-shrink:0">${ag ? "Re-read" : "Read with AI"}</button></div>`;
   if (!ag) return `<div class="sec agentbox"><h4>AI reading</h4><div class="muted">Not read by AI yet. It pulls out the summary, key points, figures worth keeping and any handwriting on markups.</div>${ask}</div>`;
   const by = c => (c.meta?.suggested_by || "").startsWith("agent");
+  const media = chunks.filter(c => (c.meta?.suggested_by || "").startsWith("agent-media"));
+  const ts = c => c.locator.t_start != null ? `<span class="muted small">${fmtT(c.locator.t_start)}–${fmtT(c.locator.t_end)}</span> ` : "";
+  const mediaHtml = [
+    ["transcript", "Transcript"], ["clip_description", "What's in the video"], ["page_text", "Text read from scanned pages"]]
+    .map(([role, label]) => { const cs = media.filter(c => c.role === role); return cs.length ? `<div class="sub"><h4>${label} · ${cs.length}</h4>${cs.map(c =>
+      `<div class="insight">${ts(c)}${c.locator.page ? `<span class="muted small">page ${c.locator.page}</span> ` : ""}<span style="white-space:pre-wrap">${esc(c.text)}</span></div>`).join("")}</div>` : ""; }).join("");
   const kps = chunks.filter(c => by(c) && ["key_point", "insight"].includes(c.role));
   const figs = chunks.filter(c => by(c) && c.role === "figure");
   return `<div class="sec agentbox"><h4>AI reading · <span style="text-transform:none;letter-spacing:0">${esc(ag.model)}</span></h4>
@@ -713,6 +720,8 @@ function agentSection(m, chunks, base) {
     ${figs.length ? `<div class="sub"><h4>Figures worth keeping · ${figs.length}</h4><div class="gallery">${figs.map(c =>
       `<figure><img loading="lazy" src="${base}${c.asset}" alt=""><figcaption>${esc(c.text)}</figcaption></figure>`).join("")}</div></div>` : ""}
     ${(ag.markup_text || []).length ? `<div class="sub"><h4>Written on the markup</h4>${ag.markup_text.map(t => `<div class="quote">${esc(t.text)}</div>`).join("")}</div>` : ""}
+    ${mediaHtml}
+    ${m.media_pass ? `<div class="muted small" style="margin-top:8px">Audio / video / scans read by ${esc(m.media_pass.model)}${(m.media_pass.errors || []).length ? ` · ${m.media_pass.errors.length} item(s) failed` : ""}</div>` : ""}
     <div class="acts"><button class="btn" data-ag="undo">Undo AI reading</button></div>
     ${ask}</div>`;
 }

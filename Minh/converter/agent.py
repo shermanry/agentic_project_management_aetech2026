@@ -23,6 +23,7 @@ Config (.env at repo root, see .env.example):
     CONVERTER_ALLOW_DATA_COLLECTION  default "deny": only providers that don't store/train on requests
     CONVERTER_RESEARCH_MODEL  default = CONVERTER_AGENT_MODEL (web research for text-only prompts)
     CONVERTER_RESEARCH_RESULTS default 6 web results per research request
+    CONVERTER_MEDIA_MODEL     default typesafe/jev-router (audio / video / scanned pages, see media_pass.py)
 
 Text-only prompts (no files): a pasted conversation becomes a note, links are fetched, and
 "find out / look up ..." requests run a web search with citations (see text_intake()).
@@ -369,7 +370,7 @@ def _material(manifest: dict, chunks: list[dict]) -> str:
             "warnings": manifest.get("warnings")}
     parts, used = [json.dumps(head, ensure_ascii=False, default=str)[:6000]], 0
     for c in chunks:
-        if c["modality"] != "text" or c["role"] == "summary" or (c["meta"].get("suggested_by", "").startswith("agent")):
+        if c["modality"] != "text" or c["role"] == "summary" or c["meta"].get("suggested_by", "").startswith("agent:"):
             continue
         t = c["text"] or ""
         if used + len(t) > MAX_TEXT_CHARS:
@@ -385,6 +386,8 @@ def _material(manifest: dict, chunks: list[dict]) -> str:
 
 def understand(out: Path, pid: str, prompt: str = "", focus: str | None = None) -> dict:
     d = out / pid
+    from .media_pass import enrich
+    media = enrich(out, pid)   # audio/video/scanned pages -> text first, so the reader sees the words too
     manifest = json.loads((d / "manifest.json").read_text(encoding="utf-8"))
     chunks = [json.loads(l) for l in (d / "chunks.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
     images = _pick_images(chunks)
@@ -398,6 +401,8 @@ def understand(out: Path, pid: str, prompt: str = "", focus: str | None = None) 
         content.append(_image_part(d / c["asset"]))
     result, usage = chat_json(agent_model(), [{"role": "system", "content": UNDERSTAND_SYSTEM},
                                               {"role": "user", "content": content}], max_tokens=5000)
+    usage = dict(usage or {})
+    usage["cost"] = (usage.get("cost") or 0) + (media.get("cost") or 0)   # one cost per file: media pass + reading
     return _write_back(out, manifest, chunks, images, result, usage, prompt, focus)
 
 
@@ -418,12 +423,25 @@ def _save(out: Path, manifest: dict, chunks: list[dict]) -> None:
     _update_index(out, manifest)
 
 
-def _strip_agent(out: Path, manifest: dict, chunks: list[dict]) -> list[dict]:
+def _strip_agent(out: Path, manifest: dict, chunks: list[dict], keep_media: bool = False) -> list[dict]:
+    """Remove AI additions. keep_media=True keeps the media pass (transcripts, clip descriptions,
+    page text: "agent-media:*") and removes only the reading ("agent:*")."""
     d = out / manifest["id"]
+    prefix = "agent:" if keep_media else "agent"
     for c in chunks:
-        if c["meta"].get("suggested_by", "").startswith("agent") and c.get("asset", "") and "/agent_" in c["asset"]:
+        if c["meta"].get("suggested_by", "").startswith(prefix) and c.get("asset", "") and "/agent_" in c["asset"]:
             (d / c["asset"]).unlink(missing_ok=True)
-    chunks = [c for c in chunks if not c["meta"].get("suggested_by", "").startswith("agent")]
+    chunks = [c for c in chunks if not c["meta"].get("suggested_by", "").startswith(prefix)]
+    if not keep_media and manifest.get("media_pass"):
+        # back to the exact local-only state: restore warnings, transcript status, entities from local text
+        mp = manifest.pop("media_pass")
+        manifest["warnings"] = manifest.get("warnings", []) + [w for w in mp.get("cleared_warnings", [])
+                                                               if w not in manifest.get("warnings", [])]
+        md = manifest.setdefault("metadata", {})
+        if "previous_transcript_status" in mp:
+            md["transcript"] = mp["previous_transcript_status"]
+        from .entities import extract
+        md["entities"] = extract("\n".join(c["text"] or "" for c in chunks) + " " + manifest.get("title", ""))
     manifest.pop("agent", None)
     manifest["links"] = [l for l in manifest.get("links", []) if not l.get("suggested_by", "").startswith("agent")]
     manifest.setdefault("tags", {}).pop("agent_values", None)
@@ -435,7 +453,7 @@ def _write_back(out: Path, manifest: dict, chunks: list[dict], images: list[dict
     pid = manifest["id"]
     by = f"agent:{agent_model()}"
     with _lock(pid):
-        chunks = _strip_agent(out, manifest, chunks)  # re-running replaces the previous agent pass
+        chunks = _strip_agent(out, manifest, chunks, keep_media=True)  # re-running replaces the previous reading
         chunk_ids = {c["id"] for c in chunks}
         new: list[dict] = []
 
@@ -477,7 +495,7 @@ def _write_back(out: Path, manifest: dict, chunks: list[dict], images: list[dict
                 add("text", f"Written on the markup ({img['locator'].get('position', 'image')}): \"{mt['text'].strip()}\"",
                     "markup_text", {"source_chunk": img["id"], **{k: v for k, v in img["locator"].items() if k in ("position", "region", "page")}})
 
-        base = len(chunks)
+        base = max((c["index"] for c in chunks), default=-1) + 1  # never reuse an id
         for i, c in enumerate(new):
             c.update({"id": f"{pid}:{base + i:04d}", "package_id": pid, "index": base + i})
         chunks += new
