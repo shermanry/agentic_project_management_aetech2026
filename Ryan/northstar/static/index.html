@@ -63,6 +63,19 @@ svg{width:100%;height:100%;display:block}
 #replay .bar{height:3px;background:var(--line);border-radius:2px;margin-top:5px;overflow:hidden}
 #replay .bar i{display:block;height:100%;background:var(--acc);transition:width .3s}
 #replay button{white-space:nowrap}
+#ask{display:flex;gap:8px;margin:8px 12px 12px}
+#ask input{flex:1;padding:8px 10px;border-radius:7px}
+.node.cited rect.box{stroke:var(--acc);stroke-width:3;fill:var(--acc-bg);animation:none}
+.node.dim,.edge.dim{opacity:.22}
+.badge{fill:var(--acc)}.badge-t{fill:#fff;font-size:10px;font-weight:700;text-anchor:middle}
+.answer{font-size:14px;line-height:1.5;margin:6px 0 4px}
+.chip{display:inline-block;min-width:18px;text-align:center;border-radius:9px;padding:0 5px;font-size:11px;font-weight:700;background:var(--acc);color:#fff;cursor:pointer;margin:0 1px;vertical-align:1px}
+.src{border:1px solid var(--line);border-radius:7px;padding:8px 9px;margin-top:8px}
+.src.flash{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc-bg)}
+.src .h{display:flex;gap:6px;align-items:baseline;cursor:pointer}
+.src .h b{flex:1}
+.src .p{color:var(--mute);font-size:12px;margin-top:5px;line-height:1.5}
+mark{background:#fde68a;color:#1f2933;border-radius:2px;padding:0 1px}
 .legend{position:absolute;left:10px;bottom:8px;color:var(--mute);font-size:11px;display:flex;gap:12px;flex-wrap:wrap}
 .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 .row{display:flex;gap:8px;align-items:center;margin-top:6px}
@@ -107,8 +120,9 @@ img.prev{max-width:100%;max-height:150px;border-radius:6px;margin-top:8px;border
       <div class="cap"><b id="rtitle">Replay</b><span id="rstory"></span><div class="bar"><i id="rbar" style="width:0"></i></div></div>
       <button id="rfwd" class="primary" title="Next step (right arrow)">Forward ▶</button></div>
     <div id="canvas"><svg id="svg"></svg>
-      <div class="legend"><span><i style="background:var(--red)"></i>blocked / at risk</span><span><i style="background:var(--amber)"></i>re-opened</span><span><i style="border:1.5px dashed var(--acc)"></i>proposed, not saved</span><span><i style="border:1.5px dashed var(--green)"></i>would be cleared</span></div>
+      <div class="legend"><span><i style="background:var(--red)"></i>blocked / at risk</span><span><i style="background:var(--amber)"></i>re-opened</span><span><i style="border:1.5px dashed var(--acc)"></i>proposed, not saved</span><span><i style="border:1.5px dashed var(--green)"></i>would be cleared</span><span><i style="border:2px solid var(--acc)"></i>used in the answer</span></div>
     </div>
+  <div id="ask"><input type="text" id="q" placeholder="Ask the project… e.g. How far ahead must we apply for a take-off permit?"><button class="primary" id="askb">Ask</button></div>
   </section>
   <section>
     <h2 id="ptitle">Review</h2>
@@ -122,7 +136,7 @@ img.prev{max-width:100%;max-height:150px;border-radius:6px;margin-top:8px;border
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const TYPE_COLOR = {decision:"#7c3aed",discovery:"#db2777",event:"#0891b2",data_feed:"#0d9488",deliverable:"#2563eb",blocker:"#dc2626",constraint:"#b45309",document:"#64748b",entity:"#16a34a"};
-let S = null, selItem = null, selNode = null, draft = null, draftFx = null, pos = {}, followed = null, busy = false;
+let S = null, selItem = null, selNode = null, draft = null, draftFx = null, pos = {}, followed = null, busy = false, qa = null;
 const W = 150, H = 44;
 
 async function api(path, opts) {
@@ -197,7 +211,7 @@ function renderTray() {
   document.querySelectorAll("[data-item]").forEach(el => el.onclick = () => {
     const it = S.items.find(i => i.id === el.dataset.item);
     selNode = it.status === "approved" ? it.proposal?.node_id : null;
-    selItem = ["ready","refining"].includes(it.status) ? it.id : null;
+    selItem = ["ready","refining"].includes(it.status) ? it.id : null; qa = null;
     draft = null; if (selItem) startDraft(it); else if (it.status === "failed") toast(it.error || "Failed");
     render();
   });
@@ -237,20 +251,23 @@ function renderGraph() {
   const {cw, ch} = layout(nodes, edges, fixed);
   const svg = $("#svg"); svg.setAttribute("viewBox", `0 0 ${cw} ${ch}`);
   const hl = new Set(); (draftFx?.effects||[]).forEach(e => (e.chain||[]).forEach(id => hl.add(id)));
+  const cites = {}; if (qa?.citations && !selItem) qa.citations.forEach(c => (cites[c.node_id] = cites[c.node_id] || []).push(c.n));
+  const asking = Object.keys(cites).length > 0;
   let out = '<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="context-stroke"/></marker></defs>';
   edges.forEach(e => { const a = pos[e.src], b = pos[e.dst]; if (!a||!b) return;
     const dx = b.x-a.x, dy = b.y-a.y, t = Math.min((W/2+4)/Math.abs(dx||1e-6), (H/2+4)/Math.abs(dy||1e-6)), ex = b.x-dx*t, ey = b.y-dy*t, sx = a.x+dx*t, sy = a.y+dy*t;
     const risky = selItem && hl.has(e.src) && hl.has(e.dst);
-    out += `<line class="edge ${e.ghost?"ghost":""} ${risky?"hl":""}" x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" marker-end="url(#arr)"/>`;
+    out += `<line class="edge ${e.ghost?"ghost":""} ${risky?"hl":""} ${asking && !(cites[e.src] && cites[e.dst])?"dim":""}" x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" marker-end="url(#arr)"/>`;
     if (e.ghost || selNode===e.src || selNode===e.dst) out += `<text class="elabel" x="${(sx+ex)/2}" y="${(sy+ey)/2-4}">${esc(e.type.replace("_"," "))}</text>`; });
-  nodes.forEach(n => { const p = pos[n.id], cls = ["node", n.ghost?"ghost":"st-"+n.status, n.id===selNode?"sel":"", would[n.id] ? (["cleared","resolved"].includes(would[n.id]) ? "clear" : "would") : ""].join(" ");
+  nodes.forEach(n => { const p = pos[n.id], cls = ["node", n.ghost?"ghost":"st-"+n.status, n.id===selNode?"sel":"", would[n.id] ? (["cleared","resolved"].includes(would[n.id]) ? "clear" : "would") : "", asking ? (cites[n.id] ? "cited" : "dim") : ""].join(" ");
     const t = n.title.length > 23 ? n.title.slice(0,22)+"…" : n.title;
     const sub = n.ghost ? "proposed · not saved" : would[n.id] ? "would be: "+would[n.id] : n.type.replace("_"," ")+" · "+String(n.status).replace("_"," ");
     out += `<g class="${cls}" data-node="${esc(n.id)}" transform="translate(${p.x-W/2},${p.y-H/2})"><title>${esc(n.title)}</title>
       <rect class="box" width="${W}" height="${H}" rx="6"/><rect width="5" height="${H}" rx="2" fill="${TYPE_COLOR[n.type]||"#64748b"}"/>
-      <text x="12" y="18" font-weight="600">${esc(t)}</text><text class="sub" x="12" y="34">${esc(sub)}</text></g>`; });
+      <text x="12" y="18" font-weight="600">${esc(t)}</text><text class="sub" x="12" y="34">${esc(sub)}</text>
+      ${(cites[n.id]||[]).slice(0,4).map((c,i) => `<circle class="badge" cx="${W-10-i*19}" cy="0" r="9"/><text class="badge-t" x="${W-10-i*19}" y="3.5">${c}</text>`).join("")}</g>`; });
   svg.innerHTML = out;
-  svg.querySelectorAll("[data-node]").forEach(g => g.onclick = () => { const id = g.dataset.node; if (id === "__ghost") return; selNode = id; if (!selItem) renderPanel(); renderGraph(); if (selItem) { /* keep reviewing */ } });
+  svg.querySelectorAll("[data-node]").forEach(g => g.onclick = () => { const id = g.dataset.node; if (id === "__ghost") return; selNode = id; if (qa?.citations && !selItem) { const el = document.querySelector(`.src[data-node="${id}"]`); if (el) { el.scrollIntoView({block:"nearest"}); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1200); return; } qa = null; } if (!selItem) renderPanel(); renderGraph(); if (selItem) { /* keep reviewing */ } });
 }
 
 function renderPanel() {
@@ -288,6 +305,7 @@ function renderPanel() {
     $("#dismiss").onclick = () => act("dismiss", {by: who(), reason: $("#d-reason").value.trim()});
     return;
   }
+  if (qa) { renderAnswer(el); return; }
   const n = selNode && node(selNode);
   if (n) {
     $("#ptitle").textContent = "Node";
@@ -309,6 +327,39 @@ function renderPanel() {
   }
   $("#ptitle").textContent = "Review";
   el.innerHTML = '<p class="muted">Add something on the left. When its proposed placement is ready, open it here to see what it connects to and what it would change, then approve it.</p>';
+}
+
+function withMark(text, quote, found) {
+  if (!found || !quote) return esc(text.length > 420 ? text.slice(0, 420) + "…" : text);
+  const i = text.toLowerCase().indexOf(quote.toLowerCase());
+  const a = Math.max(0, i - 160), b = Math.min(text.length, i + quote.length + 160);
+  return (a > 0 ? "…" : "") + esc(text.slice(a, i)) + "<mark>" + esc(text.slice(i, i + quote.length)) + "</mark>" + esc(text.slice(i + quote.length, b)) + (b < text.length ? "…" : "");
+}
+function renderAnswer(el) {
+  $("#ptitle").textContent = "Answer";
+  if (qa.loading) { el.innerHTML = `<p><b>${esc(qa.question)}</b></p><div class="s" style="display:flex;gap:8px;align-items:center"><span class="spin"></span><span class="muted">Searching the project and reading the relevant passages…</span></div>`; return; }
+  if (qa.error) { el.innerHTML = `<p><b>${esc(qa.question)}</b></p><div class="note">${esc(qa.error)}</div><div class="actions"><button id="qclose">Close</button></div>`; $("#qclose").onclick = closeQa; return; }
+  const ans = esc(qa.answer).replace(/\[(\d+(?:\s*,\s*\d+)*)\]/g, (m, g) => g.split(/\s*,\s*/).filter(n => qa.citations.some(c => c.n == n)).map(n => `<span class="chip" data-chip="${n}">${n}</span>`).join(""));
+  el.innerHTML = `<p style="margin:2px 0"><b>${esc(qa.question)}</b></p>
+    <div class="answer">${ans}</div>
+    ${qa.answered ? "" : '<div class="note">The project graph does not contain a clear answer to this.</div>'}
+    <div class="muted">${qa.citations.length} of ${qa.considered} sources used · ${Math.round(qa.confidence*100)}% confident · ${qa.timings?.total ?? "?"}s · ${esc(qa.model||"")}</div>
+    <h2 style="padding:14px 0 0">Based on</h2>
+    ${qa.citations.length ? qa.citations.map(c => `<div class="src" data-node="${esc(c.node_id)}" data-src="${c.n}"><div class="h"><span class="chip">${c.n}</span><b>${esc(c.title)}</b>
+        <span class="muted">${esc([c.kind === "status" ? "live status" : c.type.replace("_"," "), c.kind === "status" ? "" : c.locator].filter(Boolean).join(" · "))}</span></div>
+        <div class="p">${withMark(c.text, c.quote, c.quote_found)}</div>${c.quote && !c.quote_found ? '<div class="muted" style="font-size:11px;margin-top:3px">Used in the answer; no exact quote to highlight.</div>' : ""}</div>`).join("") : '<p class="muted">No sources were cited.</p>'}
+    <div class="actions"><button id="qclose">Close answer</button></div>`;
+  $("#qclose").onclick = closeQa;
+  el.querySelectorAll("[data-chip]").forEach(ch => ch.onclick = () => { const s = el.querySelector(`.src[data-src="${ch.dataset.chip}"]`); if (s) { s.scrollIntoView({block:"nearest"}); s.classList.add("flash"); setTimeout(() => s.classList.remove("flash"), 1200); } });
+  el.querySelectorAll(".src .h").forEach(hd => hd.onclick = () => { selNode = hd.parentElement.dataset.node; renderGraph(); });
+}
+function closeQa() { qa = null; render(); }
+async function askQuestion() {
+  const q = $("#q").value.trim(); if (!q || qa?.loading) return;
+  selItem = null; draft = null; qa = {loading: true, question: q}; render();
+  try { qa = await api("/api/ask", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({question: q})}); }
+  catch (e) { qa = {question: q, error: e.message}; }
+  render();
 }
 
 function renderHist() {
@@ -341,6 +392,8 @@ function toast(msg, onclick) {
   $("#toast").appendChild(d); setTimeout(() => d.remove(), 9000);
 }
 
+$("#askb").onclick = askQuestion;
+$("#q").onkeydown = e => { if (e.key === "Enter") askQuestion(); };
 $("#rfwd").onclick = () => step("forward");
 $("#rback").onclick = () => step("back");
 document.addEventListener("keydown", e => { if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
@@ -361,6 +414,7 @@ const es = new EventSource("/api/events");
 es.onmessage = async m => { const ev = JSON.parse(m.data);
   if (ev.reset) pos = {};
   await refresh();
+  if (ev.type === "indexed" && ev.chunks > 3) toast(`“${ev.title}” is now searchable (${ev.chunks} passages)`);
   if (ev.type === "ready" && ev.id !== S.replay.item_id) toast(`Ready to review: ${ev.title} (${ev.seconds}s)`, () => { const it = S.items.find(i => i.id === ev.id); if (it) { selItem = it.id; selNode = null; startDraft(it); render(); } });
 };
 refresh();

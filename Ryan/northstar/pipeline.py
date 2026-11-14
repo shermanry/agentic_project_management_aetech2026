@@ -287,3 +287,43 @@ def warm_up(tmp: Path) -> None:
         engine._load_handlers()
     except Exception:
         traceback.print_exc()
+
+
+MAX_INDEX_CHUNKS = 800
+
+
+def index_node(store: Store, node_id: str, out_root: Path, notify=None) -> int:
+    """Embed a node's full text so questions can be answered from it: every text chunk of its converter
+    package (pages, sections, tables), or the raw message for a note. The card vector already exists."""
+    try:
+        n = store.node(node_id)
+        if not n:
+            return 0
+        rows: list[dict] = []
+        pkg = (n.get("data") or {}).get("package_id")
+        f = out_root / pkg / "chunks.jsonl" if pkg else None
+        if f and f.is_file():
+            for line in f.read_text(encoding="utf-8").splitlines():
+                c = json.loads(line) if line.strip() else None
+                if c and c.get("modality") == "text" and c.get("role") != "summary" and (c.get("text") or "").strip():
+                    rows.append({"text": c["text"], "role": c.get("role") or "body", "pointer": c.get("locator") or {}})
+        else:
+            text, summary = store.node_text(node_id)
+            if text.strip() and text.strip() != summary.strip():
+                rows.append({"text": text, "role": "body", "pointer": {}})
+        rows = rows[:MAX_INDEX_CHUNKS]
+        if not rows:
+            return 0
+        vectors = embeddings.embed([r["text"][:6000] for r in rows], kind="document")
+        added = store.add_chunks(node_id, rows, vectors, embeddings.model_id())
+        if notify and added:
+            notify({"type": "indexed", "node_id": node_id, "chunks": added, "title": n["title"]})
+        return added
+    except Exception:
+        traceback.print_exc()
+        return 0
+
+
+def index_missing(store: Store, out_root: Path, notify=None) -> None:
+    for node_id in store.unindexed():
+        index_node(store, node_id, out_root, notify)

@@ -32,6 +32,17 @@ The app runs the repo-root [`monitors/`](../../monitors/README.md) in a backgrou
 
 **For demos,** real changes are rare, so canned ones go through the same path: `POST /api/feeds/inject/{scenario}` with `thursday_unflyable`, `thursday_flyable`, `tfr_over_site`, `tfr_ended`, `rule_change` or `gps_storm`. The site and flight limits come from `monitors/site.json` (or `site.example.json`: 120 Broadway); set `MONITOR_SITE` to use another file and `FEEDS_ENABLED=0` to turn polling off.
 
+## Ask the project
+
+The box under the graph answers questions from what is in the graph, and shows what it used.
+
+- **What is searched:** every node's summary card, the full text of dropped documents (each page or section of a converted file is embedded when the node is approved), and the current flags on the graph ("Flight 5 is at risk because…").
+- **How:** the question is embedded, pgvector returns the nearest chunks, and Jev answers from those numbered sources only, quoting the words it relied on. If the sources don't contain the answer it says so.
+- **Highlighting:** the nodes used light up on the graph with their source numbers and everything else dims. The panel lists each source with its page and the quoted words highlighted. Clicking a number or a node jumps to that source.
+- Questions and answers are not saved to the graph.
+
+Limits: retrieval is by meaning only (no keyword search), at most 12 sources reach Jev, and documents added before this feature are indexed in the background at startup. Images inside documents are not searched.
+
 ## How it works
 
 ```
@@ -55,6 +66,7 @@ drop / paste / chat
 | `store.py` | Postgres + pgvector on the team's shared schema: nodes, versions, card vectors, aliases, edges, approvals, events, attention items |
 | `db/001_schema.sql` | Vendored copy of Sharare's decision-engine schema (branch `sharare/decision-engine`, commit d1d0b9d). Delete once that branch is merged and mount hers instead |
 | `db/010_northstar.sql` | One extra table, `intake_items`: things being processed or waiting for review |
+| `qa.py` | Question answering over the graph with cited sources |
 | `replay.py` | The replay scenario and the Back / Forward logic |
 | `livefeeds.py` | Runs the monitors, maps their events to feed nodes, ripples bad news, clears good news, sends discoveries to intake; demo scenarios |
 | `seed.py` | Example project: East Tower facade survey. Placeholder details |
@@ -103,6 +115,9 @@ Settings (environment or `.env`): `DATABASE_URL`, `FEEDS_ENABLED`, `MONITOR_SITE
 | GET | `/api/feeds` | Live data monitors: site, last and next run, errors, demo scenarios |
 | POST | `/api/feeds/run?only=` | Run monitors now (all, or a comma-separated list) |
 | POST | `/api/feeds/inject/{scenario}` | Demo: push a canned feed change through the real path |
+| POST | `/api/ask` | `{question}` -> answer, cited sources with quotes, timings. Saves nothing |
+| POST | `/api/nodes/{id}/resolve` | Mark a blocker, discovery or constraint resolved; clears the flags it raised |
+| POST | `/api/replay/forward`, `/api/replay/back` | Step the replay |
 | POST | `/api/reset` | Demo helper: reload the example project |
 
 ## Known gaps
@@ -111,7 +126,6 @@ Settings (environment or `.env`): `DATABASE_URL`, `FEEDS_ENABLED`, `MONITOR_SITE
 - **Only part of the shared schema is used.** Proposals wait in `intake_items` and become confirmed nodes on approval; they are not stored as `candidate` nodes with `proposed` edges yet. Decision versions, lineage, rules and runs are untouched.
 - **"At risk" is an attention item, not a node state.** The shared schema's per-type states have no blocked or at-risk value, so effects are written to `attention_items` and the UI shows the latest open one.
 - **Effects are hard-coded rules** in `effects.py`, not generated JSON rules.
-- **No way to resolve a blocker yet:** statuses turn red on approval; nothing turns them back.
 - **One project, no login.** "You are" is a dropdown.
 - **Slack intake is not wired.** The chat box stands in for it; `/api/intake` is what a Slack bot would call.
 - **Jev is a router,** so speed varies per call (2.7 to 6.4 seconds seen). Pin `JEV_MODEL` to one fast model if the demo needs consistency.

@@ -19,6 +19,7 @@ from pydantic import BaseModel
 import effects
 import livefeeds
 import pipeline
+import qa
 import seed
 from replay import Replay
 from store import EDGE_TYPES, IMPORTANCE, NODE_TYPES, Store, new_id, now
@@ -58,6 +59,7 @@ async def _startup() -> None:
     if os.environ.get("FEEDS_ENABLED", "1").lower() not in ("0", "false", "no"):
         feeds.start()   # polls weather, airspace, rules, city events on their cadences
     threading.Thread(target=pipeline.warm_up, args=(DATA / "warmup",), daemon=True).start()
+    threading.Thread(target=pipeline.index_missing, args=(store, PACKAGES, notify), daemon=True).start()
     for it in store.items():  # anything interrupted by a restart
         if it["status"] in ("processing", "refining"):
             it.update(status="failed", error="interrupted by a restart; add it again")
@@ -227,6 +229,7 @@ def _approve(it: dict, type_: str, title: str, links: list[dict], by: str, reaso
             "data": {"item_id": item_id, "package_id": prop.get("package_id"), "source": src.get("filename") or "message",
                      "added_by": it.get("author")}}
     node_id, seq = store.approve_placement(it, node, links, fx, by, reason, edited)
+    threading.Thread(target=pipeline.index_node, args=(store, node_id, PACKAGES, None if quiet else notify), daemon=True).start()
     if not quiet:
         notify({"type": "graph", "seq": seq, "node_id": node_id})
     return {"node_id": node_id, "effects": fx, "revision": seq}
@@ -271,6 +274,22 @@ def dismiss(item_id: str, d: Dismiss) -> dict:
     seq = store.dismiss(it, d.by, d.reason)
     notify({"type": "graph", "seq": seq})
     return {"revision": seq}
+
+
+class Question(BaseModel):
+    question: str
+
+
+@app.post("/api/ask")
+def ask(q: Question) -> dict:
+    """Answer from the graph only, returning the passages and nodes the answer rests on."""
+    text = q.question.strip()
+    if not text:
+        raise HTTPException(400, "Ask a question")
+    try:
+        return qa.ask(text[:1000], store)
+    except Exception as e:
+        raise HTTPException(502, f"Could not answer: {str(e)[:200]}")
 
 
 @app.post("/api/nodes/{node_id}/resolve")

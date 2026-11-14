@@ -113,6 +113,51 @@ class Store:
               AND n.project_id = %s AND n.status = 'confirmed'""", (_vec(vector), model, self.project["id"]))
         return {r["id"]: float(r["sim"]) for r in rows}
 
+    # ---------------------------------------------------------------- passages for question answering
+    def node_text(self, node_id: str) -> tuple[str, str]:
+        r = self._q("SELECT coalesce(content_text, '') AS t, coalesce(summary, '') AS s FROM node_head WHERE node_id = %s", (int(node_id),))
+        return (r[0]["t"], r[0]["s"]) if r else ("", "")
+
+    def unindexed(self) -> list[str]:
+        """Nodes that only have their card chunk: their document passages have not been embedded yet."""
+        return [r["id"] for r in self._q("""
+            SELECT n.id::text AS id FROM nodes n JOIN node_head h ON h.node_id = n.id
+            WHERE n.project_id = %s AND n.status = 'confirmed'
+              AND NOT EXISTS (SELECT 1 FROM chunks c WHERE c.node_version_id = h.id AND c.role <> 'card') ORDER BY n.id""",
+            (self.project["id"],))]
+
+    def add_chunks(self, node_id: str, rows: list[dict], vectors: list[list[float]], model: str) -> int:
+        with self.pool.connection() as c, c.transaction():
+            vid = c.execute("SELECT id FROM node_head WHERE node_id = %s", (int(node_id),)).fetchone()["id"]
+            if c.execute("SELECT 1 FROM chunks WHERE node_version_id = %s AND role <> 'card' LIMIT 1", (vid,)).fetchone():
+                return 0                                   # someone else indexed it meanwhile
+            for i, (r, v) in enumerate(zip(rows, vectors), 1):
+                c.execute("""INSERT INTO chunks (node_version_id, idx, modality, role, text, pointer, embedding, embedding_model, embedded_at)
+                             VALUES (%s, %s, 'text', %s, %s, %s, %s::vector, %s, now())""",
+                          (vid, i, r.get("role") or "body", r["text"], Jsonb(r.get("pointer") or {}), _vec(v), model))
+        return len(rows)
+
+    def search(self, vector: list[float], model: str, k: int) -> list[dict]:
+        """Nearest chunks of any kind (node cards and document passages) to a query vector."""
+        return self._q("""
+            SELECT n.id::text AS node_id, c.role, c.text, c.pointer, 1 - (c.embedding <=> %s::vector) AS sim
+            FROM chunks c JOIN node_head h ON h.id = c.node_version_id JOIN nodes n ON n.id = h.node_id
+            WHERE c.embedding IS NOT NULL AND c.embedding_model = %s AND n.project_id = %s AND n.status = 'confirmed'
+            ORDER BY c.embedding <=> %s::vector LIMIT %s""", (_vec(vector), model, self.project["id"], _vec(vector), k))
+
+    def flags(self) -> list[dict]:
+        """Open attention flags, newest first: which node, what status, why, and which node caused it."""
+        out = []
+        for r in self._q("""SELECT a.touches, a.matched_by, a.reason, src.title AS source_title
+                            FROM attention_items a LEFT JOIN events e ON e.id = a.event_id
+                            LEFT JOIN nodes src ON src.id = e.object_id AND e.object_type = 'node'
+                            WHERE a.project_id = %s AND a.state = 'open' ORDER BY a.id DESC""", (self.project["id"],)):
+            status = next((m.split(":", 1)[1] for m in r["matched_by"] if m.startswith("effect:")), None)
+            for nid in r["touches"]:
+                if status:
+                    out.append({"node_id": str(nid), "status": status, "reason": r["reason"], "source_title": r["source_title"]})
+        return out
+
     def caused(self) -> dict[str, list[str]]:
         """source node id -> node ids it currently flags (open attention items raised when it was approved)."""
         out: dict[str, list[str]] = {}
