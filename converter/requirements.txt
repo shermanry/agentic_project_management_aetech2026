@@ -12,5 +12,6 @@ pillow>=10
 numpy>=1.26
 imageio-ffmpeg>=0.5
 opencv-python-headless>=4.9
+# agent layer uses only the standard library (urllib) to call OpenRouter: no extra package
 # optional, local speech-to-text for audio/video transcripts (~150 MB model download on first use):
 # faster-whisper>=1.0

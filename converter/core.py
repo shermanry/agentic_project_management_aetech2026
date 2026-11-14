@@ -66,7 +66,7 @@ class Package:
         self.out_root = Path(out_root)
         self.original_name = original_name or self.source.name
         # user-supplied context: note (the message that came with the file), author, author_role,
-        # channel, date, intent ("markup" | "reference" | ...), refers_to (package id)
+        # channel, date, intent ("markup" | "reference" | ...), refers_to (package id), project
         self.context: dict[str, Any] = {k: v for k, v in (context or {}).items() if v not in (None, "")}
         self.sha256 = sha256_file(self.source)
         self.id = f"uep_{self.sha256[:12]}"

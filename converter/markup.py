@@ -313,7 +313,7 @@ def analyze(pkg: Package, img: Image.Image, rel_asset: str, label: str, message:
     h = dhash(img)
     original = None
     ref = pkg.context.get("refers_to")
-    if ref:
+    if ref and ref != pkg.id:
         original = _load_ref(pkg, ref)
     if original is None:
         original = find_original(pkg, h, img)

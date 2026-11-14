@@ -62,6 +62,50 @@ def create_app(out_root: str | Path) -> FastAPI:
                 results.append(convert_file(tmp, out, original_name=name, context=context))
         return results
 
+    # ---------------- agent: one prompt + files, everything else automatic
+    @app.get("/api/agent")
+    def agent_info():
+        from . import agent
+        return {"available": agent.available(), "agent_model": agent.agent_model(), "router_model": agent.router_model()}
+
+    @app.post("/api/ask")
+    def ask(prompt: str = Form(""), files: list[UploadFile] | None = File(None), package_ids: str = Form("")):
+        from . import agent
+        if not agent.available():
+            raise HTTPException(400, "No OPENROUTER_API_KEY in .env: use 'Convert only' or add the key")
+        try:
+            with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
+                saved = []
+                for i, f in enumerate(files or []):
+                    name = Path(f.filename or "upload.bin").name
+                    sub = Path(td) / str(i)
+                    sub.mkdir()
+                    tmp = sub / name
+                    with open(tmp, "wb") as fh:
+                        shutil.copyfileobj(f.file, fh)
+                    saved.append((tmp, name))
+                result = agent.ask(out, prompt.strip(), saved,
+                                   lambda p, o, n, c: convert_file(p, o, original_name=n, context=c)) if saved else \
+                    {"prompt": prompt, "plan": None, "items": [], "cost_usd": 0}
+            # run the agent on existing packages too ("re-read this with my prompt")
+            for pid in [p for p in package_ids.split(",") if p.strip()]:
+                m = agent.understand(out, pkg_dir(pid.strip()).name, prompt.strip())
+                ag = m.get("agent") or {}
+                result["items"].append({"id": m["id"], "filename": m["source"]["filename"], "kind": m["kind"],
+                                        "thumbnail": m.get("thumbnail"), "agent": ag, "error": None,
+                                        "links": [l for l in m.get("links", []) if l.get("suggested_by", "").startswith("agent")]})
+                result["cost_usd"] = round(result.get("cost_usd", 0) + ((ag.get("usage") or {}).get("cost") or 0), 4)
+            return result
+        except agent.AgentError as e:
+            raise HTTPException(502, str(e))
+
+    @app.post("/api/packages/{pid}/agent")
+    def agent_action(pid: str, action: str = Form(...)):
+        from . import agent
+        if action not in ("accept", "undo"):
+            raise HTTPException(400, "action must be accept or undo")
+        return agent.set_status(out, pkg_dir(pid).name, action)
+
     @app.get("/api/packages")
     def packages():
         idx = out / "index.jsonl"
@@ -73,6 +117,9 @@ def create_app(out_root: str | Path) -> FastAPI:
             m = json.loads((out / r["id"] / "manifest.json").read_text(encoding="utf-8"))
             r["thumbnail"] = m.get("thumbnail")
             r["warnings"] = len(m.get("warnings", []))
+            ag = m.get("agent")
+            if ag:
+                r["agent"] = {k: ag.get(k) for k in ("title", "summary", "node_type", "importance", "status", "needs_decision")}
         return sorted(rows, key=lambda r: r["updated_at"], reverse=True)
 
     @app.get("/api/packages/{pid}")
@@ -88,7 +135,8 @@ def create_app(out_root: str | Path) -> FastAPI:
                 if l.strip():
                     r = json.loads(l)
                     for link in r.get("links", []):
-                        if link["target"] == pid and link["type"] not in ("part_of", "contains"):
+                        if link["target"] == pid and link["type"] not in ("part_of", "contains") and \
+                                not any(b["type"] == link["type"] and b["source"] == r["id"] for b in backlinks):
                             backlinks.append({"type": link["type"], "source": r["id"], "title": r["title"]})
         return {"manifest": m, "chunks": chunks, "backlinks": backlinks}
 

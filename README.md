@@ -20,7 +20,21 @@ All paths below are relative to the repo root.
 Part of the drone-project knowledge-graph hackathon project (see `Ryan/PROJECT_BRIEF.md`). This module is only the **converter**: any dropped file becomes a Universal Embedding Package (UEP) folder (`manifest.json` + `chunks.jsonl` + `assets/`). Teammates build **embedding** and **graph** on top of those packages.
 
 - **The package format is a contract.** Teammates read `manifest.json`, `chunks.jsonl` and `converter_output/index.jsonl`. Adding fields is fine. Renaming or removing fields, or changing the meaning of `id` / `role` / `locator` / `links`, breaks them. If you must, bump `SCHEMA_VERSION` in `core.py` and update `converter/README.md`.
-- **Local and offline by design.** No model calls, no network calls. Anything needing a model (OCR, captions, model tags, transcripts beyond faster-whisper) is left as an explicit `pending` field for downstream. Keep it that way unless the team decides otherwise.
+- **Two layers.** The **local converter** extracts hard facts deterministically with no network calls. The optional **agent** (`converter/agent.py`, via OpenRouter) adds *meaning* on top: one prompt plus files in, and context, summary, node type, key points, figures, markup handwriting and links out. "Convert only" in the UI (or the CLI) stays fully local.
+
+## The agent layer (prompt + files → filled-in, linked node)
+
+Needs `OPENROUTER_API_KEY` in `.env` at the repo root (copy `.env.example`; never commit `.env`). Models are set in `.env`:
+`CONVERTER_ROUTER_MODEL` (default `anthropic/claude-haiku-5.5`, reads the prompt) and `CONVERTER_AGENT_MODEL` (default `anthropic/claude-sonnet-5.5`, reads text and images). Requests use OpenRouter `provider.data_collection = "deny"` (`CONVERTER_ALLOW_DATA_COLLECTION`).
+
+Flow (`agent.ask`):
+1. **interpret** (router model): prompt + filenames + library list become per-file context: author, role, channel, note, intent, refers_to, project.
+2. **convert** (local converter, unchanged) with that context.
+3. **understand** (agent model): manifest essentials + text chunks (about 24k chars) + up to 10 of the most informative images become JSON with title, summary, `node_type` (team taxonomy from `Ryan/agent-architecture.md`: decision, discovery, event, data_feed, deliverable, blocker, constraint, document), importance, decision_question, owner/due, tags, **insights** (self-contained statements with a source chunk/page), **figures** (with optional crops), **markup_text** (handwriting on images), **links** (only to ids in the library list).
+4. **write back**: new chunks are *appended* (existing chunk ids stay stable) with roles `agent_summary | insight | figure | markup_text` and `meta.suggested_by = "agent:<model>"`. `manifest.agent` holds the reading plus `status: suggested|accepted`. Agent links carry `suggested_by`, `status` and `why`. **Undo** (`agent.set_status(..., "undo")`) removes exactly those additions; re-running replaces them.
+
+API: `POST /api/ask` (form: `prompt`, `files[]`, optional `package_ids` to re-read existing nodes), `POST /api/packages/{id}/agent` (`action=accept|undo`), `GET /api/agent`.
+Measured on the samples: about 10 to 20 s and $0.02 to $0.04 per file. Tested on the samples: a Teams markup (read the handwriting, became a decision with a real question), a reviewed PDF plus an email (decisions, linked to RFI-012, the site notes and the flight log), and a top-view markup via the browser.
 
 ## Run / check
 
@@ -90,6 +104,7 @@ converter/
 - **Screenshot crops**: the warped original overhangs the picture edge into chat UI. `detect_by_diff` keeps only differences in locally agreeing areas and drops regions on the edge of the matched area.
 - **Colour detection without an original** only looks for red/magenta. Green/blue are too common in renders (ground, glass, water) and caused false positives.
 - **`.claude/launch.json` for the preview server lives one folder above the repo** (the desktop session's root), not inside it.
+- **Agent output is a suggestion.** Don't let it overwrite local facts. It only appends, and the UI shows suggested vs accepted. Links are restricted to ids in the library list sent to the model, so it can't invent targets.
 - `find_original*` scans every package in `converter_output` (fine at hackathon scale, O(library)). Feature matching only tries Rhino snapshot views, to keep it fast.
 
 ## Adding a format
@@ -103,6 +118,8 @@ Done and tested on synthetic samples plus one real Rhino model (Pier 54, ~2.2k o
 Not tested on real data yet: real client markups, real Outlook `.msg` files, large PDFs / drawing sets, long videos.
 
 ## Next steps (rough priority)
+
+0. **Agent**: store embeddings for chunks via the team's `api/embeddings.py` (keep `model_id()` with every vector) and use them to pick link candidates instead of the entity-overlap shortlist; let the agent split long documents into several floating nodes; batch mode for watched folders.
 
 1. **Tests**: turn the table above into pytest using `samples/make_samples.py` fixtures (markup region counts and links are the fragile part).
 2. **Watched folder**: drag emails from Outlook into a folder and they auto-convert. Outlook can't drop straight into the browser, so this would be the handiest workflow.

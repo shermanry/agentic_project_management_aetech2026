@@ -4,6 +4,7 @@ files inside a zip) via `convert_child`."""
 from __future__ import annotations
 
 import json
+import re
 import tempfile
 import threading
 import traceback
@@ -47,7 +48,7 @@ class Context:
             p = Path(td) / Path(filename).name
             p.write_bytes(data)
             # attachments inherit who sent them and the message they came with
-            inherited = {k: v for k, v in parent.context.items() if k in ("author", "author_role", "channel", "date", "note")}
+            inherited = {k: v for k, v in parent.context.items() if k in ("author", "author_role", "channel", "date", "note", "project")}
             m = convert_file(p, self.out_root, original_name=filename, context=inherited,
                              _depth=self.depth + 1, _parent_id=parent.id)
         parent.children.append(m["id"])
@@ -94,6 +95,8 @@ def _finalize(pkg: Package, parent_id: str | None) -> None:
     # the message/note that came with the file is its own chunk: often it IS the meaning
     if pkg.context.get("note") and not any(c.role == "context" for c in pkg.chunks):
         pkg.chunks.insert(0, Chunk("text", text=pkg.context_line(), role="context", meta={"source": "user"}))
+    if pkg.context.get("project"):
+        pkg.tags.add("project:" + re.sub(r"[^a-z0-9]+", "-", pkg.context["project"].lower()).strip("-"))
     if pkg.context.get("author_role"):
         pkg.tags.add(f"from:{pkg.context['author_role'].lower().replace(' ', '-')}")
     if pkg.context.get("channel"):
@@ -127,6 +130,8 @@ def _links(pkg: Package) -> None:
         if m.get("marks_up"):
             links.append({"type": "marks_up", "target": m["marks_up"]["package_id"],
                           "target_chunk": m["marks_up"].get("chunk_id"), "confidence": _conf(m["marks_up"])})
+    if pkg.context.get("refers_to") == pkg.id:   # a file can't refer to itself
+        pkg.context.pop("refers_to")
     if pkg.context.get("refers_to") and not any(l["target"] == pkg.context["refers_to"] for l in links):
         links.append({"type": "refers_to", "target": pkg.context["refers_to"], "confidence": 1.0})
     pkg.links = links
