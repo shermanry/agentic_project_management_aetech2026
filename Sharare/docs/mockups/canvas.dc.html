@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Collaborative decision canvas</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F6F8}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+</style>
+</helmet>
+<div style="font-family: Inter, system-ui, sans-serif; color: #14181F; background: #F4F6F8; min-height: 900px; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 10px 20px; background: #FFFFFF; border-bottom: 1px solid #DDE2E8">
+  <div style="display: flex; align-items: center; gap: 10px">
+    <div style="width: 30px; height: 30px; border-radius: 8px; background: #14181F; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="6" r="2.5"></circle><circle cx="5" cy="18" r="2.5"></circle><circle cx="19" cy="12" r="2.5"></circle><path d="M7.5 6.5l9 4.5M7.5 17.5l9-4.5"></path></svg>
+    </div>
+    <div style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 17px; font-weight: 700">Decision Canvas</div>
+  </div>
+  <div style="width: 1px; height: 24px; background: #DDE2E8"></div>
+  <button style="display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border: 1px solid #DDE2E8; background: #FFFFFF; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 600; color: #14181F; cursor: pointer">Riverside MOB · Roof inspection
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+  </button>
+  <nav aria-label="Views" style="display: flex; gap: 4px; padding: 3px; background: #EEF1F4; border-radius: 9px">
+    <a href="canvas.dc.html" style="padding: 7px 14px; border-radius: 7px; background: #FFFFFF; color: #14181F; font-size: 13px; font-weight: 600; text-decoration: none; box-shadow: 0 1px 2px rgba(20,24,31,0.08)">Canvas</a>
+    <a href="lineage.dc.html" style="padding: 7px 14px; border-radius: 7px; color: #4A5361; font-size: 13px; font-weight: 600; text-decoration: none">Lineage</a>
+    <a href="sources.dc.html" style="padding: 7px 14px; border-radius: 7px; color: #4A5361; font-size: 13px; font-weight: 600; text-decoration: none">Sources</a>
+    <a href="analysis.dc.html" style="padding: 7px 14px; border-radius: 7px; color: #4A5361; font-size: 13px; font-weight: 600; text-decoration: none">Capture &amp; analysis</a>
+  </nav>
+  <div style="flex: 1 1 20px"></div>
+  <div style="display: flex; align-items: center; gap: 10px">
+    <div style="display: flex">
+      <div title="Ana R. (you)" style="width: 30px; height: 30px; border-radius: 50%; background: #2563EB; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #FFFFFF">AR</div>
+      <div title="Mara T." style="width: 30px; height: 30px; border-radius: 50%; background: #7C3AED; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #FFFFFF; margin-left: -8px">MT</div>
+      <div title="Dev K." style="width: 30px; height: 30px; border-radius: 50%; background: #0F766E; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #FFFFFF; margin-left: -8px">DK</div>
+    </div>
+    <span style="font-size: 12px; color: #5B6472">3 online</span>
+    <button style="min-height: 36px; padding: 0 12px; border: 1px solid #DDE2E8; background: #FFFFFF; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 600; color: #14181F; cursor: pointer">You: Ana R. · Owner</button>
+    <button style="min-height: 36px; padding: 0 14px; border: none; background: #2563EB; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 600; color: #FFFFFF; cursor: pointer">Share</button>
+  </div>
+</header>
+
+<div style="flex: 1; display: flex; flex-wrap: wrap; align-items: stretch">
+
+  <aside aria-label="Node palette" style="flex: 1 1 220px; max-width: 100%; box-sizing: border-box; background: #FFFFFF; border-right: 1px solid #DDE2E8; padding: 18px 16px; display: flex; flex-direction: column; gap: 20px">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <div style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 15px; font-weight: 700">Add nodes</div>
+      <div style="font-size: 12px; color: #5B6472">Drag onto the canvas</div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472">Sources</div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px">
+        <button style="display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 10px; border: 1px solid #DDE2E8; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 12px; font-weight: 500; color: #14181F; cursor: grab; text-align: left"><span style="color: #0F766E; display: flex"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"></circle><circle cx="5" cy="5" r="2.5"></circle><circle cx="19" cy="5" r="2.5"></circle><circle cx="5" cy="19" r="2.5"></circle><circle cx="19" cy="19" r="2.5"></circle><path d="M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3"></path></svg></span>Drone flight</button>
+        <button style="display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 10px; border: 1px solid #DDE2E8; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 12px; font-weight: 500; color: #14181F; cursor: grab; text-align: left"><span style="color: #0F766E; display: flex"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18h10a4 4 0 0 0 0-8 6 6 0 0 0-11.5 1.5A3.5 3.5 0 0 0 7 18z"></path></svg></span>Weather</button>
+        <button style="display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 10px; border: 1px solid #DDE2E8; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 12px; font-weight: 500; color: #14181F; cursor: grab; text-align: left"><span style="color: #0F766E; display: flex"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg></span>Email</button>
+        <button style="display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 10px; border: 1px solid #DDE2E8; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 12px; font-weight: 500; color: #14181F; cursor: grab; text-align: left"><span style="color: #0F766E; display: flex"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></span>Schedule</button>
+        <button style="display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 10px; border: 1px solid #DDE2E8; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 12px; font-weight: 500; color: #14181F; cursor: grab; text-align: left"><span style="color: #0F766E; display: flex"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"></path><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"></path></svg></span>3D model</button>
+        <button style="display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 10px; border: 1px solid #DDE2E8; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 12px; font-weight: 500; color: #14181F; cursor: grab; text-align: left"><span style="color: #0F766E; display: flex"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v4h4"></path></svg></span>Document</button>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472">Reasoning</div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px">
+        <button style="display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 10px; border: 1px solid #DDE2E8; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 12px; font-weight: 500; color: #14181F; cursor: grab; text-align: left"><span style="color: #475569; display: flex"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg></span>Observation</button>
+        <button style="display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 10px; border: 1px solid #DDE2E8; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 12px; font-weight: 500; color: #14181F; cursor: grab; text-align: left"><span style="color: #7C3AED; display: flex"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"></path></svg></span>Suggestion</button>
+        <button style="display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 10px; border: 1px solid #DDE2E8; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 12px; font-weight: 500; color: #14181F; cursor: grab; text-align: left"><span style="color: #14181F; display: flex"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 9-9 9-9-9z"></path></svg></span>Decision</button>
+        <button style="display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 10px; border: 1px solid #DDE2E8; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 12px; font-weight: 500; color: #14181F; cursor: grab; text-align: left"><span style="color: #B45309; display: flex"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"></rect><path d="M8 12l3 3 5-6"></path></svg></span>Action item</button>
+        <button style="display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 10px; border: 1px solid #DDE2E8; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 12px; font-weight: 500; color: #14181F; cursor: grab; text-align: left"><span style="color: #475569; display: flex"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"></path></svg></span>Log</button>
+        <button style="display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 10px; border: 1px solid #DDE2E8; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 12px; font-weight: 500; color: #14181F; cursor: grab; text-align: left"><span style="color: #0369A1; display: flex"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg></span>Analysis</button>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472">Tags</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px">
+        <button aria-pressed="true" style="min-height: 30px; padding: 0 10px; border-radius: 999px; border: 1px solid #2563EB; background: #EAF1FF; color: #1D4ED8; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer">#roof</button>
+        <button aria-pressed="false" style="min-height: 30px; padding: 0 10px; border-radius: 999px; border: 1px solid #DDE2E8; background: #FFFFFF; color: #4A5361; font: inherit; font-size: 12px; font-weight: 500; cursor: pointer">#drainage</button>
+        <button aria-pressed="false" style="min-height: 30px; padding: 0 10px; border-radius: 999px; border: 1px solid #DDE2E8; background: #FFFFFF; color: #4A5361; font: inherit; font-size: 12px; font-weight: 500; cursor: pointer">#envelope</button>
+        <button aria-pressed="false" style="min-height: 30px; padding: 0 10px; border-radius: 999px; border: 1px solid #DDE2E8; background: #FFFFFF; color: #4A5361; font: inherit; font-size: 12px; font-weight: 500; cursor: pointer">#schedule</button>
+        <button style="min-height: 30px; padding: 0 10px; border-radius: 999px; border: 1px dashed #B8C0CB; background: #FFFFFF; color: #4A5361; font: inherit; font-size: 12px; font-weight: 500; cursor: pointer">+ Tag</button>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472">Influence (temperature)</div>
+      <div style="display: flex; align-items: center; gap: 10px; font-size: 12px"><span style="width: 32px; height: 5px; border-radius: 3px; background: #C2410C"></span>Hot · 0.7 – 1.0</div>
+      <div style="display: flex; align-items: center; gap: 10px; font-size: 12px"><span style="width: 32px; height: 3px; border-radius: 3px; background: #E59E1B"></span>Warm · 0.3 – 0.7</div>
+      <div style="display: flex; align-items: center; gap: 10px; font-size: 12px"><span style="width: 32px; height: 0; border-top: 2px dashed #8A96A6"></span>Cold · below 0.3</div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472">People on this canvas</div>
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #2563EB"></span><span style="flex: 1">Ana R. (you)</span><span style="color: #5B6472">Owner</span></div>
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #7C3AED"></span><span style="flex: 1">Mara T.</span><span style="color: #5B6472">Reviewer</span></div>
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #0F766E"></span><span style="flex: 1">Dev K.</span><span style="color: #5B6472">Editor · pilot</span></div>
+    </div>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+      <div role="toolbar" aria-label="Canvas tools" style="display: flex; gap: 2px; padding: 3px; background: #FFFFFF; border: 1px solid #DDE2E8; border-radius: 9px">
+        <button aria-label="Select" aria-pressed="true" style="width: 36px; height: 36px; border: none; border-radius: 7px; background: #EAF1FF; color: #1D4ED8; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3l14 8-6 2-2 6z"></path></svg></button>
+        <button aria-label="Pan" aria-pressed="false" style="width: 36px; height: 36px; border: none; border-radius: 7px; background: transparent; color: #4A5361; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"></path></svg></button>
+        <button aria-label="Connect nodes" aria-pressed="false" style="width: 36px; height: 36px; border: none; border-radius: 7px; background: transparent; color: #4A5361; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="2.5"></circle><circle cx="19" cy="12" r="2.5"></circle><path d="M7.5 12h9"></path></svg></button>
+        <button aria-label="Comment" aria-pressed="false" style="width: 36px; height: 36px; border: none; border-radius: 7px; background: transparent; color: #4A5361; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"></path></svg></button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 2px; padding: 3px; background: #FFFFFF; border: 1px solid #DDE2E8; border-radius: 9px">
+        <button aria-label="Zoom out" style="width: 36px; height: 36px; border: none; border-radius: 7px; background: transparent; color: #4A5361; font: inherit; font-size: 18px; cursor: pointer">−</button>
+        <span style="font-size: 12px; font-weight: 600; min-width: 44px; text-align: center">100%</span>
+        <button aria-label="Zoom in" style="width: 36px; height: 36px; border: none; border-radius: 7px; background: transparent; color: #4A5361; font: inherit; font-size: 18px; cursor: pointer">+</button>
+      </div>
+      <button style="min-height: 42px; padding: 0 12px; border: 1px solid #DDE2E8; border-radius: 9px; background: #FFFFFF; font: inherit; font-size: 12px; font-weight: 600; color: #14181F; cursor: pointer">Auto-layout</button>
+      <div style="flex: 1 1 10px"></div>
+      <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #5B6472"><span style="width: 8px; height: 8px; border-radius: 50%; background: #16A34A"></span>Synced · 2 s ago</span>
+    </div>
+
+    <div style="position: relative; height: 680px; overflow: auto; border: 1px solid #DDE2E8; border-radius: 14px; background-color: #FFFFFF; background-image: radial-gradient(#D5DBE3 1px, transparent 1px); background-size: 18px 18px">
+      <div style="position: relative; width: 860px; height: 640px">
+
+        <svg width="860" height="640" viewBox="0 0 860 640" fill="none" aria-hidden="true" style="position: absolute; left: 0; top: 0">
+          <path d="M200 54 C225 54 225 146 250 146" stroke="#8A96A6" stroke-width="1.5" stroke-dasharray="4 4"></path>
+          <path d="M200 130 C225 130 225 146 250 146" stroke="#E59E1B" stroke-width="2.5"></path>
+          <path d="M200 206 C225 206 225 236 250 236" stroke="#C2410C" stroke-width="3.5"></path>
+          <path d="M200 206 C225 206 225 56 250 56" stroke="#8A96A6" stroke-width="1.5" stroke-dasharray="4 4"></path>
+          <path d="M440 146 C465 146 465 225 490 225" stroke="#E59E1B" stroke-width="2.8"></path>
+          <path d="M440 236 C465 236 465 245 490 245" stroke="#C2410C" stroke-width="4.6"></path>
+          <path d="M440 56 C465 56 465 212 490 212" stroke="#8A96A6" stroke-width="1.5" stroke-dasharray="4 4"></path>
+          <path d="M200 330 C225 330 225 326 250 326" stroke="#475569" stroke-width="2"></path>
+          <path d="M440 326 C465 326 465 275 490 275" stroke="#C2410C" stroke-width="4"></path>
+          <path d="M580 300 L580 358" stroke="#14181F" stroke-width="2"></path>
+          <path d="M574 351 L580 359 L586 351" stroke="#14181F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+          <path d="M200 406 C345 406 345 395 490 395" stroke="#E59E1B" stroke-width="3"></path>
+          <path d="M200 482 C345 482 345 425 490 425" stroke="#C2410C" stroke-width="3.8"></path>
+          <path d="M670 402 L698 404" stroke="#14181F" stroke-width="2"></path>
+        </svg>
+
+        <div style="position: absolute; left: 444px; top: 304px; padding: 2px 7px; border-radius: 999px; background: #FFFFFF; border: 1px solid #F3C6AE; font-size: 11px; font-weight: 700; color: #9A3412">0.81</div>
+        <div style="position: absolute; left: 318px; top: 389px; padding: 2px 7px; border-radius: 999px; background: #FFFFFF; border: 1px solid #F1D9A6; font-size: 11px; font-weight: 700; color: #7A4B00">0.60</div>
+        <div style="position: absolute; left: 318px; top: 443px; padding: 2px 7px; border-radius: 999px; background: #FFFFFF; border: 1px solid #F3C6AE; font-size: 11px; font-weight: 700; color: #9A3412">0.74</div>
+        <div style="position: absolute; left: 446px; top: 250px; padding: 2px 6px; border-radius: 999px; background: #FFFFFF; border: 1px solid #F3C6AE; font-size: 11px; font-weight: 700; color: #9A3412">0.92</div>
+
+        <div style="position: absolute; left: 20px; top: 24px; width: 180px; height: 60px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DBE3; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 1px 2px rgba(20,24,31,0.06)">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #0F766E"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"></circle><circle cx="5" cy="5" r="2.5"></circle><circle cx="19" cy="5" r="2.5"></circle><circle cx="5" cy="19" r="2.5"></circle><circle cx="19" cy="19" r="2.5"></circle></svg><span style="flex: 1">Drone flight</span><span style="color: #5B6472; text-transform: none; letter-spacing: 0">388 img</span></div>
+          <div style="font-size: 13px; font-weight: 600">Flight 01 · Oct 28</div>
+        </div>
+        <div style="position: absolute; left: 20px; top: 100px; width: 180px; height: 60px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DBE3; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 1px 2px rgba(20,24,31,0.06)">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #0F766E"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"></circle><circle cx="5" cy="5" r="2.5"></circle><circle cx="19" cy="5" r="2.5"></circle><circle cx="5" cy="19" r="2.5"></circle><circle cx="19" cy="19" r="2.5"></circle></svg><span style="flex: 1">Drone flight</span><span style="color: #5B6472; text-transform: none; letter-spacing: 0">402 img</span></div>
+          <div style="font-size: 13px; font-weight: 600">Flight 02 · Nov 4</div>
+        </div>
+        <div style="position: absolute; left: 20px; top: 176px; width: 180px; height: 60px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DBE3; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 0 0 3px #CCEFE9">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #0F766E"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"></circle><circle cx="5" cy="5" r="2.5"></circle><circle cx="19" cy="5" r="2.5"></circle><circle cx="5" cy="19" r="2.5"></circle><circle cx="19" cy="19" r="2.5"></circle></svg><span style="flex: 1">Drone flight</span><span style="color: #0F766E; text-transform: none; letter-spacing: 0">New</span></div>
+          <div style="font-size: 13px; font-weight: 600">Flight 03 · Nov 11</div>
+        </div>
+        <div style="position: absolute; left: 20px; top: 300px; width: 180px; height: 60px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DBE3; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 1px 2px rgba(20,24,31,0.06)">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #0F766E"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18h10a4 4 0 0 0 0-8 6 6 0 0 0-11.5 1.5A3.5 3.5 0 0 0 7 18z"></path></svg><span style="flex: 1">Weather</span><span style="color: #5B6472; text-transform: none; letter-spacing: 0">every 1 h</span></div>
+          <div style="font-size: 13px; font-weight: 600">Site forecast · v14</div>
+        </div>
+        <div style="position: absolute; left: 20px; top: 376px; width: 180px; height: 60px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DBE3; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 1px 2px rgba(20,24,31,0.06)">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #0F766E"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg><span style="flex: 1">Schedule</span><span style="color: #5B6472; text-transform: none; letter-spacing: 0">daily</span></div>
+          <div style="font-size: 13px; font-weight: 600">Trade schedule · wk 46</div>
+        </div>
+        <div style="position: absolute; left: 20px; top: 452px; width: 180px; height: 60px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DBE3; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 1px 2px rgba(20,24,31,0.06)">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #0F766E"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg><span style="flex: 1">Email</span><span style="color: #9A3412; text-transform: none; letter-spacing: 0">v2 · new</span></div>
+          <div style="font-size: 13px; font-weight: 600">Roofer: can do 7:00 Thu</div>
+        </div>
+        <div style="position: absolute; left: 20px; top: 528px; width: 180px; height: 60px; box-sizing: border-box; background: #FAFBFC; border: 1px dashed #B8C0CB; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #0F766E"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"></path><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"></path></svg><span style="flex: 1">3D model</span><span style="color: #5B6472; text-transform: none; letter-spacing: 0">static</span></div>
+          <div style="font-size: 13px; font-weight: 600; color: #4A5361">Roof IFC · not linked</div>
+        </div>
+
+        <div style="position: absolute; left: 250px; top: 20px; width: 190px; height: 72px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DBE3; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; box-shadow: 0 1px 2px rgba(20,24,31,0.06)">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #475569"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>Observation · F03</div>
+          <div style="font-size: 13px; font-weight: 600">Ponding near west drain</div>
+          <div style="font-size: 11px; color: #5B6472">conf 0.64 · img #0377</div>
+        </div>
+        <div style="position: absolute; left: 250px; top: 110px; width: 190px; height: 72px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DBE3; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; box-shadow: 0 1px 2px rgba(20,24,31,0.06)">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #475569"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>Observation · F02</div>
+          <div style="font-size: 13px; font-weight: 600">Blister ~2.0 m², NE corner</div>
+          <div style="font-size: 11px; color: #5B6472">conf 0.72 · img #0412</div>
+        </div>
+        <div style="position: absolute; left: 250px; top: 200px; width: 190px; height: 72px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DBE3; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; box-shadow: 0 1px 2px rgba(20,24,31,0.06)">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #475569"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>Observation · F03</div>
+          <div style="font-size: 13px; font-weight: 600">Blister ~2.8 m² (+40%)</div>
+          <div style="font-size: 11px; color: #5B6472">conf 0.81 · img #0398</div>
+        </div>
+        <div style="position: absolute; left: 250px; top: 290px; width: 190px; height: 72px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #A9C7DD; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; box-shadow: 0 1px 2px rgba(20,24,31,0.06)">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #0369A1"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg><span style="flex: 1">Analysis · run 3</span></div>
+          <div style="font-size: 13px; font-weight: 600">Flight window: 1 of 5 days</div>
+          <div style="display: flex"><a href="analysis.dc.html" style="padding: 1px 6px; border-radius: 4px; background: #FFF1E6; color: #9A3412; font-size: 11px; font-weight: 600; text-decoration: none">Stale · weather v15</a></div>
+        </div>
+
+        <div style="position: absolute; left: 490px; top: 196px; width: 180px; height: 104px; box-sizing: border-box; background: #FFFFFF; border: 2px solid #2563EB; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 6px 18px rgba(37,99,235,0.16)">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #7C3AED"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"></path></svg><span style="flex: 1">Agent suggestion</span><span style="color: #5B6472; text-transform: none; letter-spacing: 0">v3</span></div>
+          <div style="font-size: 13px; font-weight: 600; line-height: 1.3">Inspect NE corner before Thursday’s rain</div>
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #5B6472"><span style="padding: 1px 6px; border-radius: 4px; background: #E8F5EC; color: #166534; font-weight: 600">Accepted</span>4 inputs</div>
+        </div>
+
+        <div style="position: absolute; left: 490px; top: 360px; width: 180px; height: 84px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #14181F; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 0 0 3px #E9DDFD">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #14181F"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 9-9 9-9-9z"></path></svg><span style="flex: 1">Decision · D-014</span><span style="color: #5B6472; text-transform: none; letter-spacing: 0">v2</span></div>
+          <div style="font-size: 13px; font-weight: 600">Roofer inspection, Thu</div>
+          <div style="display: flex"><span style="padding: 1px 6px; border-radius: 4px; background: #FFF1E6; color: #9A3412; font-size: 11px; font-weight: 600">1 input changed</span></div>
+        </div>
+        <div style="position: absolute; left: 600px; top: 334px; padding: 2px 8px; border-radius: 6px 6px 6px 0; background: #7C3AED; color: #FFFFFF; font-size: 11px; font-weight: 600">Mara T. is editing</div>
+
+        <div style="position: absolute; left: 700px; top: 372px; width: 140px; height: 64px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D5DBE3; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 1px 2px rgba(20,24,31,0.06)">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #B45309"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"></rect><path d="M8 12l3 3 5-6"></path></svg>Action · A-007</div>
+          <div style="font-size: 13px; font-weight: 600">Book lift + roofer</div>
+        </div>
+
+        <sc-if value="{{showPresence}}" hint-placeholder-val="{{ true }}">
+          <div style="position: absolute; left: 214px; top: 158px; display: flex; align-items: flex-start; gap: 2px; pointer-events: none">
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2l16 9-7 2-3 7z" fill="#0F766E" stroke="#FFFFFF" stroke-width="1.5"></path></svg>
+            <span style="margin-top: 12px; padding: 2px 7px; border-radius: 6px; background: #0F766E; color: #FFFFFF; font-size: 11px; font-weight: 600">Dev K. · uploaded Flight 03</span>
+          </div>
+          <div style="position: absolute; left: 640px; top: 452px; display: flex; align-items: flex-start; gap: 2px; pointer-events: none">
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2l16 9-7 2-3 7z" fill="#7C3AED" stroke="#FFFFFF" stroke-width="1.5"></path></svg>
+            <span style="margin-top: 12px; padding: 2px 7px; border-radius: 6px; background: #7C3AED; color: #FFFFFF; font-size: 11px; font-weight: 600">Mara T.</span>
+          </div>
+        </sc-if>
+
+        <div style="position: absolute; right: 16px; bottom: 16px; width: 150px; height: 96px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #DDE2E8; border-radius: 8px; padding: 6px">
+          <div style="position: relative; width: 100%; height: 100%; background: #F4F6F8; border-radius: 4px">
+            <div style="position: absolute; left: 6%; top: 8%; width: 18%; height: 78%; background: #CCEFE9; border-radius: 2px"></div>
+            <div style="position: absolute; left: 32%; top: 6%; width: 20%; height: 38%; background: #E2E8F0; border-radius: 2px"></div>
+            <div style="position: absolute; left: 60%; top: 32%; width: 18%; height: 36%; background: #E9DDFD; border-radius: 2px"></div>
+            <div style="position: absolute; left: 4%; top: 4%; width: 70%; height: 80%; border: 1.5px solid #2563EB; border-radius: 3px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <form style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px; background: #FFFFFF; border: 1px solid #DDE2E8; border-radius: 12px">
+      <span style="color: #7C3AED; display: flex"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"></path></svg></span>
+      <label for="agent-q" style="font-size: 13px; font-weight: 600">Ask the decision agent</label>
+      <input id="agent-q" type="text" placeholder="What should we do about the west drain ponding?" style="flex: 1 1 260px; min-height: 40px; padding: 0 12px; border: 1px solid #DDE2E8; border-radius: 8px; font: inherit; font-size: 13px; color: #14181F">
+      <span style="font-size: 12px; color: #4A5361">Scope: #roof · last 3 flights</span>
+      <button type="button" style="min-height: 40px; padding: 0 14px; border: none; border-radius: 8px; background: #7C3AED; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Draft suggestion</button>
+    </form>
+  </main>
+
+  <aside aria-label="Inspector" style="flex: 1 1 320px; max-width: 100%; box-sizing: border-box; background: #FFFFFF; border-left: 1px solid #DDE2E8; padding: 18px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px">
+        <span style="padding: 2px 8px; border-radius: 999px; background: #F1EAFE; color: #6D28D9; font-size: 11px; font-weight: 700">Agent suggestion</span>
+        <span style="font-size: 12px; color: #5B6472">S-021 · v3 · Nov 11, 14:02</span>
+      </div>
+      <h1 style="margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 20px; font-weight: 700; line-height: 1.25">Inspect NE corner before Thursday’s rain</h1>
+      <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #3D4553">Blister area grew about 40% between Flight 02 and Flight 03. Rain is forecast Thu–Fri, and the roofer is already on site Thursday.</p>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px">
+        <span style="padding: 2px 8px; border-radius: 999px; border: 1px solid #DDE2E8; font-size: 11px; color: #4A5361">#roof</span>
+        <span style="padding: 2px 8px; border-radius: 999px; border: 1px solid #DDE2E8; font-size: 11px; color: #4A5361">#envelope</span>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; align-items: baseline; justify-content: space-between">
+        <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472">Inputs · temperature</div>
+        <a href="lineage.dc.html" style="font-size: 12px; font-weight: 600">Open lineage</a>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <div style="display: flex; justify-content: space-between; font-size: 12px"><span>Blister +40% · F03</span><span style="font-weight: 700">0.92</span></div>
+        <div style="height: 6px; border-radius: 3px; background: #EEF1F4"><div style="width: 92%; height: 6px; border-radius: 3px; background: #C2410C"></div></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <div style="display: flex; justify-content: space-between; font-size: 12px"><span>Flight window analysis · run 3</span><span style="font-weight: 700">0.81</span></div>
+        <div style="height: 6px; border-radius: 3px; background: #EEF1F4"><div style="width: 81%; height: 6px; border-radius: 3px; background: #C2410C"></div></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <div style="display: flex; justify-content: space-between; font-size: 12px"><span>Blister 2.0 m² · F02</span><span style="font-weight: 700">0.55</span></div>
+        <div style="height: 6px; border-radius: 3px; background: #EEF1F4"><div style="width: 55%; height: 6px; border-radius: 3px; background: #E59E1B"></div></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <div style="display: flex; justify-content: space-between; font-size: 12px"><span>Ponding, west drain · F03</span><span style="font-weight: 700">0.18</span></div>
+        <div style="height: 6px; border-radius: 3px; background: #EEF1F4"><div style="width: 18%; height: 6px; border-radius: 3px; background: #8A96A6"></div></div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 10px; background: #F7F8FA; border: 1px solid #E4E8ED">
+      <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px"><span style="color: #5B6472">Status</span><span style="font-weight: 600">Accepted by Mara T. · fed D-014</span></div>
+      <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px"><span style="color: #5B6472">Owner</span><span style="font-weight: 600">Ana R.</span></div>
+      <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px"><span style="color: #5B6472">Reviewer</span><span style="font-weight: 600">Mara T.</span></div>
+      <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px"><span style="color: #5B6472">Model</span><span style="font-weight: 600">Decision agent · local</span></div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 8px">
+      <button style="flex: 1 1 120px; min-height: 40px; border: none; border-radius: 8px; background: #14181F; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Make action item</button>
+      <button style="flex: 1 1 80px; min-height: 40px; border: 1px solid #DDE2E8; border-radius: 8px; background: #FFFFFF; color: #14181F; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Re-run</button>
+      <button style="flex: 1 1 80px; min-height: 40px; border: 1px solid #DDE2E8; border-radius: 8px; background: #FFFFFF; color: #14181F; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Dismiss</button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472">Comments</div>
+      <div style="display: flex; gap: 8px">
+        <div style="flex: none; width: 26px; height: 26px; border-radius: 50%; background: #7C3AED; color: #FFFFFF; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center">MT</div>
+        <div style="font-size: 12px; line-height: 1.45"><span style="font-weight: 600">Mara T.</span> <span style="color: #5B6472">· 2 h</span><br>Agreed. Can we also have the roofer check the west drain while they're up there?</div>
+      </div>
+      <div style="display: flex; gap: 8px">
+        <div style="flex: none; width: 26px; height: 26px; border-radius: 50%; background: #0F766E; color: #FFFFFF; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center">DK</div>
+        <div style="font-size: 12px; line-height: 1.45"><span style="font-weight: 600">Dev K.</span> <span style="color: #5B6472">· 40 min</span><br>I'll do a low pass over the drain on Friday's flight.</div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472">Activity</div>
+      <div style="font-size: 12px; line-height: 1.5; color: #3D4553"><span style="font-weight: 600; color: #14181F">Weather v15</span> captured → flight window analysis flagged stale</div>
+      <div style="font-size: 12px; line-height: 1.5; color: #3D4553"><span style="font-weight: 600; color: #14181F">Email v2</span> captured: roofer moved to 7:00 → D-014 flagged</div>
+      <div style="font-size: 12px; line-height: 1.5; color: #3D4553"><span style="font-weight: 600; color: #14181F">Mara T.</span> accepted S-021</div>
+      <div style="font-size: 12px; line-height: 1.5; color: #3D4553"><span style="font-weight: 600; color: #14181F">Agent</span> drafted S-021 v3 from 4 inputs</div>
+      <div style="font-size: 12px; line-height: 1.5; color: #3D4553"><span style="font-weight: 600; color: #14181F">Dev K.</span> uploaded Flight 03 · 3 observations</div>
+    </div>
+  </aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"showPresence":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { showPresence: this.props.showPresence ?? true };
+  }
+}
+</script>
+</body>
+</html>

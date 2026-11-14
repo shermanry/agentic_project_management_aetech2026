@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Capture instructions and analysis</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F6F8}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+</style>
+</helmet>
+<div style="font-family: Inter, system-ui, sans-serif; color: #14181F; background: #F4F6F8; min-height: 1000px; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 10px 20px; background: #FFFFFF; border-bottom: 1px solid #DDE2E8">
+  <div style="display: flex; align-items: center; gap: 10px">
+    <div style="width: 30px; height: 30px; border-radius: 8px; background: #14181F; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="6" r="2.5"></circle><circle cx="5" cy="18" r="2.5"></circle><circle cx="19" cy="12" r="2.5"></circle><path d="M7.5 6.5l9 4.5M7.5 17.5l9-4.5"></path></svg>
+    </div>
+    <div style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 17px; font-weight: 700">Decision Canvas</div>
+  </div>
+  <div style="width: 1px; height: 24px; background: #DDE2E8"></div>
+  <div style="font-size: 13px; font-weight: 600">Riverside MOB · Roof inspection</div>
+  <nav aria-label="Views" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 3px; background: #EEF1F4; border-radius: 9px">
+    <a href="canvas.dc.html" style="padding: 7px 14px; border-radius: 7px; color: #4A5361; font-size: 13px; font-weight: 600; text-decoration: none">Canvas</a>
+    <a href="lineage.dc.html" style="padding: 7px 14px; border-radius: 7px; color: #4A5361; font-size: 13px; font-weight: 600; text-decoration: none">Lineage</a>
+    <a href="sources.dc.html" style="padding: 7px 14px; border-radius: 7px; color: #4A5361; font-size: 13px; font-weight: 600; text-decoration: none">Sources</a>
+    <a href="analysis.dc.html" style="padding: 7px 14px; border-radius: 7px; background: #FFFFFF; color: #14181F; font-size: 13px; font-weight: 600; text-decoration: none; box-shadow: 0 1px 2px rgba(20,24,31,0.08)">Capture &amp; analysis</a>
+  </nav>
+</header>
+
+<main style="box-sizing: border-box; width: 100%; max-width: 1400px; margin: 0 auto; padding: 22px 20px; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 18px">
+
+  <section aria-label="Capture instruction" style="flex: 1 1 520px; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #DDE2E8; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px">
+      <div style="display: flex; flex-direction: column; gap: 3px">
+        <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #0F766E">Source node · capture instruction</span>
+        <h1 style="margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 22px; font-weight: 700">{{src.name}}</h1>
+        <span style="font-size: 12px; color: #4A5361">{{src.connector}}</span>
+      </div>
+      <div role="group" aria-label="Example source" style="display: flex; gap: 4px; padding: 3px; background: #EEF1F4; border-radius: 9px">
+        <sc-for list="{{tabs}}" as="t" hint-placeholder-count="2">
+          <button onClick="{{t.pick}}" aria-pressed="{{t.pressed}}" style="min-height: 36px; padding: 0 12px; border: none; border-radius: 7px; background: {{t.bg}}; color: {{t.fg}}; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer">{{t.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+        <span style="font-size: 12px; font-weight: 600">What to capture <span style="font-weight: 400; color: #5B6472">· written by {{src.author}}</span></span>
+        <button style="min-height: 32px; padding: 0 10px; border: 1px solid #DDE2E8; border-radius: 7px; background: #FFFFFF; font: inherit; font-size: 12px; font-weight: 600; color: #14181F; cursor: pointer">Edit</button>
+      </div>
+      <div style="padding: 12px 14px; border: 1px solid #C8D2DE; border-radius: 10px; background: #FBFCFD; font-size: 14px; line-height: 1.5">{{src.instruction}}</div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px">
+        <span style="font-size: 12px; font-weight: 600">Compiled spec <span style="font-weight: 400; color: #5B6472">· made once by the LLM, then run on every refresh without it</span></span>
+        <span style="padding: 2px 8px; border-radius: 999px; background: #E8F5EC; color: #166534; font-size: 11px; font-weight: 700">{{src.specVersion}} · approved</span>
+      </div>
+      <pre style="margin: 0; padding: 14px; border-radius: 10px; background: #14181F; color: #E6EAF0; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 1.55; overflow-x: auto; white-space: pre">{{src.spec}}</pre>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+      <sc-for list="{{src.stats}}" as="s" hint-placeholder-count="3">
+        <div style="display: flex; flex-direction: column; gap: 3px; padding: 12px; border-radius: 10px; background: #F7F8FA; border: 1px solid #E4E8ED">
+          <span style="font-size: 11px; color: #5B6472">{{s.label}}</span>
+          <span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 18px; font-weight: 700">{{s.value}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472">Spec versions</span>
+      <sc-for list="{{src.versions}}" as="v" hint-placeholder-count="2">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #E4E8ED; border-radius: 8px; font-size: 12px">
+          <span style="font-weight: 700">{{v.n}}</span>
+          <span style="flex: 1 1 200px; color: #3D4553">{{v.text}}</span>
+          <span style="color: #5B6472">{{v.meta}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="padding: 10px 12px; border-radius: 8px; background: #EAF1FF; font-size: 12px; line-height: 1.5; color: #1E3A8A">Each captured version records the spec that produced it. The content hash covers only the extracted slice, so changes outside it create no new version.</div>
+  </section>
+
+  <section aria-label="Analysis node" style="flex: 1 1 560px; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #DDE2E8; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px">
+      <div style="display: flex; flex-direction: column; gap: 3px">
+        <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #0369A1">Analysis node</span>
+        <h2 style="margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 22px; font-weight: 700">Flight window</h2>
+        <span style="font-size: 12px; color: #4A5361">Generated by the agent · approved by Dev K. (pilot) · def v2</span>
+      </div>
+      <div role="group" aria-label="Analysis mode" style="display: flex; gap: 4px; padding: 3px; background: #EEF1F4; border-radius: 9px">
+        <button aria-pressed="true" style="min-height: 36px; padding: 0 12px; border: none; border-radius: 7px; background: #FFFFFF; color: #14181F; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgba(20,24,31,0.08)">Generated</button>
+        <button aria-pressed="false" style="min-height: 36px; padding: 0 12px; border: none; border-radius: 7px; background: transparent; color: #3D4553; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer">Registered script</button>
+        <button aria-pressed="false" style="min-height: 36px; padding: 0 12px; border: none; border-radius: 7px; background: transparent; color: #3D4553; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer">External tool</button>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; background: #FFF1E6; border: 1px solid #F7CFB4">
+      <span style="flex: 1 1 260px; font-size: 13px; line-height: 1.45; color: #7C2D12"><span style="font-weight: 700">Output is stale.</span> Weather v15 was captured at 11:00 today, after run 3. Affects S-021 and D-014.</span>
+      <button style="min-height: 38px; padding: 0 14px; border: none; border-radius: 8px; background: #C2410C; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Re-run with v15</button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="font-size: 12px; font-weight: 600">What it computes <span style="font-weight: 400; color: #5B6472">· the prompt the script was generated from</span></span>
+      <div style="padding: 12px 14px; border: 1px solid #C8D2DE; border-radius: 10px; background: #FBFCFD; font-size: 14px; line-height: 1.5">For each authorized permit day, find the hours between 7:00 and 17:00 where gusts stay under the limit, rain probability is under 30% and visibility is over 3 miles. A day is flyable if it has at least 4 such hours in a row.</div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 16px">
+      <div style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 8px">
+        <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472">Inputs (pinned versions)</span>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="width: 8px; height: 8px; border-radius: 2px; background: #0F766E"></span><span style="flex: 1">Site weather</span><span style="font-weight: 600">v14 · spec v2</span></div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="width: 8px; height: 8px; border-radius: 2px; background: #0F766E"></span><span style="flex: 1">NYPD authorization</span><span style="font-weight: 600">v1 · Nov 17–21</span></div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="width: 8px; height: 8px; border-radius: 2px; background: #475569"></span><span style="flex: 1">Flight requirements</span><span style="font-weight: 600">v3</span></div>
+      </div>
+      <div style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 8px">
+        <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472">Parameters</span>
+        <div style="display: flex; justify-content: space-between; font-size: 12px"><span>max_gust_mph</span><span style="font-weight: 600">20</span></div>
+        <div style="display: flex; justify-content: space-between; font-size: 12px"><span>max_rain_prob</span><span style="font-weight: 600">30%</span></div>
+        <div style="display: flex; justify-content: space-between; font-size: 12px"><span>min_visibility_mi</span><span style="font-weight: 600">3</span></div>
+        <div style="display: flex; justify-content: space-between; font-size: 12px"><span>min_consecutive_hours</span><span style="font-weight: 600">4</span></div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px">
+        <span style="font-size: 12px; font-weight: 600">Script <span style="font-weight: 400; color: #5B6472">· flight_window.py · hash 9c41e2</span></span>
+        <span style="font-size: 11px; color: #4A5361">runner · no network · 2 CPU · 2 GB · 60 s</span>
+      </div>
+      <pre style="margin: 0; padding: 14px; border-radius: 10px; background: #14181F; color: #E6EAF0; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 1.55; overflow-x: auto; white-space: pre">def flight_window(weather, permit, limits):
+    days = []
+    for day in permit.authorized_days:
+        ok = [h for h in weather.hours(day, 7, 17)
+              if h.gust_mph &lt; limits.max_gust_mph
+              and h.rain_prob &lt; limits.max_rain_prob
+              and h.visibility_mi &gt; limits.min_visibility_mi]
+        run = longest_consecutive(ok)
+        if len(run) &gt;= limits.min_consecutive_hours:
+            days.append({"day": day, "start": run[0], "end": run[-1]})
+    return days</pre>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472">Runs</span>
+      <div style="overflow-x: auto; border: 1px solid #E4E8ED; border-radius: 10px">
+        <table style="width: 100%; min-width: 520px; border-collapse: collapse; font-size: 12px">
+          <thead>
+            <tr style="text-align: left; color: #5B6472">
+              <th style="padding: 9px 12px; border-bottom: 1px solid #E4E8ED; font-weight: 600">Run</th>
+              <th style="padding: 9px 12px; border-bottom: 1px solid #E4E8ED; font-weight: 600">When</th>
+              <th style="padding: 9px 12px; border-bottom: 1px solid #E4E8ED; font-weight: 600">Inputs</th>
+              <th style="padding: 9px 12px; border-bottom: 1px solid #E4E8ED; font-weight: 600">Result</th>
+              <th style="padding: 9px 12px; border-bottom: 1px solid #E4E8ED; font-weight: 600">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding: 9px 12px; border-bottom: 1px solid #EEF1F4; font-weight: 700">3</td>
+              <td style="padding: 9px 12px; border-bottom: 1px solid #EEF1F4">Nov 11, 14:00</td>
+              <td style="padding: 9px 12px; border-bottom: 1px solid #EEF1F4">Weather v14 · def v2</td>
+              <td style="padding: 9px 12px; border-bottom: 1px solid #EEF1F4; font-weight: 600">1 of 5 days · Thu 8:00–13:00</td>
+              <td style="padding: 9px 12px; border-bottom: 1px solid #EEF1F4"><span style="padding: 1px 7px; border-radius: 4px; background: #FFF1E6; color: #9A3412; font-weight: 700">Stale</span></td>
+            </tr>
+            <tr>
+              <td style="padding: 9px 12px; border-bottom: 1px solid #EEF1F4; font-weight: 700">2</td>
+              <td style="padding: 9px 12px; border-bottom: 1px solid #EEF1F4">Nov 10, 09:30</td>
+              <td style="padding: 9px 12px; border-bottom: 1px solid #EEF1F4">Weather v13 · def v2</td>
+              <td style="padding: 9px 12px; border-bottom: 1px solid #EEF1F4">2 of 5 days</td>
+              <td style="padding: 9px 12px; border-bottom: 1px solid #EEF1F4; color: #4A5361">Superseded</td>
+            </tr>
+            <tr>
+              <td style="padding: 9px 12px; font-weight: 700">1</td>
+              <td style="padding: 9px 12px">Nov 9, 16:10</td>
+              <td style="padding: 9px 12px">Weather v12 · def v1</td>
+              <td style="padding: 9px 12px">Failed · no visibility field</td>
+              <td style="padding: 9px 12px; color: #991B1B">Error → spec v2</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472">Output nodes</span>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #D5DBE3; border-radius: 10px">
+        <span style="width: 8px; height: 8px; border-radius: 2px; background: #0369A1"></span>
+        <span style="flex: 1 1 220px; font-size: 13px; font-weight: 600">Flyable: Thu Nov 20, 8:00–13:00 (1 of 5 days)</span>
+        <span style="font-size: 12px; color: #4A5361">used by S-021 (t 0.81)</span>
+      </div>
+    </div>
+  </section>
+
+  <section aria-label="Other analyses" style="flex: 1 1 100%; box-sizing: border-box; background: #FFFFFF; border: 1px solid #DDE2E8; border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px">
+    <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472">Analysis library · from the facade inspection use case</span>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px">
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid #E4E8ED; border-radius: 10px"><span style="font-size: 13px; font-weight: 700">Flight window</span><span style="font-size: 12px; color: #3D4553">Weather + permit days → flyable hours</span><span style="font-size: 11px; color: #0369A1; font-weight: 600">Generated · on canvas</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid #E4E8ED; border-radius: 10px"><span style="font-size: 13px; font-weight: 700">Line of sight</span><span style="font-size: 12px; color: #3D4553">Facade geometry + take-off spots → blind spots</span><span style="font-size: 11px; color: #4A5361; font-weight: 600">External · Rhino.Compute</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid #E4E8ED; border-radius: 10px"><span style="font-size: 13px; font-weight: 700">Coverage &amp; camera</span><span style="font-size: 12px; color: #3D4553">Camera settings + distance → detail and overlap</span><span style="font-size: 11px; color: #4A5361; font-weight: 600">Registered script</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid #E4E8ED; border-radius: 10px"><span style="font-size: 13px; font-weight: 700">Metadata check</span><span style="font-size: 12px; color: #3D4553">Flight images → missing or wrong EXIF/GPS</span><span style="font-size: 11px; color: #4A5361; font-weight: 600">Registered script</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid #E4E8ED; border-radius: 10px"><span style="font-size: 13px; font-weight: 700">Repair estimate</span><span style="font-size: 12px; color: #3D4553">Defect observations → quantities and effort</span><span style="font-size: 11px; color: #4A5361; font-weight: 600">Generated · draft</span></div>
+    </div>
+  </section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { src: 'ifc' };
+  }
+
+  renderVals() {
+    const SRC = {
+      ifc: {
+        label: 'Roof IFC model',
+        name: 'Roof & envelope IFC model',
+        connector: 'IFC file · static · re-imported manually',
+        author: 'Ana R.',
+        instruction: 'Only the exterior envelope: external walls, curtain wall, windows, roof slabs, parapets and railings. Ignore interiors and MEP. Keep material, area, level and orientation for each element.',
+        specVersion: 'spec v2',
+        spec: '{\n  "format": "IFC4",\n  "include_classes": ["IfcWall", "IfcCurtainWall", "IfcWindow",\n                      "IfcSlab:ROOF", "IfcRailing"],\n  "filter": { "Pset_WallCommon.IsExternal": true },\n  "keep": ["GlobalId", "Name", "Material", "Area",\n           "Level", "Orientation"],\n  "geometry": "bounding_box_only"\n}',
+        stats: [
+          { label: 'Elements kept', value: '212 of 7,480' },
+          { label: 'Size', value: '186 MB → 1.4 MB' },
+          { label: 'Observations', value: '38 summaries' }
+        ],
+        versions: [
+          { n: 'v2', text: 'Exterior envelope only, bounding boxes', meta: 'Ana R. · Nov 2 · current' },
+          { n: 'v1', text: 'All walls and slabs, full geometry', meta: 'Ana R. · Oct 20 · too large' }
+        ]
+      },
+      weather: {
+        label: 'Site weather',
+        name: 'Site weather forecast',
+        connector: 'Weather API (cached locally) · periodic · every 1 h',
+        author: 'Dev K.',
+        instruction: 'Hourly wind speed, gusts, rain probability and visibility at the site, 7:00 to 17:00, for the next 5 days. Only store a new version if gusts change by 5 mph or rain probability by 15%.',
+        specVersion: 'spec v2',
+        spec: '{\n  "provider": "weather_api",\n  "location": [40.7128, -74.0060],\n  "fields": ["wind_mph", "gust_mph", "rain_prob",\n             "visibility_mi"],\n  "hours": "07:00-17:00",\n  "horizon_days": 5,\n  "change_threshold": { "gust_mph": 5, "rain_prob": 15 }\n}',
+        stats: [
+          { label: 'Values kept', value: '220 of 9,600' },
+          { label: 'Polls → versions', value: '24 → 4' },
+          { label: 'Embedded', value: 'v14 only' }
+        ],
+        versions: [
+          { n: 'v2', text: 'Added visibility, daytime hours only', meta: 'Dev K. · Nov 9 · current' },
+          { n: 'v1', text: 'Wind and rain, all 24 hours', meta: 'Dev K. · Nov 1 · run 1 failed' }
+        ]
+      }
+    };
+    const key = this.state.src;
+    const tabs = ['ifc', 'weather'].map((k) => {
+      const on = k === key;
+      return {
+        label: SRC[k].label,
+        pressed: on,
+        bg: on ? '#FFFFFF' : 'transparent',
+        fg: on ? '#14181F' : '#3D4553',
+        pick: () => this.setState({ src: k })
+      };
+    });
+    return { src: SRC[key], tabs };
+  }
+}
+</script>
+</body>
+</html>

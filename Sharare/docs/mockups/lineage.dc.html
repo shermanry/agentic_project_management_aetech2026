@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Decision lineage</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F6F8}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+</style>
+</helmet>
+<div style="font-family: Inter, system-ui, sans-serif; color: #14181F; background: #F4F6F8; min-height: 900px; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 10px 20px; background: #FFFFFF; border-bottom: 1px solid #DDE2E8">
+  <div style="display: flex; align-items: center; gap: 10px">
+    <div style="width: 30px; height: 30px; border-radius: 8px; background: #14181F; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="6" r="2.5"></circle><circle cx="5" cy="18" r="2.5"></circle><circle cx="19" cy="12" r="2.5"></circle><path d="M7.5 6.5l9 4.5M7.5 17.5l9-4.5"></path></svg>
+    </div>
+    <div style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 17px; font-weight: 700">Decision Canvas</div>
+  </div>
+  <div style="width: 1px; height: 24px; background: #DDE2E8"></div>
+  <div style="font-size: 13px; font-weight: 600">Riverside MOB · Roof inspection</div>
+  <nav aria-label="Views" style="display: flex; gap: 4px; padding: 3px; background: #EEF1F4; border-radius: 9px">
+    <a href="canvas.dc.html" style="padding: 7px 14px; border-radius: 7px; color: #4A5361; font-size: 13px; font-weight: 600; text-decoration: none">Canvas</a>
+    <a href="lineage.dc.html" style="padding: 7px 14px; border-radius: 7px; background: #FFFFFF; color: #14181F; font-size: 13px; font-weight: 600; text-decoration: none; box-shadow: 0 1px 2px rgba(20,24,31,0.08)">Lineage</a>
+    <a href="sources.dc.html" style="padding: 7px 14px; border-radius: 7px; color: #4A5361; font-size: 13px; font-weight: 600; text-decoration: none">Sources</a>
+    <a href="analysis.dc.html" style="padding: 7px 14px; border-radius: 7px; color: #4A5361; font-size: 13px; font-weight: 600; text-decoration: none">Capture &amp; analysis</a>
+  </nav>
+  <div style="flex: 1 1 20px"></div>
+  <div style="display: flex">
+    <div title="Ana R. (you)" style="width: 30px; height: 30px; border-radius: 50%; background: #2563EB; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #FFFFFF">AR</div>
+    <div title="Mara T." style="width: 30px; height: 30px; border-radius: 50%; background: #7C3AED; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #FFFFFF; margin-left: -8px">MT</div>
+    <div title="Dev K." style="width: 30px; height: 30px; border-radius: 50%; background: #0F766E; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #FFFFFF; margin-left: -8px">DK</div>
+  </div>
+</header>
+
+<div style="flex: 1; display: flex; flex-wrap: wrap; align-items: stretch">
+  <main style="flex: 999 1 640px; min-width: 0; box-sizing: border-box; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <div style="font-size: 12px; color: #5B6472">Lineage of</div>
+      <h1 style="margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 24px; font-weight: 700">D-014 · Roofer inspection of NE corner</h1>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+      <div role="group" aria-label="Lineage detail level" style="display: flex; gap: 4px; padding: 4px; background: #FFFFFF; border: 1px solid #DDE2E8; border-radius: 10px">
+        <sc-for list="{{levels}}" as="l" hint-placeholder-count="3">
+          <button onClick="{{l.pick}}" aria-pressed="{{l.pressed}}" style="display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border: none; border-radius: 7px; background: {{l.bg}}; color: {{l.fg}}; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">{{l.name}}<span style="padding: 1px 7px; border-radius: 999px; background: {{l.badgeBg}}; color: {{l.badgeFg}}; font-size: 11px; font-weight: 700">{{l.count}} nodes</span></button>
+        </sc-for>
+      </div>
+      <div style="font-size: 12px; color: #4A5361">{{levelRule}}</div>
+    </div>
+
+    <div style="position: relative; overflow: auto; border: 1px solid #DDE2E8; border-radius: 14px; background-color: #FFFFFF; background-image: radial-gradient(#E2E7ED 1px, transparent 1px); background-size: 18px 18px">
+      <div style="display: flex; gap: 0; padding: 10px 20px 0; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472; width: 1040px; box-sizing: border-box">
+        <div style="width: 250px">Sources</div>
+        <div style="width: 250px">Observations · analyses</div>
+        <div style="width: 280px">Suggestions · earlier versions</div>
+        <div style="width: 220px">Decision</div>
+      </div>
+      <div style="position: relative; width: 1040px; height: {{H}}px">
+        <sc-for list="{{edges}}" as="e" hint-placeholder-count="6">
+          <div style="position: absolute; left: {{e.left}}px; top: {{e.top}}px; width: {{e.w}}px; height: {{e.h}}px; pointer-events: none">
+            <svg width="{{e.w}}" height="{{e.h}}" fill="none" aria-hidden="true" style="display: block; overflow: visible"><path d="{{e.d}}" stroke="{{e.color}}" stroke-width="{{e.sw}}" stroke-dasharray="{{e.dash}}" fill="none"></path></svg>
+          </div>
+        </sc-for>
+        <sc-for list="{{pills}}" as="p" hint-placeholder-count="3">
+          <div style="position: absolute; left: {{p.left}}px; top: {{p.top}}px; padding: 1px 6px; border-radius: 999px; background: #FFFFFF; border: 1px solid {{p.border}}; color: {{p.fg}}; font-size: 11px; font-weight: 700">{{p.label}}</div>
+        </sc-for>
+        <sc-for list="{{nodes}}" as="n" hint-placeholder-count="6">
+          <div style="position: absolute; left: {{n.x}}px; top: {{n.y}}px; width: 200px; height: 62px; box-sizing: border-box; background: {{n.bg}}; border: 1px {{n.borderStyle}} {{n.borderColor}}; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 1px 2px rgba(20,24,31,0.06)">
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: {{n.color}}"><span style="width: 7px; height: 7px; border-radius: 2px; background: {{n.color}}"></span><span style="flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{n.kind}}</span><span style="text-transform: none; letter-spacing: 0; color: {{n.metaFg}}">{{n.meta}}</span></div>
+            <div style="font-size: 13px; font-weight: 600; color: {{n.titleFg}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{n.title}}</div>
+          </div>
+        </sc-for>
+        <div style="position: absolute; left: 800px; top: {{dTop}}px; width: 220px; height: 96px; box-sizing: border-box; background: #14181F; color: #FFFFFF; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 8px 20px rgba(20,24,31,0.22)">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #C9D0DA"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 9-9 9-9-9z"></path></svg><span style="flex: 1">Decision · D-014 · v{{ver}}</span></div>
+          <div style="font-size: 13px; font-weight: 600; line-height: 1.3">{{cur.short}}</div>
+          <div style="display: flex"><span style="padding: 1px 7px; border-radius: 4px; background: {{cur.badgeBg}}; color: {{cur.badgeFg}}; font-size: 11px; font-weight: 700">{{cur.badge}}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; background: #FFFFFF; border: 1px solid #DDE2E8; border-radius: 12px">
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px">
+        <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472">Decision versions · timeline</div>
+        <div style="font-size: 12px; color: #4A5361">Each version is a snapshot: it points to the exact input versions it used.</div>
+      </div>
+      <div style="position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+        <sc-for list="{{versions}}" as="v" hint-placeholder-count="3">
+          <button onClick="{{v.pick}}" aria-pressed="{{v.pressed}}" style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 76px; padding: 10px 12px; border: {{v.border}}; border-radius: 10px; background: {{v.bg}}; font: inherit; color: #14181F; text-align: left; cursor: pointer">
+            <span style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700"><span style="width: 10px; height: 10px; border-radius: 50%; background: {{v.dot}}"></span>v{{v.n}} · {{v.date}}</span>
+            <span style="font-size: 12px; color: #3D4553; line-height: 1.35">{{v.short}}</span>
+            <span style="font-size: 11px; color: #5B6472">{{v.origin}}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+  </main>
+
+  <aside aria-label="Version details" style="flex: 1 1 340px; max-width: 100%; box-sizing: border-box; background: #FFFFFF; border-left: 1px solid #DDE2E8; padding: 20px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px">
+        <span style="padding: 2px 8px; border-radius: 999px; background: #EEF1F4; color: #14181F; font-size: 11px; font-weight: 700">D-014 · v{{ver}}</span>
+        <span style="font-size: 12px; color: #5B6472">{{cur.date}} · {{cur.author}}</span>
+      </div>
+      <h2 style="margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 19px; font-weight: 700; line-height: 1.3">{{cur.title}}</h2>
+      <div style="font-size: 12px; color: #3D4553">Origin: {{cur.origin}}</div>
+      <div style="display: flex"><span style="padding: 3px 8px; border-radius: 6px; background: {{cur.badgeBg}}; color: {{cur.badgeFg}}; font-size: 12px; font-weight: 600">{{cur.status}}</span></div>
+      <sc-if value="{{cur.stale}}" hint-placeholder-val="{{ false }}">
+        <div style="padding: 10px 12px; border-radius: 8px; background: #FFF1E6; border: 1px solid #F7CFB4; font-size: 12px; line-height: 1.45; color: #7C2D12"><span style="font-weight: 700">Stale input.</span> {{cur.staleText}}</div>
+      </sc-if>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472">Direct inputs · temperature</div>
+      <sc-for list="{{inputs}}" as="i" hint-placeholder-count="5">
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <div style="display: flex; justify-content: space-between; gap: 8px; font-size: 12px"><span style="color: {{i.fg}}">{{i.label}}</span><span style="font-weight: 700">{{i.t}}</span></div>
+          <div style="height: 6px; border-radius: 3px; background: #EEF1F4"><div style="width: {{i.pct}}%; height: 6px; border-radius: 3px; background: {{i.color}}"></div></div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5B6472">{{diffTitle}}</div>
+      <sc-for list="{{diff}}" as="d" hint-placeholder-count="3">
+        <div style="display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.4"><span style="flex: none; width: 18px; height: 18px; border-radius: 4px; background: {{d.bg}}; color: {{d.fg}}; font-weight: 700; display: flex; align-items: center; justify-content: center">{{d.sym}}</span><span>{{d.text}}</span></div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 8px">
+      <button style="flex: 1 1 140px; min-height: 40px; border: none; border-radius: 8px; background: #14181F; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Ask agent to re-check</button>
+      <button style="flex: 1 1 100px; min-height: 40px; border: 1px solid #DDE2E8; border-radius: 8px; background: #FFFFFF; color: #14181F; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Export lineage</button>
+    </div>
+  </aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { level: 'medium', ver: 3 };
+  }
+
+  data() {
+    const NODES = [
+      { id: 'F1', col: 0, type: 'source', kind: 'Drone flight', title: 'Flight 01 · Oct 28', from: 1 },
+      { id: 'F2', col: 0, type: 'source', kind: 'Drone flight', title: 'Flight 02 · Nov 4', from: 1 },
+      { id: 'F3', col: 0, type: 'source', kind: 'Drone flight', title: 'Flight 03 · Nov 11', from: 2 },
+      { id: 'W13', col: 0, type: 'source', kind: 'Weather v13', title: 'Forecast · Nov 4', from: 1, supAt: 2 },
+      { id: 'W14', col: 0, type: 'source', kind: 'Weather v14', title: 'Forecast · Nov 11', from: 2 },
+      { id: 'SCH', col: 0, type: 'source', kind: 'Schedule', title: 'Trade schedule wk 46', from: 2 },
+      { id: 'EM1', col: 0, type: 'source', kind: 'Email v1', title: 'Roofer: on site Thu', from: 2, supAt: 3 },
+      { id: 'EM2', col: 0, type: 'source', kind: 'Email v2', title: 'Roofer: can do 7:00 Thu', from: 3 },
+      { id: 'IFC', col: 0, type: 'source', kind: '3D model', title: 'Roof IFC (static)', from: 1 },
+      { id: 'O1', col: 1, type: 'obs', kind: 'Observation · F02', title: 'Blister ~2.0 m², NE', from: 1 },
+      { id: 'O2', col: 1, type: 'obs', kind: 'Observation · F03', title: 'Blister ~2.8 m² (+40%)', from: 2 },
+      { id: 'O3', col: 1, type: 'obs', kind: 'Observation · F03', title: 'Ponding, west drain', from: 2 },
+      { id: 'FW', col: 1, type: 'analysis', kind: 'Analysis · run 3', title: 'Flight window: 1 of 5 days', from: 2 },
+      { id: 'S19', col: 2, type: 'sugg', kind: 'Suggestion S-019', title: 'Re-fly in 2 weeks', from: 1, rejected: true },
+      { id: 'S21', col: 2, type: 'sugg', kind: 'Suggestion S-021', title: 'Inspect NE before rain', from: 2 },
+      { id: 'DV1', col: 2, type: 'prev', kind: 'D-014 v1', title: 'Monitor NE corner', from: 2 },
+      { id: 'DV2', col: 2, type: 'prev', kind: 'D-014 v2', title: 'Roofer inspects Thu', from: 3 }
+    ];
+    const INPUTS = {
+      1: { O1: 0.78, F2: 0.52, W13: 0.34, S19: 0.12, IFC: 0.05 },
+      2: { S21: 0.9, O2: 0.88, FW: 0.81, SCH: 0.6, EM1: 0.45, O1: 0.41, DV1: 0.3, O3: 0.18, W13: 0.08, IFC: 0.05 },
+      3: { S21: 0.86, O2: 0.84, FW: 0.79, EM2: 0.74, SCH: 0.52, O3: 0.5, O1: 0.35, DV2: 0.3, EM1: 0.2, IFC: 0.05 }
+    };
+    const UP = [
+      ['F2', 'O1', 0.8], ['F1', 'O1', 0.25], ['F3', 'O2', 0.9], ['F3', 'O3', 0.7],
+      ['O2', 'S21', 0.92], ['W14', 'FW', 0.9], ['FW', 'S21', 0.81], ['O1', 'S21', 0.55], ['O3', 'S21', 0.18],
+      ['O1', 'S19', 0.6], ['O1', 'DV1', 0.7], ['W13', 'DV1', 0.34], ['EM1', 'DV2', 0.5], ['O2', 'DV2', 0.8]
+    ];
+    const VERS = {
+      1: { date: 'Nov 4, 16:20', author: 'Ana R.', origin: 'Manual · logged after site meeting', title: 'Monitor NE corner; re-fly next week', short: 'Monitor NE corner', status: 'Superseded by v2', badge: 'Superseded' },
+      2: { date: 'Nov 11, 15:05', author: 'Mara T.', origin: 'Accepted agent suggestion S-021', title: 'Roofer inspects NE corner Thursday, before the rain', short: 'Roofer inspects NE corner Thu', status: 'Superseded by v3', badge: 'Stale', stale: true, staleText: 'Email v1 was replaced by Email v2 (roofer moved to 7:00) after this version was decided.' },
+      3: { date: 'Nov 13, 09:12', author: 'Mara T.', origin: 'Manual edit · reviewer', title: 'Roofer inspects NE corner Thu 7:00 and checks the west drain', short: 'Thu 7:00 + check west drain', status: 'Current · all inputs up to date', badge: 'Current' }
+    };
+    return { NODES, INPUTS, UP, VERS };
+  }
+
+  visible(level, v, D) {
+    const byId = {};
+    D.NODES.forEach((n) => { byId[n.id] = n; });
+    const exists = (id) => byId[id] && byId[id].from <= v;
+    const flag = (id) => {
+      const n = byId[id];
+      return !!(n.rejected || (n.supAt && v >= n.supAt) || n.type === 'prev');
+    };
+    const direct = Object.keys(D.INPUTS[v]).filter(exists).map((id) => ({ id, t: D.INPUTS[v][id] }));
+    const vis = new Set();
+    let upEdges = [];
+    if (level === 'simple') {
+      direct.filter((d) => !flag(d.id)).sort((a, b) => b.t - a.t).slice(0, 3).forEach((d) => vis.add(d.id));
+    } else if (level === 'medium') {
+      direct.filter((d) => !flag(d.id) && d.t >= 0.3).forEach((d) => vis.add(d.id));
+      for (let k = 0; k < 2; k++) {
+        D.UP.forEach(([a, b, t]) => { if (vis.has(b) && exists(a) && !flag(a) && t >= 0.3) vis.add(a); });
+      }
+      upEdges = D.UP.filter(([a, b, t]) => vis.has(a) && vis.has(b) && t >= 0.3);
+    } else {
+      direct.forEach((d) => vis.add(d.id));
+      for (let k = 0; k < 3; k++) {
+        D.UP.forEach(([a, b]) => { if (vis.has(b) && exists(a)) vis.add(a); });
+      }
+      upEdges = D.UP.filter(([a, b]) => vis.has(a) && vis.has(b));
+    }
+    const directShown = direct.filter((d) => vis.has(d.id));
+    return { vis, byId, flag, direct, directShown, upEdges };
+  }
+
+  renderVals() {
+    const D = this.data();
+    const level = this.state.level;
+    const v = this.state.ver;
+    const R = this.visible(level, v, D);
+
+    const tempColor = (t, flagged) => flagged || t < 0.3 ? '#8A96A6' : (t >= 0.7 ? '#C2410C' : '#E59E1B');
+    const typeColor = { source: '#0F766E', obs: '#475569', analysis: '#0369A1', sugg: '#7C3AED', prev: '#14181F' };
+
+    const COLX = [20, 270, 520];
+    const NH = 62, NW = 200, ROW = 74;
+    const cols = [[], [], []];
+    D.NODES.forEach((n) => { if (R.vis.has(n.id)) cols[n.col].push(n); });
+    const maxN = Math.max(1, cols[0].length, cols[1].length, cols[2].length);
+    const H = Math.max(420, 48 + maxN * ROW);
+    const pos = {};
+    cols.forEach((c, ci) => {
+      const off = (H - c.length * ROW) / 2;
+      c.forEach((n, i) => { pos[n.id] = { x: COLX[ci], y: Math.round(off + i * ROW + (ROW - NH) / 2) }; });
+    });
+    const dTop = Math.round((H - 96) / 2);
+
+    const flagLabel = (n) => n.rejected ? 'dismissed' : (n.type === 'prev' ? 'superseded' : (n.supAt && v >= n.supAt ? 'superseded' : ''));
+    const directMap = {};
+    R.direct.forEach((d) => { directMap[d.id] = d.t; });
+
+    const nodes = [];
+    cols.forEach((c) => c.forEach((n) => {
+      const f = R.flag(n.id);
+      const t = directMap[n.id];
+      const meta = f ? flagLabel(n) : (t !== undefined ? 't ' + t.toFixed(2) : '');
+      nodes.push({
+        x: pos[n.id].x, y: pos[n.id].y, kind: n.kind, title: n.title, meta,
+        color: typeColor[n.type],
+        bg: f ? '#FAFBFC' : '#FFFFFF',
+        borderStyle: f ? 'dashed' : 'solid',
+        borderColor: f ? '#B8C0CB' : '#D5DBE3',
+        titleFg: f ? '#4A5361' : '#14181F',
+        metaFg: f ? '#5B6472' : (t !== undefined && t >= 0.7 ? '#9A3412' : '#5B6472')
+      });
+    }));
+
+    const mkEdge = (x1, y1, x2, y2, t, flagged) => {
+      const top = Math.min(y1, y2) - 6;
+      const w = Math.max(1, x2 - x1);
+      const h = Math.abs(y2 - y1) + 12;
+      const a = y1 - top, b = y2 - top;
+      const dashed = flagged || t < 0.3;
+      return {
+        left: x1, top, w, h,
+        d: 'M0 ' + a + ' C' + (w / 2) + ' ' + a + ' ' + (w / 2) + ' ' + b + ' ' + w + ' ' + b,
+        color: tempColor(t, flagged),
+        sw: (1.2 + t * 3.8).toFixed(1),
+        dash: dashed ? '5 4' : 'none'
+      };
+    };
+
+    const edges = [];
+    const pills = [];
+    R.upEdges.forEach(([a, b, t]) => {
+      const pa = pos[a], pb = pos[b];
+      edges.push(mkEdge(pa.x + NW, pa.y + NH / 2, pb.x, pb.y + NH / 2, t, R.flag(a) || R.flag(b)));
+    });
+    const ds = R.directShown.slice().sort((p, q) => pos[p.id].y - pos[q.id].y);
+    ds.forEach((d, k) => {
+      const p = pos[d.id];
+      const ty = dTop + 18 + (ds.length > 1 ? Math.round(k * 60 / (ds.length - 1)) : 30);
+      const f = R.flag(d.id);
+      edges.push(mkEdge(p.x + NW, p.y + NH / 2, 800, ty, d.t, f));
+      const hot = !f && d.t >= 0.7, warm = !f && d.t >= 0.3 && d.t < 0.7;
+      pills.push({
+        left: p.x + NW + 6, top: p.y + NH / 2 - 10, label: d.t.toFixed(2),
+        border: hot ? '#F3C6AE' : (warm ? '#F1D9A6' : '#D5DBE3'),
+        fg: hot ? '#9A3412' : (warm ? '#7A4B00' : '#4A5361')
+      });
+    });
+
+    const LV = [
+      { key: 'simple', name: 'Simple', rule: 'Top 3 hottest direct inputs · depth 1' },
+      { key: 'medium', name: 'Medium', rule: 'Direct + upstream · depth ≤ 3 · temperature ≥ 0.30 · hides dismissed and superseded' },
+      { key: 'advanced', name: 'Advanced', rule: 'Everything: cold inputs, dismissed suggestions, superseded versions of sources and decisions' }
+    ];
+    const levels = LV.map((l) => {
+      const on = l.key === level;
+      return {
+        name: l.name,
+        count: this.visible(l.key, v, D).vis.size + 1,
+        pressed: on,
+        bg: on ? '#14181F' : 'transparent',
+        fg: on ? '#FFFFFF' : '#3D4553',
+        badgeBg: on ? '#3A414D' : '#EEF1F4',
+        badgeFg: on ? '#FFFFFF' : '#3D4553',
+        pick: () => this.setState({ level: l.key })
+      };
+    });
+    const levelRule = LV.find((l) => l.key === level).rule;
+
+    const V = D.VERS[v];
+    const cur = Object.assign({}, V, {
+      stale: !!V.stale,
+      staleText: V.staleText || '',
+      badgeBg: V.stale ? '#FFF1E6' : (v === 3 ? '#E8F5EC' : '#3A414D'),
+      badgeFg: V.stale ? '#9A3412' : (v === 3 ? '#166534' : '#FFFFFF')
+    });
+
+    const versions = [1, 2, 3].map((n) => {
+      const on = n === v;
+      const X = D.VERS[n];
+      return {
+        n, date: X.date, short: X.short, origin: X.origin, pressed: on,
+        border: on ? '2px solid #2563EB' : '1px solid #DDE2E8',
+        bg: on ? '#F3F7FF' : '#FFFFFF',
+        dot: n === 3 ? '#16A34A' : (X.stale ? '#C2410C' : '#8A96A6'),
+        pick: () => this.setState({ ver: n })
+      };
+    });
+
+    const label = (id) => R.byId[id].kind + ' — ' + R.byId[id].title;
+    const inputs = R.direct.slice().sort((a, b) => b.t - a.t).map((d) => {
+      const f = R.flag(d.id);
+      return {
+        label: label(d.id) + (f ? ' (' + flagLabel(R.byId[d.id]) + ')' : ''),
+        t: d.t.toFixed(2),
+        pct: Math.round(d.t * 100),
+        color: tempColor(d.t, f),
+        fg: f ? '#5B6472' : '#14181F'
+      };
+    });
+
+    let diff = [];
+    let diffTitle = 'Changes from previous version';
+    if (v === 1) {
+      diffTitle = 'First version';
+      diff = [{ sym: '•', bg: '#EEF1F4', fg: '#3D4553', text: 'Logged manually after the Nov 4 site meeting. The lineage finder suggested 5 inputs; Ana accepted all.' }];
+    } else {
+      const A = D.INPUTS[v - 1], B = D.INPUTS[v];
+      Object.keys(B).forEach((id) => {
+        if (A[id] === undefined) diff.push({ sym: '+', bg: '#E8F5EC', fg: '#166534', text: label(id) + ' · ' + B[id].toFixed(2) });
+        else if (Math.abs(B[id] - A[id]) >= 0.1) diff.push({ sym: '~', bg: '#FFF4DB', fg: '#7A4B00', text: label(id) + ' · ' + A[id].toFixed(2) + ' → ' + B[id].toFixed(2) });
+      });
+      Object.keys(A).forEach((id) => {
+        if (B[id] === undefined) diff.push({ sym: '−', bg: '#FDECEC', fg: '#991B1B', text: label(id) + ' · dropped' });
+      });
+    }
+
+    return { levels, levelRule, H, dTop, nodes, edges, pills, ver: v, cur, versions, inputs, diff, diffTitle };
+  }
+}
+</script>
+</body>
+</html>

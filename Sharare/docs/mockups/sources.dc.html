@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sources and capture</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F6F8}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+</style>
+</helmet>
+<div style="font-family: Inter, system-ui, sans-serif; color: #14181F; background: #F4F6F8; min-height: 900px; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 10px 20px; background: #FFFFFF; border-bottom: 1px solid #DDE2E8">
+  <div style="display: flex; align-items: center; gap: 10px">
+    <div style="width: 30px; height: 30px; border-radius: 8px; background: #14181F; color: #FFFFFF; display: flex; align-items: center; justify-content: center">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="6" r="2.5"></circle><circle cx="5" cy="18" r="2.5"></circle><circle cx="19" cy="12" r="2.5"></circle><path d="M7.5 6.5l9 4.5M7.5 17.5l9-4.5"></path></svg>
+    </div>
+    <div style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 17px; font-weight: 700">Decision Canvas</div>
+  </div>
+  <div style="width: 1px; height: 24px; background: #DDE2E8"></div>
+  <div style="font-size: 13px; font-weight: 600">Riverside MOB · Roof inspection</div>
+  <nav aria-label="Views" style="display: flex; gap: 4px; padding: 3px; background: #EEF1F4; border-radius: 9px">
+    <a href="canvas.dc.html" style="padding: 7px 14px; border-radius: 7px; color: #4A5361; font-size: 13px; font-weight: 600; text-decoration: none">Canvas</a>
+    <a href="lineage.dc.html" style="padding: 7px 14px; border-radius: 7px; color: #4A5361; font-size: 13px; font-weight: 600; text-decoration: none">Lineage</a>
+    <a href="sources.dc.html" style="padding: 7px 14px; border-radius: 7px; background: #FFFFFF; color: #14181F; font-size: 13px; font-weight: 600; text-decoration: none; box-shadow: 0 1px 2px rgba(20,24,31,0.08)">Sources</a>
+    <a href="analysis.dc.html" style="padding: 7px 14px; border-radius: 7px; color: #4A5361; font-size: 13px; font-weight: 600; text-decoration: none">Capture &amp; analysis</a>
+  </nav>
+  <div style="flex: 1 1 20px"></div>
+  <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #5B6472"><span style="width: 8px; height: 8px; border-radius: 50%; background: #16A34A"></span>Running locally · docker compose</span>
+</header>
+
+<main style="box-sizing: border-box; width: 100%; max-width: 1360px; margin: 0 auto; padding: 22px 20px; display: flex; flex-direction: column; gap: 18px">
+  <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <h1 style="margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 24px; font-weight: 700">Sources and capture</h1>
+      <div style="font-size: 13px; color: #4A5361">Every capture is append-only. A new version is stored only when the content hash changes.</div>
+    </div>
+    <div style="display: flex; gap: 8px">
+      <button style="min-height: 40px; padding: 0 14px; border: 1px solid #DDE2E8; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; color: #14181F; cursor: pointer">Open inbox folder</button>
+      <button style="min-height: 40px; padding: 0 14px; border: none; border-radius: 8px; background: #2563EB; font: inherit; font-size: 13px; font-weight: 600; color: #FFFFFF; cursor: pointer">+ Connect source</button>
+    </div>
+  </div>
+
+  <section aria-label="Capture pipeline" style="display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; padding: 14px; background: #FFFFFF; border: 1px solid #DDE2E8; border-radius: 12px">
+    <div style="flex: 1 1 150px; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 8px; background: #F7F8FA"><span style="font-size: 11px; font-weight: 700; color: #0F766E">1 · CAPTURE</span><span style="font-size: 12px; color: #3D4553">Inbox drop, poll or stream replay</span></div>
+    <div style="flex: none; align-self: center; color: #8A96A6" aria-hidden="true">→</div>
+    <div style="flex: 1 1 150px; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 8px; background: #F7F8FA"><span style="font-size: 11px; font-weight: 700; color: #0F766E">2 · HASH</span><span style="font-size: 12px; color: #3D4553">Unchanged or under threshold → skip</span></div>
+    <div style="flex: none; align-self: center; color: #8A96A6" aria-hidden="true">→</div>
+    <div style="flex: 1 1 150px; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 8px; background: #F7F8FA"><span style="font-size: 11px; font-weight: 700; color: #0F766E">3 · STORE RAW</span><span style="font-size: 12px; color: #3D4553">./data/raw/&lt;hash&gt; on local disk</span></div>
+    <div style="flex: none; align-self: center; color: #8A96A6" aria-hidden="true">→</div>
+    <div style="flex: 1 1 150px; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 8px; background: #F7F8FA"><span style="font-size: 11px; font-weight: 700; color: #0F766E">4 · VERSION</span><span style="font-size: 12px; color: #3D4553">New node_versions row</span></div>
+    <div style="flex: none; align-self: center; color: #8A96A6" aria-hidden="true">→</div>
+    <div style="flex: 1 1 150px; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 8px; background: #F7F8FA"><span style="font-size: 11px; font-weight: 700; color: #7C3AED">5 · SUMMARIZE</span><span style="font-size: 12px; color: #3D4553">Images → observations, text → summary</span></div>
+    <div style="flex: none; align-self: center; color: #8A96A6" aria-hidden="true">→</div>
+    <div style="flex: 1 1 150px; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 8px; background: #F7F8FA"><span style="font-size: 11px; font-weight: 700; color: #7C3AED">6 · EMBED (LAZY)</span><span style="font-size: 12px; color: #3D4553">Only when lineage or the agent needs it</span></div>
+  </section>
+
+  <section aria-label="Storage summary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px">
+    <div style="display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; background: #FFFFFF; border: 1px solid #DDE2E8; border-radius: 12px"><span style="font-size: 12px; color: #5B6472">Sources connected</span><span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 26px; font-weight: 700">7</span></div>
+    <div style="display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; background: #FFFFFF; border: 1px solid #DDE2E8; border-radius: 12px"><span style="font-size: 12px; color: #5B6472">Versions kept</span><span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 26px; font-weight: 700">41</span></div>
+    <div style="display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; background: #FFFFFF; border: 1px solid #DDE2E8; border-radius: 12px"><span style="font-size: 12px; color: #5B6472">Captures skipped (no change)</span><span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 26px; font-weight: 700">312</span></div>
+    <div style="display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; background: #FFFFFF; border: 1px solid #DDE2E8; border-radius: 12px"><span style="font-size: 12px; color: #5B6472">Embedded rows</span><span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 26px; font-weight: 700">58</span></div>
+  </section>
+
+  <section aria-label="Sources" style="background: #FFFFFF; border: 1px solid #DDE2E8; border-radius: 12px; overflow-x: auto">
+    <table style="width: 100%; min-width: 920px; border-collapse: collapse; font-size: 13px">
+      <thead>
+        <tr style="text-align: left; color: #5B6472; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase">
+          <th style="padding: 12px 16px; border-bottom: 1px solid #E4E8ED; font-weight: 600">Source</th>
+          <th style="padding: 12px 16px; border-bottom: 1px solid #E4E8ED; font-weight: 600">Connector</th>
+          <th style="padding: 12px 16px; border-bottom: 1px solid #E4E8ED; font-weight: 600">Freshness</th>
+          <th style="padding: 12px 16px; border-bottom: 1px solid #E4E8ED; font-weight: 600">Change threshold</th>
+          <th style="padding: 12px 16px; border-bottom: 1px solid #E4E8ED; font-weight: 600">Last capture</th>
+          <th style="padding: 12px 16px; border-bottom: 1px solid #E4E8ED; font-weight: 600">Versions</th>
+          <th style="padding: 12px 16px; border-bottom: 1px solid #E4E8ED; font-weight: 600">Used in decisions</th>
+          <th style="padding: 12px 16px; border-bottom: 1px solid #E4E8ED; font-weight: 600">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; font-weight: 600">Drone flights · roof</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; color: #3D4553">Inbox folder</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4"><span style="padding: 2px 8px; border-radius: 999px; background: #EEF1F4; font-size: 12px">On upload</span></td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; color: #3D4553">New flight folder</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; color: #3D4553">Nov 11, 13:40</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4">3 flights · 9 obs.</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4">D-014, S-019, S-021</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4"><span style="color: #166534; font-weight: 600">Up to date</span></td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; font-weight: 600">Site weather</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; color: #3D4553">Weather API (cached)</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4"><span style="padding: 2px 8px; border-radius: 999px; background: #EAF1FF; color: #1D4ED8; font-size: 12px">Periodic · 1 h</span></td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; color: #3D4553">Rain prob ±15% or wind ±5 km/h</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; color: #3D4553">Today, 11:00</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4">14</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4">D-014, S-021</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4"><span style="color: #166534; font-weight: 600">Up to date</span></td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; font-weight: 600">Drone telemetry</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; color: #3D4553">Stream replay</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4"><span style="padding: 2px 8px; border-radius: 999px; background: #F1EAFE; color: #6D28D9; font-size: 12px">Stream</span></td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; color: #3D4553">Events only (geofence, gust)</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; color: #3D4553">Nov 11, 13:58</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4">4 events · 21k readings</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; color: #5B6472">—</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4"><span style="color: #3D4553; font-weight: 600">Idle</span></td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; font-weight: 600">Roofer email thread</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; color: #3D4553">.eml in inbox</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4"><span style="padding: 2px 8px; border-radius: 999px; background: #EEF1F4; font-size: 12px">On upload</span></td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; color: #3D4553">New message in thread</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; color: #3D4553">Nov 13, 08:47</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4">2</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4">D-014</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4"><span style="padding: 2px 8px; border-radius: 6px; background: #FFF1E6; color: #9A3412; font-weight: 600; font-size: 12px">Flagged D-014 v2 stale</span></td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; font-weight: 600">Trade schedule</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; color: #3D4553">CSV file</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4"><span style="padding: 2px 8px; border-radius: 999px; background: #EAF1FF; color: #1D4ED8; font-size: 12px">Periodic · daily</span></td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; color: #3D4553">Any row change</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; color: #3D4553">Today, 06:00</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4">6</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4">D-014</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4"><span style="color: #166534; font-weight: 600">Up to date</span></td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 16px; font-weight: 600">Roof IFC model</td>
+          <td style="padding: 12px 16px; color: #3D4553">IFC properties export</td>
+          <td style="padding: 12px 16px"><span style="padding: 2px 8px; border-radius: 999px; background: #EEF1F4; font-size: 12px">Static</span></td>
+          <td style="padding: 12px 16px; color: #3D4553">Manual re-import</td>
+          <td style="padding: 12px 16px; color: #3D4553">Oct 20, 10:15</td>
+          <td style="padding: 12px 16px">1</td>
+          <td style="padding: 12px 16px; color: #5B6472">Cold input only</td>
+          <td style="padding: 12px 16px"><span style="color: #3D4553; font-weight: 600">Not linked on canvas</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section aria-label="Weather capture history" style="display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #FFFFFF; border: 1px solid #DDE2E8; border-radius: 12px">
+    <div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px">
+      <div style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 16px; font-weight: 700">Site weather · last 24 polls</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: #3D4553">
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #2563EB"></span>New version stored</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; box-sizing: border-box; border-radius: 3px; border: 1.5px solid #8A96A6"></span>Skipped · hash unchanged</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #C2410C"></span>Used by a decision</span>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; align-items: end">
+      <sc-for list="{{ticks}}" as="t" hint-placeholder-count="24">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+          <div style="width: 100%; height: 34px; box-sizing: border-box; border-radius: 4px; background: {{t.bg}}; border: 1.5px solid {{t.border}}"></div>
+          <span style="font-size: 10px; color: #5B6472">{{t.label}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="font-size: 12px; color: #3D4553">4 of 24 polls became versions. Raw responses are kept on disk for audit; only versions get a row, and only v14 was embedded because S-021 used it.</div>
+  </section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const stored = { 2: 'v', 9: 'v', 15: 'u', 21: 'v' };
+    const ticks = [];
+    for (let i = 0; i < 24; i++) {
+      const h = (12 + i) % 24;
+      const s = stored[i];
+      ticks.push({
+        label: (h < 10 ? '0' : '') + h,
+        bg: s === 'u' ? '#C2410C' : (s === 'v' ? '#2563EB' : '#FFFFFF'),
+        border: s === 'u' ? '#C2410C' : (s === 'v' ? '#2563EB' : '#B8C0CB')
+      });
+    }
+    return { ticks };
+  }
+}
+</script>
+</body>
+</html>

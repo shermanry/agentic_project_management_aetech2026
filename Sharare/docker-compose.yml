@@ -1,0 +1,25 @@
+# Decision engine database only, for now. The full stack (api, worker, web, collab, runner)
+# from plan.md §10 gets added here as each service exists.
+#
+#   docker compose up -d db        # first boot runs db/init/*.sql
+#   docker compose exec db psql -U drone -d drone
+#   docker compose down -v         # reset to a clean seeded state
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: drone
+      POSTGRES_PASSWORD: drone        # local dev only
+      POSTGRES_DB: drone
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U drone -d drone"]
+      interval: 2s
+      retries: 30
+
+volumes:
+  dbdata:
