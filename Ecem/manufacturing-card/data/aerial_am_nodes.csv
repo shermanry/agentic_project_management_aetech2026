@@ -85,12 +85,12 @@ O_OUTDOOR_SLAM,open_problem,discovery,future_work,Outdoor multi-sensor SLAM + DG
 O_EFFICIENCY_METRICS,open_problem,discovery,future_work,Distributed-manufacturing efficiency metrics,Needed vs object scale and platform.,zhang2022_nature,{}
 O_REGULATION,open_problem,blocker,future_work,Codes & airspace regulation,Design/structural codes not adapted to AM; airspace/flight permits for multi-UAV ops.,dams2024_frontiers_review,{}
 O_REINFORCEMENT,open_problem,discovery,future_work,Reinforcement / crack mitigation,Needed for load-bearing use.,dams2024_frontiers_review,{}
-L1_STRATEGIC,feedback_loop,rule,slow,Strategic manufacturing loop,Geometry -> jobs -> allocation -> fleet sizing; re-plans as print progresses.,zhang2022_nature,"{""timescale"": ""slow / per-layer-or-mission""}"
-L2_OPERATIONAL,feedback_loop,rule,fast,Operational flight-control loop,MPC tracks path using mocap pose in real time.,zhang2022_nature,"{""timescale"": ""real-time""}"
-L3_DELTA,feedback_loop,rule,fast,Nozzle compensation loop,Delta arm cancels body drift so tip follows path (≤5 mm).,zhang2022_nature,"{""timescale"": ""real-time""}"
-L4_SCAN_ADAPT,feedback_loop,rule,per_layer,Scan-in-the-loop layer correction,Scan after every layer -> mean height -> offset next trajectory.,zhang2022_nature,"{""timescale"": ""per layer""}"
-L5_HUMAN,feedback_loop,rule,supervisory,Human verification loop,Supervisor verifies print and approves / intervenes.,zhang2022_nature,"{""timescale"": ""per layer / on exception""}"
-L6_LOGISTICS,feedback_loop,rule,production,Material & energy logistics loop,Monitor material/battery -> schedule refill/swap -> reassign jobs (manual in paper; must be automated for production).,production_inferred,"{""timescale"": ""per trip""}"
-L7_CURE_GATE,feedback_loop,rule,production,Cure-gating loop,Hold next layer until layer below reaches green strength (needed for cement at scale).,production_inferred,"{""timescale"": ""per layer""}"
-L8_ENV_GATE,feedback_loop,rule,production,Environmental go/no-go loop,"Wind, temp, humidity, light -> pause/resume, adjust speed/mix.",production_inferred,"{""timescale"": ""continuous""}"
-L9_FAULT,feedback_loop,rule,production,Fault-tolerance / reallocation loop,Comms loss or robot failure -> redundancy -> reassign jobs.,zhang2022_nature,"{""timescale"": ""event-driven""}"
+L1_STRATEGIC,feedback_loop,analysis,slow,Strategic manufacturing loop,Geometry -> jobs -> allocation -> fleet sizing; re-plans as print progresses.,zhang2022_nature,"{""timescale"": ""slow / per-layer-or-mission""}"
+L2_OPERATIONAL,feedback_loop,analysis,fast,Operational flight-control loop,MPC tracks path using mocap pose in real time.,zhang2022_nature,"{""timescale"": ""real-time""}"
+L3_DELTA,feedback_loop,analysis,fast,Nozzle compensation loop,Delta arm cancels body drift so tip follows path (≤5 mm).,zhang2022_nature,"{""timescale"": ""real-time""}"
+L4_SCAN_ADAPT,feedback_loop,analysis,per_layer,Scan-in-the-loop layer correction,Scan after every layer -> mean height -> offset next trajectory.,zhang2022_nature,"{""timescale"": ""per layer""}"
+L5_HUMAN,feedback_loop,analysis,supervisory,Human verification loop,Supervisor verifies print and approves / intervenes.,zhang2022_nature,"{""timescale"": ""per layer / on exception""}"
+L6_LOGISTICS,feedback_loop,analysis,production,Material & energy logistics loop,Monitor material/battery -> schedule refill/swap -> reassign jobs (manual in paper; must be automated for production).,production_inferred,"{""timescale"": ""per trip""}"
+L7_CURE_GATE,feedback_loop,analysis,production,Cure-gating loop,Hold next layer until layer below reaches green strength (needed for cement at scale).,production_inferred,"{""timescale"": ""per layer""}"
+L8_ENV_GATE,feedback_loop,analysis,production,Environmental go/no-go loop,"Wind, temp, humidity, light -> pause/resume, adjust speed/mix.",production_inferred,"{""timescale"": ""continuous""}"
+L9_FAULT,feedback_loop,analysis,production,Fault-tolerance / reallocation loop,Comms loss or robot failure -> redundancy -> reassign jobs.,zhang2022_nature,"{""timescale"": ""event-driven""}"

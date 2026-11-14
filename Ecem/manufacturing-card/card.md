@@ -29,15 +29,21 @@ Drone telemetry (fleet or flight-controller API), scan processing (mesh vs twin)
 
 ## 3. Node types (agent-architecture.md, question 5)
 
-The eight types plus `entity` cover most of it. Every node in `data/aerial_am_nodes.csv` now has a `team_type` column. Five things manufacturing needs that the facade survey doesn't:
+The 11 types in `Ryan/northstar/db/001_schema.sql` cover it: the eight in agent-architecture.md section 2, plus `entity`, `analysis` and `observation`. Every node in `data/aerial_am_nodes.csv` has a `team_type` column holding one of them; the nine feedback loops are `analysis`, since each computes from other nodes and produces new ones. The seed uses only the nine types the app accepts today (`NODE_TYPES` in `store.py`).
 
-| Missing | Why | Suggested modelling |
-|---|---|---|
-| **Repeating work unit (layer)** | The same decision recurs every layer with fresh inputs | A `decision` with `cadence: per_layer`, or a new `work_unit` type that spawns one release decision each |
-| **Consumable** | Material and batteries burn down and expire (open time) | `constraint` plus a `data_feed` for the level, or a new `consumable` type with quantity and expiry |
-| **Quality check** | Each layer is measured against design; repeated failure re-opens design | `data_feed` producing `discovery` nodes; rule 2 in `rules.json` |
-| **Design version / twin** | Design changes mid-build; every layer must trace to a version | `entity` with revisions; edges `derived_from` to each layer |
-| **Gate** | Several phases end in approvals (method, buildability, freeze, safety, acceptance) | A `decision` tagged `gate`, or a gate field on the phase |
+Edges work the same way: `data/aerial_am_edges.csv` keeps the research `relation` and adds `team_relation`, one of the schema's edge types. Where the team edge points the other way (a loop step feeds the next, so the next `depends_on` it), `team_reversed` is `yes`.
+
+Five things manufacturing needs that the facade survey doesn't, each modelled with the existing types:
+
+| Needed | Why | Modelling with the existing types | Optional proposal |
+|---|---|---|---|
+| **Repeating work unit (layer)** | The same decision recurs every layer with fresh inputs | A `decision` with `cadence: per_layer` | A `work_unit` type that spawns one release decision each |
+| **Consumable** | Material and batteries burn down and expire (open time) | `constraint` plus a `data_feed` for the level | A `consumable` type with quantity and expiry |
+| **Quality check** | Each layer is measured against design; repeated failure re-opens design | An `observation` per layer scan; three in a row out of tolerance raise a `discovery` (rule 2 in `rules.json`) | |
+| **Design version / twin** | Design changes mid-build; every layer must trace to a version | `entity` with revisions; edges `derived_from` to each layer; the stage stability check is an `analysis` | |
+| **Gate** | Several phases end in approvals (method, buildability, freeze, safety, acceptance) | A `decision` tagged `gate` | |
+
+The two proposals are only worth adding if the existing modelling proves awkward in the replay.
 
 Manufacturing phases for the node `phase` field: `brief | method | design | prepare | build | close` (17 steps in [README.md](../README.md)).
 
@@ -47,7 +53,7 @@ Manufacturing phases for the node `phase` field: `brief | method | design | prep
 
 ## 5. Rule pack (agent-architecture.md, section 3 and question 6)
 
-`rules.json`: nine rules for `aerial-am-manufacturing`, in the section 3 format, all `proposed`:
+`rules.json`: nine rules for `aerial-am-manufacturing`, in the section 3 format, all `proposed`. Attention goes to `pilot` or `pm` as in Ryan's examples; the design lead and site lead are both at the pilot / solution-designer level.
 
 1. Layer release waiting on inputs near the end of open time → red, chase the missing input
 2. Deviation over tolerance three layers in a row → discovery, re-open the design decision

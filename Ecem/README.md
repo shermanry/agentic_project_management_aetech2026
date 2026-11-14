@@ -45,7 +45,7 @@ manufacturing-card/
   seed_manufacturing.py / .json                24 nodes, 22 edges, 8-step replay (northstar seed format)
   rules.json                                   9 rules, aerial-am-manufacturing pack
   data/
-    aerial_am_nodes.csv, aerial_am_edges.csv   constraint graph, with team_type column
+    aerial_am_nodes.csv, aerial_am_edges.csv   constraint graph, with team_type and team_relation columns
     decisions.json / .csv, decision.schema.json 24 decisions with answers
     production_stages.json                     17 steps, owners, gates, questions
     tiers.json                                 Basic / Medium / Advanced

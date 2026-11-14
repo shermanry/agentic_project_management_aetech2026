@@ -69,7 +69,7 @@ EDGES = [
     ("method", "site", "depends_on", "Chosen because the site is at height with no crane access"),
     ("shell", "method", "depends_on", "Built by the chosen method"),
     ("shell", "twin", "derived_from", "Printed from the digital twin"),
-    ("mix", "mix_report", "evidence_for", "Decided on the test results"),
+    ("mix_report", "mix", "evidence_for", "The test results the mix was decided on"),
     ("mix", "open_time", "about", "The mix sets the open time"),
     ("toolpath", "payload", "depends_on", "Path per layer must fit one load"),
     ("toolpath", "twin", "derived_from", "Path sliced from the twin"),
@@ -87,7 +87,7 @@ EDGES = [
     ("dry_run", "flight_ok", "depends_on", "Cannot fly without approval"),
     ("wind_limit", "dry_run", "derived_from", "Set from the dry-run tracking results"),
     ("final_scan", "shell", "about", "Acceptance of the printed shell"),
-    ("method", "paper", "evidence_for", "Process and limits from the paper"),
+    ("paper", "method", "evidence_for", "Source for the process and limits"),
 ]
 
 # Replay: the decision history, in the order things arrived. Same fields as Ryan/northstar/replay.py SCENARIO.

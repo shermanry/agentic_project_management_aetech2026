@@ -338,10 +338,10 @@
       "reason": "Printed from the digital twin"
     },
     {
-      "source": "mix",
-      "target": "mix_report",
+      "source": "mix_report",
+      "target": "mix",
       "type": "evidence_for",
-      "reason": "Decided on the test results"
+      "reason": "The test results the mix was decided on"
     },
     {
       "source": "mix",
@@ -446,10 +446,10 @@
       "reason": "Acceptance of the printed shell"
     },
     {
-      "source": "method",
-      "target": "paper",
+      "source": "paper",
+      "target": "method",
       "type": "evidence_for",
-      "reason": "Process and limits from the paper"
+      "reason": "Source for the process and limits"
     }
   ],
   "scenario": [

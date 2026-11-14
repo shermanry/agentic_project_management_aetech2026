@@ -17,8 +17,7 @@
           "action": "raise_attention",
           "level": "red",
           "for": [
-            "site_lead",
-            "design_lead"
+            "pilot"
           ]
         },
         {
@@ -68,7 +67,7 @@
           "action": "raise_attention",
           "level": "red",
           "for": [
-            "design_lead"
+            "pilot"
           ]
         }
       ],
@@ -104,13 +103,13 @@
           "tags": [
             "layer-gate"
           ],
-          "state": "hold"
+          "state": "awaiting_inputs"
         },
         {
           "action": "raise_attention",
           "level": "flashing_red",
           "for": [
-            "site_lead"
+            "pilot"
           ]
         }
       ],
@@ -148,7 +147,7 @@
           "action": "raise_attention",
           "level": "red",
           "for": [
-            "site_lead"
+            "pilot"
           ]
         }
       ],
@@ -225,8 +224,7 @@
           "action": "raise_attention",
           "level": "amber",
           "for": [
-            "design_lead",
-            "site_lead"
+            "pilot"
           ]
         }
       ],
