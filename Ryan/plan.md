@@ -10,6 +10,8 @@ _Draft for team critique · 2026-11-14 · background in [PROJECT_BRIEF.md](PROJE
 
 **Working MVP:** [northstar/](northstar/README.md) is a running version of the section 1 interaction: add something, see the proposed placement and its effects, approve it.
 
+**UI-building agents:** [ui-agents.md](ui-agents.md) proposes how agents compose use-case pages from a component catalogue bound to graph queries, with the YBuild overview page as the worked example.
+
 **How to use this doc:** nothing here is final. Each section is marked **Decided**, **Proposed** or **Open**. Challenge anything marked Proposed, and answer what you can in sections 11 and 12.
 
 ## 1. North star for the MVP (Decided)
