@@ -1,7 +1,18 @@
+# secrets
 .env
 .env.*
 !.env.example
 *.key
+
+# python
+.venv/
+__pycache__/
+*.pyc
+
+# monitors
 monitors/data/
 monitors/site.json
-__pycache__/
+
+# converter
+converter_output/
+samples/generated/
