@@ -19,7 +19,7 @@ from pydantic import BaseModel
 import effects
 import pipeline
 import seed
-from store import EDGE_TYPES, NODE_TYPES, Store, new_id, now
+from store import EDGE_TYPES, IMPORTANCE, NODE_TYPES, Store, new_id, now
 
 HERE = Path(__file__).resolve().parent
 DATA = Path(os.environ.get("NORTHSTAR_DATA", HERE / "data"))
@@ -27,7 +27,7 @@ UPLOADS, PACKAGES = DATA / "uploads", DATA / "packages"
 for d in (UPLOADS, PACKAGES):
     d.mkdir(parents=True, exist_ok=True)
 
-store = Store(DATA / "northstar.db")
+store = Store(os.environ.get("DATABASE_URL", "postgresql://drone:drone@localhost:5433/drone"), seed.PROJECT)
 app = FastAPI(title="North star intake")
 _subscribers: list[asyncio.Queue] = []
 _loop: asyncio.AbstractEventLoop | None = None
@@ -59,6 +59,8 @@ def _public_item(it: dict) -> dict:
     it = dict(it)
     if it.get("proposal"):
         it["proposal"] = {k: v for k, v in it["proposal"].items() if k != "vector"}
+        if it.get("node_id"):
+            it["proposal"]["node_id"] = it["node_id"]
     if it.get("source"):
         it["source"] = {k: v for k, v in it["source"].items() if k != "path"}
     return it
@@ -173,30 +175,14 @@ def approve(item_id: str, p: Placement) -> dict:
     prop, links = it["proposal"], _checked(p)
     title = p.title or prop["title"]
     fx = effects.compute(p.type, title, links, store.nodes(), store.edges())
-    node_id = new_id("n")
-    status = {"blocker": "open", "discovery": "new", "decision": "awaiting_inputs"}.get(p.type, "active")
     src = it["source"]
-    store.put_node({"id": node_id, "type": p.type, "title": title, "summary": prop["summary"], "status": status,
-                    "owner": it.get("author"), "tags": prop["tags"],
-                    "data": {"importance": prop["importance"], "item_id": item_id, "package_id": prop.get("package_id"),
-                             "source": src.get("filename") or "message", "added_by": it.get("author"),
-                             "text": src.get("text") or src.get("note") or ""}},
-                   vector=prop.get("vector"), vector_model=prop.get("vector_model"))
-    for l in links:
-        store.put_edge(node_id, l["target"], l["type"], l["reason"], l["confidence"], l["origin"])
-    for e in fx["effects"]:
-        if e["new_status"]:
-            store.set_status(e["node_id"], e["new_status"])
     edited = p.type != prop["type"] or {(l["target"], l["type"]) for l in links} != {(l["target"], l["type"]) for l in prop["links"]}
-    seq = store.log(p.by, "placement_approved", f"Added “{title}” as {p.type}", p.reason, {
-        "node_id": node_id, "item_id": item_id, "source": src.get("filename") or "message", "added_by": it.get("author"),
-        "proposed_by": prop.get("by"), "edited_by_user": edited,
-        "links": [{"target": l["target"], "type": l["type"], "reason": l["reason"]} for l in links],
-        "effects": [{"node_id": e["node_id"], "title": e["title"], "change": e["change"], "why": e["why"]} for e in fx["effects"]],
-        "notify": fx["notify"]})
-    it.update(status="approved")
-    it["proposal"]["node_id"] = node_id
-    store.put_item(it)
+    node = {"type": p.type, "title": title, "summary": prop["summary"], "owner": it.get("author"), "tags": prop["tags"],
+            "importance": IMPORTANCE.get(prop["importance"]), "text": src.get("text") or src.get("note") or prop["summary"],
+            "metadata": {"package_id": prop.get("package_id"), "kind": prop.get("kind")},
+            "data": {"item_id": item_id, "package_id": prop.get("package_id"), "source": src.get("filename") or "message",
+                     "added_by": it.get("author")}}
+    node_id, seq = store.approve_placement(it, node, links, fx, p.by, p.reason, edited)
     notify({"type": "graph", "seq": seq, "node_id": node_id})
     return {"node_id": node_id, "effects": fx, "revision": seq}
 
@@ -209,10 +195,7 @@ class Dismiss(BaseModel):
 @app.post("/api/items/{item_id}/dismiss")
 def dismiss(item_id: str, d: Dismiss) -> dict:
     it = _ready_item(item_id)
-    seq = store.log(d.by, "placement_dismissed", f"Dismissed “{it['proposal']['title'] if it.get('proposal') else it['label']}”",
-                    d.reason, {"item_id": item_id})
-    it.update(status="dismissed")
-    store.put_item(it)
+    seq = store.dismiss(it, d.by, d.reason)
     notify({"type": "graph", "seq": seq})
     return {"revision": seq}
 
@@ -231,10 +214,7 @@ def item_image(item_id: str):
 async def reset() -> dict:
     """Demo helper: wipe the graph and history, reload the example project."""
     global _seed_warning
-    with store.lock:
-        for t in ("nodes", "edges", "items", "events"):
-            store.db.execute(f"DELETE FROM {t}")
-        store.db.commit()
+    await asyncio.to_thread(store.reset)
     _seed_warning = await asyncio.to_thread(pipeline.seed_graph, store)
     notify({"type": "graph", "reset": True})
     return {"ok": True, "warning": _seed_warning}

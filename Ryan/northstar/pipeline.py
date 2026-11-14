@@ -119,7 +119,7 @@ def _aliases(n: dict) -> list[str]:
 
 
 def _candidates(material: dict, note: str, store: Store) -> tuple[list[dict], list[float] | None, dict]:
-    nodes = store.nodes(with_vectors=True)
+    nodes = store.nodes()
     blob = " ".join([material["title"], material["description"], note, material["text"][:1500]]).strip()
     low = blob.lower()
     scores: dict[str, dict] = {}
@@ -132,12 +132,10 @@ def _candidates(material: dict, note: str, store: Store) -> tuple[list[dict], li
     except Exception as e:  # embedding server unreachable: fall back to name matches + the whole (small) graph
         err = str(e)[:200]
     model = _safe(embeddings.model_id, None)
+    sims = store.similar(vec, model) if vec else {}          # pgvector, within one embedding model
+    img_sims = store.similar(img_vec, model) if img_vec else {}
     for n in nodes:
-        s = 0.0
-        if vec and n.get("vector") and n.get("vector_model") == model:
-            s = embeddings.cosine(vec, n["vector"])
-            if img_vec:
-                s = max(s, embeddings.cosine(img_vec, n["vector"]))
+        s = max(sims.get(n["id"], 0.0), img_sims.get(n["id"], 0.0))
         name_hit = next((a for a in _aliases(n) if len(a) > 2 and re.search(rf"(?<![a-z0-9]){re.escape(a)}(?![a-z0-9])", low)), None)
         scores[n["id"]] = {"similarity": round(s, 3), "name_match": name_hit}
     ranked = sorted(nodes, key=lambda n: (scores[n["id"]]["name_match"] is not None, scores[n["id"]]["similarity"]), reverse=True)
@@ -265,11 +263,12 @@ def seed_graph(store: Store) -> str | None:
         model = embeddings.model_id()
     except Exception as e:
         warn, model = f"Seeded without embeddings ({str(e)[:160]}). Matching falls back to names.", None
+    ids = {}
     for n, v in zip(seed.NODES, vecs):
-        store.put_node({**n, "status": n.get("status", "active")}, vector=v, vector_model=model)
+        ids[n["ref"]] = store.put_node(n, vector=v, vector_model=model)
     for src, dst, typ, reason in seed.EDGES:
-        store.put_edge(src, dst, typ, reason, 1.0, "seed")
-    store.log("system", "project_seeded", f"Project “{seed.PROJECT['name']}” loaded", payload={"nodes": len(seed.NODES)})
+        store.put_edge(ids[src], ids[dst], typ, reason, 1.0, "seed")
+    store.log("system", "project.seeded", f"Project “{seed.PROJECT['name']}” loaded", payload={"nodes": len(seed.NODES)})
     return warn
 
 

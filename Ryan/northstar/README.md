@@ -18,7 +18,7 @@ drop / paste / chat
    └─ proposal -> user reviews -> approve -> node + edges + status changes + one revision in the event log
 ```
 
-- **Fast path:** text, images, PDFs, emails. Measured on Ryan's M4 Air once warm: about 5 to 7 seconds, almost all of it the Jev call (convert and embed are under a second).
+- **Fast path:** text, images, PDFs, emails. Measured on Ryan's M4 Air once warm: about 5 to 10 seconds, almost all of it the Jev call (convert and embed are under a second).
 - **Slow path:** 3D models, video, audio, unknown formats, or anything Jev says is too thin to judge. A first guess is shown straight away ("agent is reading it"), then the converter's vision agent reads the file and Jev re-proposes. The sample Rhino model took about 34 seconds.
 - **Nothing is saved until approved.** Editing the type or links in the review panel re-runs the dry run.
 
@@ -27,32 +27,41 @@ drop / paste / chat
 | `app.py` | FastAPI routes, live updates to the browser (server-sent events) |
 | `pipeline.py` | Intake: convert, match, ask Jev, compute effects; fast and slow paths |
 | `effects.py` | The dry run. Rules are plain code for now; the plan is JSON rules written by the analysis loop |
-| `store.py` | SQLite: nodes, edges, items, and an append-only event log (the decision history) |
+| `store.py` | Postgres + pgvector on the team's shared schema: nodes, versions, card vectors, aliases, edges, approvals, events, attention items |
+| `db/001_schema.sql` | Vendored copy of Sharare's decision-engine schema (branch `sharare/decision-engine`, commit d1d0b9d). Delete once that branch is merged and mount hers instead |
+| `db/010_northstar.sql` | One extra table, `intake_items`: things being processed or waiting for review |
 | `seed.py` | Example project: East Tower facade survey. Placeholder details |
 | `llm.py` | OpenRouter call that must return one JSON object |
 | `static/index.html` | The canvas UI, no build step |
 
 ## Run it
 
-Needs the repo-root `.env` (see `.env.example`) and the `converter/` package at the repo root.
-Until the `converter` branch is merged into main, point `CONVERTER_PATH` at a checkout of it; without it only text and images are read.
+Needs the repo-root `.env` (see `.env.example`) and Docker.
+
+**Everything in Docker** (tested with Colima on an M4 Mac):
 
 ```bash
+docker compose -f Ryan/northstar/docker-compose.yml up --build
+```
+
+Then open http://localhost:8100. The app container reaches the EmbeddingGemma server on the host at `host.docker.internal:8000`; set `LOCAL_EMBEDDING_URL_DOCKER` to point somewhere else.
+
+**App on your machine, Postgres in Docker** (faster to iterate; needed today for full file conversion):
+
+```bash
+docker compose -f Ryan/northstar/docker-compose.yml up -d db
 cd Ryan/northstar
 uv venv --python 3.12
 uv pip install -r requirements.txt -r ../../converter/requirements.txt
 .venv/bin/uvicorn app:app --port 8100
 ```
 
-Then open http://localhost:8100. On the Mac that hosts the embedding server, add `LOCAL_EMBEDDING_URL=http://localhost:8000` in front of the last command.
+- Postgres listens on host port **5433** (user, password and database are all `drone`), so it doesn't clash with Sharare's on 5432.
+- The app creates the schema itself if the database is empty, so any Postgres 16 with pgvector works: set `DATABASE_URL`.
+- **Converter:** file conversion needs the `converter/` package at the repo root. Until the `converter` branch is merged, a checkout of main reads only text and images, in Docker too. Natively, point `CONVERTER_PATH` at a checkout of that branch. The converter has not been tested inside the Docker image (`rhino3dm` may need a build step on ARM Linux).
+- On the Mac that hosts the embedding server, put `LOCAL_EMBEDDING_URL=http://localhost:8000` in front of the uvicorn command.
 
-Docker (written but **not yet tested**, Docker isn't installed on the machine this was built on; `rhino3dm` may need a build step on ARM Linux):
-
-```bash
-docker compose -f Ryan/northstar/docker-compose.yml up --build
-```
-
-Settings (environment or `.env`): `JEV_MODEL` (default `typesafe/jev-router`), `JEV_REASONING_EFFORT`, `NORTHSTAR_DATA`, `CONVERTER_PATH`, plus the embedding settings in `.env.example`.
+Settings (environment or `.env`): `DATABASE_URL`, `JEV_MODEL` (default `typesafe/jev-router`), `JEV_REASONING_EFFORT`, `NORTHSTAR_DATA`, `CONVERTER_PATH`, plus the embedding settings in `.env.example`.
 
 ## API
 
@@ -68,7 +77,9 @@ Settings (environment or `.env`): `JEV_MODEL` (default `typesafe/jev-router`), `
 
 ## Known gaps
 
-- **Storage is SQLite,** not the Postgres schema on `sharare/decision-engine`. All SQL is in `store.py`, so swapping is contained, but it is not done.
+- **The schema is a vendored copy** of Sharare's, pinned to one commit. If hers changes, this copy must be refreshed until the branches merge.
+- **Only part of the shared schema is used.** Proposals wait in `intake_items` and become confirmed nodes on approval; they are not stored as `candidate` nodes with `proposed` edges yet. Decision versions, lineage, rules and runs are untouched.
+- **"At risk" is an attention item, not a node state.** The shared schema's per-type states have no blocked or at-risk value, so effects are written to `attention_items` and the UI shows the latest open one.
 - **Effects are hard-coded rules** in `effects.py`, not generated JSON rules.
 - **No way to resolve a blocker yet:** statuses turn red on approval; nothing turns them back.
 - **One project, no login.** "You are" is a dropdown.
