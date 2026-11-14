@@ -1,6 +1,6 @@
-# Converter engine: handoff
+# Minh: intake and converter engine (handoff)
 
-The intake and converter engine of the drone-project knowledge-graph hackathon (code in [`converter/`](converter/); the team's planning docs are in [`Ryan/`](Ryan/), shared embeddings in [`api/`](api/)). Drop any project file, paste a conversation or a link, or ask it to research something, (Rhino models, PDFs, emails, photos, markups, Teams screenshots, video, voice notes, Office files, zips) and get an embedding-ready package: text, image, audio and video chunks plus JSON metadata, typed links and entities for the graph.
+The intake and converter engine of the drone-project knowledge-graph hackathon (everything of mine lives in this `Minh/` folder; the team's planning docs are in [`../Ryan/`](../Ryan/), shared embeddings in [`../api/`](../api/)). Drop any project file, paste a conversation or a link, or ask it to research something, (Rhino models, PDFs, emails, photos, markups, Teams screenshots, video, voice notes, Office files, zips) and get an embedding-ready package: text, image, audio and video chunks plus JSON metadata, typed links and entities for the graph.
 
 - **Using it / package spec** → [`converter/README.md`](converter/README.md)
 - **Picking up the work** → this page: code map, design decisions, gotchas, test checklist, next steps
@@ -8,29 +8,30 @@ The intake and converter engine of the drone-project knowledge-graph hackathon (
 Quick start (Windows; on macOS/Linux use `.venv/bin/python`):
 
 ```bash
+cd Minh
 python -m venv .venv
 .venv/Scripts/python -m pip install -r converter/requirements.txt
 .venv/Scripts/python -m converter serve      # drag-and-drop UI on http://127.0.0.1:8765
 ```
 
-All paths below are relative to the repo root.
+All paths below are relative to this `Minh/` folder unless they start with `../` (repo root). Run every command from inside `Minh/`.
 
 ## What this is and who depends on it
 
-Part of the drone-project knowledge-graph hackathon project (see `Ryan/PROJECT_BRIEF.md`). This module is only the **converter**: any dropped file becomes a Universal Embedding Package (UEP) folder (`manifest.json` + `chunks.jsonl` + `assets/`). Teammates build **embedding** and **graph** on top of those packages.
+Part of the drone-project knowledge-graph hackathon project (see `../Ryan/PROJECT_BRIEF.md`). This module is only the **converter**: any dropped file becomes a Universal Embedding Package (UEP) folder (`manifest.json` + `chunks.jsonl` + `assets/`). Teammates build **embedding** and **graph** on top of those packages.
 
 - **The package format is a contract.** Teammates read `manifest.json`, `chunks.jsonl` and `converter_output/index.jsonl`. Adding fields is fine. Renaming or removing fields, or changing the meaning of `id` / `role` / `locator` / `links`, breaks them. If you must, bump `SCHEMA_VERSION` in `core.py` and update `converter/README.md`.
 - **Two layers.** The **local converter** extracts hard facts deterministically with no network calls. The optional **agent** (`converter/agent.py`, via OpenRouter) adds *meaning* on top: one prompt plus files in, and context, summary, node type, key points, figures, markup handwriting and links out. "Convert only" in the UI (or the CLI) stays fully local.
 
 ## The agent layer (prompt + files → filled-in, linked node)
 
-Needs `OPENROUTER_API_KEY` in `.env` at the repo root (copy `.env.example`; never commit `.env`). Models are set in `.env`:
+Needs `OPENROUTER_API_KEY` in `.env` at the **repo root** (copy `../.env.example`; never commit `.env`). The agent finds it by searching parent folders. Models are set in `.env`:
 `CONVERTER_ROUTER_MODEL` (default `anthropic/claude-haiku-5.5`, reads the prompt) and `CONVERTER_AGENT_MODEL` (default `anthropic/claude-sonnet-5.5`, reads text and images). Requests use OpenRouter `provider.data_collection = "deny"` (`CONVERTER_ALLOW_DATA_COLLECTION`).
 
 Flow (`agent.ask`):
 1. **interpret** (router model): prompt + filenames + library list become per-file context: author, role, channel, note, intent, refers_to, project.
 2. **convert** (local converter, unchanged) with that context.
-3. **understand** (agent model): manifest essentials + text chunks (about 24k chars) + up to 10 of the most informative images become JSON with title, summary, `node_type` (team taxonomy from `Ryan/agent-architecture.md`: decision, discovery, event, data_feed, deliverable, blocker, constraint, document), importance, decision_question, owner/due, tags, **insights** (self-contained statements with a source chunk/page), **figures** (with optional crops), **markup_text** (handwriting on images), **links** (only to ids in the library list).
+3. **understand** (agent model): manifest essentials + text chunks (about 24k chars) + up to 10 of the most informative images become JSON with title, summary, `node_type` (team taxonomy from `../Ryan/agent-architecture.md`: decision, discovery, event, data_feed, deliverable, blocker, constraint, document), importance, decision_question, owner/due, tags, **insights** (self-contained statements with a source chunk/page), **figures** (with optional crops), **markup_text** (handwriting on images), **links** (only to ids in the library list).
 4. **write back**: new chunks are *appended* (existing chunk ids stay stable) with roles `agent_summary | insight | figure | markup_text` and `meta.suggested_by = "agent:<model>"`. `manifest.agent` holds the reading plus `status: suggested|accepted`. Agent links carry `suggested_by`, `status` and `why`. **Undo** (`agent.set_status(..., "undo")`) removes exactly those additions; re-running replaces them.
 
 **Text only, no files** (`agent.text_intake`): the router model classifies the prompt.
@@ -45,7 +46,7 @@ Measured on the samples: about 10 to 20 s and $0.02 to $0.04 per file. Tested on
 
 ## Run / check
 
-From the repo root (Windows; on macOS/Linux use `.venv/bin/python`):
+From inside `Minh/` (Windows; on macOS/Linux use `.venv/bin/python`):
 
 ```bash
 .venv/Scripts/python -m converter serve                 # UI on http://127.0.0.1:8765 (no auto-reload: restart after code changes)
@@ -126,7 +127,7 @@ Not tested on real data yet: real client markups, real Outlook `.msg` files, lar
 
 ## Next steps (rough priority)
 
-0. **Agent**: store embeddings for chunks via the team's `api/embeddings.py` (keep `model_id()` with every vector) and use them to pick link candidates instead of the entity-overlap shortlist; let the agent split long documents into several floating nodes; batch mode for watched folders.
+0. **Agent**: store embeddings for chunks via the team's `../api/embeddings.py` (keep `model_id()` with every vector) and use them to pick link candidates instead of the entity-overlap shortlist; let the agent split long documents into several floating nodes; batch mode for watched folders.
 
 1. **Tests**: turn the table above into pytest using `samples/make_samples.py` fixtures (markup region counts and links are the fragile part).
 2. **Watched folder**: drag emails from Outlook into a folder and they auto-convert. Outlook can't drop straight into the browser, so this would be the handiest workflow.
@@ -141,3 +142,4 @@ Not tested on real data yet: real client markups, real Outlook `.msg` files, lar
 - Merged into **`main`** on 2026-11-14 (approved by the team). The **`converter`** branch is kept for converter-only work: branch from `main`, merge back when done.
 - This clone has repo-local config: `user.name "Minh Dang Ngo"`, `user.email dangminh2606@outlook.com`, `credential.https://github.com.username MinhDangNgo` (must be the GitHub **username**, not the email, or Git Credential Manager asks to sign in on every push). A new contributor should set their own identity and **not** reuse these.
 - Ignored: `.venv/`, `converter_output/`, `samples/generated/`. Never commit converted outputs or client files.
+- Everything of mine is under `Minh/` so the repo root stays tidy for the team (Ryan keeps his work under `Ryan/`). Shared files at the root: `.gitignore`, `.env.example`, `api/`, `monitors/`.
