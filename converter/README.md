@@ -2,6 +2,8 @@
 
 Drop any project file and get back one folder per file holding **text, image, audio and video chunks** plus **JSON metadata**. The folder is ready for the embedding step and becomes a node in the graph.
 
+> Picking this up? Read [CLAUDE.md](CLAUDE.md) first: code map, design decisions, gotchas, test checklist and next steps.
+
 Everything runs locally. The converter makes no model calls and no network calls. Embedding, tagging by model, and graph building happen downstream and read the packages described below.
 
 ```
