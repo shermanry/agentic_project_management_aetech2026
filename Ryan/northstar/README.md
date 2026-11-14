@@ -7,11 +7,23 @@ The one interaction from [plan.md](../plan.md), section 1, working end to end:
 3. **Explore:** the proposal appears on the graph as a dashed ghost node; nodes it would change are outlined in red.
 4. **Approve, edit or dismiss:** approving adds the node, applies the effects and records a revision with its source and reason.
 
+## Replay mode
+
+The bar above the graph steps through the facade survey from the team's whiteboard, one thing at a time:
+
+- **Forward** brings in the next item (it runs through the real pipeline and shows as a proposed placement with its effects). Pressing it again, now labelled **Approve**, approves it.
+- **Back** undoes exactly one Forward: first un-approving, then withdrawing the item.
+- Left and right arrow keys do the same. **Reset demo** returns to the start.
+
+The seven steps are in `replay.py`: notice to proceed, site visit findings, insurance delay, the airspace rule change, one flyable day, "drone 4a needs maintenance", and the image metadata problem. They are a reading of the whiteboard and should be checked by the drone experts.
+
+The first time a step runs it is live (about 5 seconds for Jev). The approved proposal is then cached in the data folder, so going back and forward again is instant and identical. **Run through it once before a demo** so every step is cached. Back rebuilds the graph from the seed plus the cached steps, which also wipes anything added by hand during the replay.
+
 ## How it works
 
 ```
 drop / paste / chat
-   └─ converter (local, Minh's)      file -> text, images, metadata
+   └─ converter (Minh/converter)     file -> text, images, metadata
    └─ embeddings (api/embeddings.py) nearest existing nodes  +  exact name matches ("drone 4a" -> Drone 4A)
    └─ Jev via OpenRouter             type, title, summary, tags, links with a reason and confidence
    └─ effects.py (plain code)        dry run: what gets blocked, put at risk or re-opened, and who to notify
@@ -30,6 +42,7 @@ drop / paste / chat
 | `store.py` | Postgres + pgvector on the team's shared schema: nodes, versions, card vectors, aliases, edges, approvals, events, attention items |
 | `db/001_schema.sql` | Vendored copy of Sharare's decision-engine schema (branch `sharare/decision-engine`, commit d1d0b9d). Delete once that branch is merged and mount hers instead |
 | `db/010_northstar.sql` | One extra table, `intake_items`: things being processed or waiting for review |
+| `replay.py` | The replay scenario and the Back / Forward logic |
 | `seed.py` | Example project: East Tower facade survey. Placeholder details |
 | `llm.py` | OpenRouter call that must return one JSON object |
 | `static/index.html` | The canvas UI, no build step |
@@ -52,13 +65,13 @@ Then open http://localhost:8100. The app container reaches the EmbeddingGemma se
 docker compose -f Ryan/northstar/docker-compose.yml up -d db
 cd Ryan/northstar
 uv venv --python 3.12
-uv pip install -r requirements.txt -r ../../converter/requirements.txt
+uv pip install -r requirements.txt -r ../../Minh/converter/requirements.txt
 .venv/bin/uvicorn app:app --port 8100
 ```
 
 - Postgres listens on host port **5433** (user, password and database are all `drone`), so it doesn't clash with Sharare's on 5432.
 - The app creates the schema itself if the database is empty, so any Postgres 16 with pgvector works: set `DATABASE_URL`.
-- **Converter:** file conversion needs the `converter/` package at the repo root. Until the `converter` branch is merged, a checkout of main reads only text and images, in Docker too. Natively, point `CONVERTER_PATH` at a checkout of that branch. The converter has not been tested inside the Docker image (`rhino3dm` may need a build step on ARM Linux).
+- **Converter:** file conversion uses Minh's package at `Minh/converter`, found automatically (override with `CONVERTER_PATH`). The Docker image installs its requirements too, but the converter has not been tested inside the image (`rhino3dm` may need a build step on ARM Linux).
 - On the Mac that hosts the embedding server, put `LOCAL_EMBEDDING_URL=http://localhost:8000` in front of the uvicorn command.
 
 Settings (environment or `.env`): `DATABASE_URL`, `JEV_MODEL` (default `typesafe/jev-router`), `JEV_REASONING_EFFORT`, `NORTHSTAR_DATA`, `CONVERTER_PATH`, plus the embedding settings in `.env.example`.

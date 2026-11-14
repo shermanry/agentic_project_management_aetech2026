@@ -24,7 +24,7 @@ from store import EDGE_TYPES, NODE_TYPES, Store
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "api"))
-for p in (os.environ.get("CONVERTER_PATH"), str(REPO)):
+for p in (os.environ.get("CONVERTER_PATH"), str(REPO / "Minh"), str(REPO)):
     if p and (Path(p) / "converter").is_dir() and p not in sys.path:
         sys.path.insert(0, p)
 
@@ -33,7 +33,7 @@ import embeddings  # noqa: E402  (repo-root api/embeddings.py; also loads .env)
 try:
     import converter  # noqa: E402
     from converter import agent as converter_agent  # noqa: E402
-except Exception:  # converter not merged to main yet, or its dependencies are missing
+except Exception:  # the converter's dependencies are not installed (see Minh/converter/requirements.txt)
     converter = None
     converter_agent = None
 

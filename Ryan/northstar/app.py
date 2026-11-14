@@ -19,6 +19,7 @@ from pydantic import BaseModel
 import effects
 import pipeline
 import seed
+from replay import Replay
 from store import EDGE_TYPES, IMPORTANCE, NODE_TYPES, Store, new_id, now
 
 HERE = Path(__file__).resolve().parent
@@ -29,6 +30,7 @@ for d in (UPLOADS, PACKAGES):
 
 store = Store(os.environ.get("DATABASE_URL", "postgresql://drone:drone@localhost:5433/drone"), seed.PROJECT)
 app = FastAPI(title="North star intake")
+replay: Replay = None  # type: ignore  (created at startup, once notify works)
 _subscribers: list[asyncio.Queue] = []
 _loop: asyncio.AbstractEventLoop | None = None
 _seed_warning: str | None = None
@@ -44,10 +46,11 @@ def notify(msg: dict) -> None:
 
 @app.on_event("startup")
 async def _startup() -> None:
-    global _loop, _seed_warning
+    global _loop, _seed_warning, replay
     _loop = asyncio.get_running_loop()
     if store.empty():
         _seed_warning = await asyncio.to_thread(pipeline.seed_graph, store)
+    replay = Replay(store, DATA, PACKAGES, notify, _approve)
     threading.Thread(target=pipeline.warm_up, args=(DATA / "warmup",), daemon=True).start()
     for it in store.items():  # anything interrupted by a restart
         if it["status"] in ("processing", "refining"):
@@ -70,7 +73,7 @@ def _public_item(it: dict) -> dict:
 def state() -> dict:
     return {"project": seed.PROJECT, "people": seed.PEOPLE, "node_types": NODE_TYPES, "edge_types": EDGE_TYPES,
             "nodes": store.nodes(), "edges": store.edges(), "items": [_public_item(i) for i in store.items()],
-            "events": store.events(), "config": {**pipeline.available(), "seed_warning": _seed_warning}}
+            "events": store.events(), "replay": replay.status(), "config": {**pipeline.available(), "seed_warning": _seed_warning}}
 
 
 @app.get("/api/events")
@@ -167,24 +170,48 @@ def preview(item_id: str, p: Placement) -> dict:
     return effects.compute(p.type, p.title or it["proposal"]["title"], _checked(p), store.nodes(), store.edges())
 
 
+def _approve(it: dict, type_: str, title: str, links: list[dict], by: str, reason: str, quiet: bool = False) -> dict:
+    """Turn a reviewed proposal into a node, edges, an approval, an event and attention flags."""
+    prop, src, item_id = it["proposal"], it["source"], it["id"]
+    fx = effects.compute(type_, title, links, store.nodes(), store.edges())
+    edited = type_ != prop["type"] or {(l["target"], l["type"]) for l in links} != {(l["target"], l["type"]) for l in prop["links"]}
+    node = {"type": type_, "title": title, "summary": prop["summary"], "owner": it.get("author"), "tags": prop["tags"],
+            "importance": IMPORTANCE.get(prop["importance"]), "text": src.get("text") or src.get("note") or prop["summary"],
+            "metadata": {"package_id": prop.get("package_id"), "kind": prop.get("kind")},
+            "data": {"item_id": item_id, "package_id": prop.get("package_id"), "source": src.get("filename") or "message",
+                     "added_by": it.get("author")}}
+    node_id, seq = store.approve_placement(it, node, links, fx, by, reason, edited)
+    if not quiet:
+        notify({"type": "graph", "seq": seq, "node_id": node_id})
+    return {"node_id": node_id, "effects": fx, "revision": seq}
+
+
 @app.post("/api/items/{item_id}/approve")
 def approve(item_id: str, p: Placement) -> dict:
     it = _ready_item(item_id)
     if it["status"] != "ready":
         raise HTTPException(409, "Still being read; approve when it's ready")
-    prop, links = it["proposal"], _checked(p)
-    title = p.title or prop["title"]
-    fx = effects.compute(p.type, title, links, store.nodes(), store.edges())
-    src = it["source"]
-    edited = p.type != prop["type"] or {(l["target"], l["type"]) for l in links} != {(l["target"], l["type"]) for l in prop["links"]}
-    node = {"type": p.type, "title": title, "summary": prop["summary"], "owner": it.get("author"), "tags": prop["tags"],
-            "importance": IMPORTANCE.get(prop["importance"]), "text": src.get("text") or src.get("note") or prop["summary"],
-            "metadata": {"package_id": prop.get("package_id"), "kind": prop.get("kind")},
-            "data": {"item_id": item_id, "package_id": prop.get("package_id"), "source": src.get("filename") or "message",
-                     "added_by": it.get("author")}}
-    node_id, seq = store.approve_placement(it, node, links, fx, p.by, p.reason, edited)
-    notify({"type": "graph", "seq": seq, "node_id": node_id})
-    return {"node_id": node_id, "effects": fx, "revision": seq}
+    title, links = p.title or it["proposal"]["title"], _checked(p)
+    out = _approve(it, p.type, title, links, p.by, p.reason)
+    if replay.item_id == item_id:            # approved by hand during a replay: that counts as the Forward press
+        replay.approved_by_hand(it, p.type, title, links)
+    return out
+
+
+@app.post("/api/replay/forward")
+def replay_forward() -> dict:
+    try:
+        return replay.forward()
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+
+
+@app.post("/api/replay/back")
+def replay_back() -> dict:
+    try:
+        return replay.back()
+    except ValueError as e:
+        raise HTTPException(409, str(e))
 
 
 class Dismiss(BaseModel):
@@ -215,6 +242,7 @@ async def reset() -> dict:
     """Demo helper: wipe the graph and history, reload the example project."""
     global _seed_warning
     await asyncio.to_thread(store.reset)
+    replay.restart()
     _seed_warning = await asyncio.to_thread(pipeline.seed_graph, store)
     notify({"type": "graph", "reset": True})
     return {"ok": True, "warning": _seed_warning}

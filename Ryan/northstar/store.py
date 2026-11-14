@@ -216,6 +216,9 @@ class Store:
                 (it["id"], self.project["id"], it["status"], it["label"], it.get("author"), Jsonb(it.get("source") or {}),
                  Jsonb(it["proposal"]) if it.get("proposal") else None, Jsonb(it["timings"]) if it.get("timings") else None, it.get("error")))
 
+    def delete_item(self, item_id: str) -> None:
+        self._q("DELETE FROM intake_items WHERE id = %s AND node_id IS NULL", (item_id,))
+
     # ---------------------------------------------------------------- history
     def log(self, actor: str, verb: str, title: str, reason: str = "", payload: dict | None = None) -> int:
         return self._q("""INSERT INTO events (project_id, actor_id, verb, object_type, payload)

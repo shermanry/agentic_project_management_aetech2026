@@ -4,7 +4,8 @@ Rules are plain code for the MVP (the plan is JSON rules written by the analysis
 the reason and the chain of nodes that led to it, so the UI can explain itself.
 
   blocker  -blocks/about-> T   : T becomes "blocked"; everything that depends on T (transitively) is "at risk"
-  discovery -about/blocks-> T  : T needs review; decided decisions downstream are re-opened; events at risk
+  discovery -about/blocks-> T  : T needs review (a decision is re-opened); dependents are at risk or re-opened.
+                                 'about' an entity, document or feed is context only: no status change
   constraint -about-> T        : T must be re-checked against the constraint
   decision  -supersedes-> T    : T is superseded
   anything  -evidence_for-> T  : adds evidence to T, no status change
@@ -65,8 +66,14 @@ def compute(node_type: str, title: str, links: list[dict], nodes: list[dict], ed
             add(t["id"], "blocked", "blocked", f"“{title}” blocks it.", [t["id"]])
             ripple(t["id"], f"“{title}”", "changes")
         elif node_type == "discovery" and lt in ("blocks", "about"):
-            add(t["id"], "needs review", "at_risk", f"“{title}” may invalidate it.", [t["id"]])
-            ripple(t["id"], f"“{title}”", "may change")
+            if lt == "about" and t["type"] in ("entity", "document", "data_feed"):
+                add(t["id"], "new information", None, f"“{title}” is about it.", [t["id"]])   # context, not a risk
+            elif t["type"] == "decision":
+                add(t["id"], "re-open", "reopened", f"“{title}” may invalidate it.", [t["id"]])
+                ripple(t["id"], f"“{title}”", "may change")
+            else:
+                add(t["id"], "needs review", "at_risk", f"“{title}” may invalidate it.", [t["id"]])
+                ripple(t["id"], f"“{title}”", "may change")
         elif node_type == "constraint" and lt in ("about", "blocks"):
             add(t["id"], "re-check", "at_risk", f"Must be checked against “{title}”.", [t["id"]])
             ripple(t["id"], f"“{title}”", "constrains")
