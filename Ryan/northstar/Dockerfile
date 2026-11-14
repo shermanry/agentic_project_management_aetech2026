@@ -7,6 +7,6 @@ COPY . /repo
 RUN pip install --no-cache-dir -r Ryan/northstar/requirements.txt \
  && if [ -f converter/requirements.txt ]; then pip install --no-cache-dir -r converter/requirements.txt; fi
 WORKDIR /repo/Ryan/northstar
-ENV NORTHSTAR_DATA=/data
+ENV NORTHSTAR_DATA=/data PYTHONUNBUFFERED=1
 EXPOSE 8100
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8100"]

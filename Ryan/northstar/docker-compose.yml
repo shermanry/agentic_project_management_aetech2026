@@ -1,17 +1,44 @@
-# From the repo root:  docker compose -f Ryan/northstar/docker-compose.yml up --build
-# Needs the repo-root .env (OpenRouter key, embedding settings). Then open http://localhost:8100
+# From the repo root:
+#   docker compose -f Ryan/northstar/docker-compose.yml up --build        everything, then open http://localhost:8100
+#   docker compose -f Ryan/northstar/docker-compose.yml up -d db          just Postgres, to run the app natively
+#   docker compose -f Ryan/northstar/docker-compose.yml down -v           wipe the database
+# Needs the repo-root .env (OpenRouter key, embedding settings).
 services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: drone
+      POSTGRES_PASSWORD: drone        # local dev only
+      POSTGRES_DB: drone
+    ports:
+      - "5433:5432"                   # 5433 on the host so it doesn't clash with Sharare's db on 5432
+    volumes:
+      - ./db:/docker-entrypoint-initdb.d:ro
+      - northstar-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U drone -d drone"]
+      interval: 2s
+      retries: 30
+
   northstar:
     build:
       context: ../..
       dockerfile: Ryan/northstar/Dockerfile
     env_file: ../../.env
     environment:
+      DATABASE_URL: postgresql://drone:drone@db:5432/drone
       # the EmbeddingGemma server runs on the host Mac, not in Docker (Docker can't use the Apple GPU)
       LOCAL_EMBEDDING_URL: ${LOCAL_EMBEDDING_URL_DOCKER:-http://host.docker.internal:8000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "8100:8100"
     volumes:
       - northstar-data:/data
+
 volumes:
+  northstar-db:
   northstar-data:

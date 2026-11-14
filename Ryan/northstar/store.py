@@ -1,31 +1,33 @@
-"""SQLite store: nodes, edges, intake items (proposals) and an append-only event log.
+"""Postgres + pgvector store, on the team's shared schema (db/001_schema.sql, from Sharare's decision engine).
 
-Every change to the graph is written to `events` first-class, so the decision history, a replay and the
-stream the UI listens to all come from one table. Swappable for Postgres later: nothing outside this file
-touches SQL.
+What goes where:
+  nodes / node_versions / chunks   the graph of record; one 'card' chunk per node holds its pgvector embedding
+  entity_aliases                   "drone 4a" -> Drone 4A (exact name matching)
+  edges                            typed links with origin, confidence and reason
+  approvals + events               every approval or dismissal; events is the append-only decision history
+  attention_items                  what an approved item put at risk, blocked or re-opened
+  intake_items (db/010)            items being processed or waiting for review (north star only)
+
+Nothing outside this file touches SQL.
 """
 from __future__ import annotations
 
 import json
-import sqlite3
-import threading
+import re
 import time
 import uuid
 from pathlib import Path
 
+from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
+from psycopg_pool import ConnectionPool
+
 NODE_TYPES = ["decision", "discovery", "event", "data_feed", "deliverable", "blocker", "constraint", "document", "entity"]
 EDGE_TYPES = ["depends_on", "blocks", "about", "evidence_for", "supersedes", "derived_from", "similar_to"]
-
-_SCHEMA = """
-CREATE TABLE IF NOT EXISTS nodes (id TEXT PRIMARY KEY, type TEXT, title TEXT, summary TEXT, status TEXT, owner TEXT,
-  tags TEXT, data TEXT, vector TEXT, vector_model TEXT, created_at REAL);
-CREATE TABLE IF NOT EXISTS edges (id TEXT PRIMARY KEY, src TEXT, dst TEXT, type TEXT, reason TEXT, confidence REAL,
-  origin TEXT, created_at REAL);
-CREATE TABLE IF NOT EXISTS items (id TEXT PRIMARY KEY, status TEXT, label TEXT, author TEXT, source TEXT,
-  proposal TEXT, timings TEXT, error TEXT, created_at REAL, updated_at REAL);
-CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY AUTOINCREMENT, at REAL, actor TEXT, kind TEXT, title TEXT,
-  reason TEXT, payload TEXT);
-"""
+IMPORTANCE = {"low": 0.25, "medium": 0.5, "high": 0.75, "critical": 1.0}
+_EDGE_ORIGIN = {"jev": "agent", "seed": "user", "user": "user"}
+_ATTENTION_TYPE = {"blocked": "blocker", "at_risk": "blocker", "reopened": "decision", "superseded": "decision"}
+DB_DIR = Path(__file__).resolve().parent / "db"
 
 
 def now() -> float:
@@ -36,90 +38,198 @@ def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
 
 
+def _vec(v: list[float] | None) -> str | None:
+    return "[" + ",".join(f"{x:.6f}" for x in v) + "]" if v else None
+
+
 class Store:
-    def __init__(self, path: Path):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(str(path), check_same_thread=False)
-        self.db.row_factory = sqlite3.Row
-        self.lock = threading.RLock()
-        with self.lock:
-            self.db.executescript(_SCHEMA)
-            self.db.commit()
+    def __init__(self, url: str, project: dict):
+        self.project = project
+        self.pool = ConnectionPool(url, min_size=1, max_size=8, open=True,
+                                   kwargs={"autocommit": True, "row_factory": dict_row})
+        self.pool.wait(timeout=30)
+        self._ensure_schema()
+        self._states = {r["type"]: r["states"] for r in self._q("SELECT type, states FROM node_types")}
 
-    # ---- helpers
-    def _rows(self, sql: str, args=()) -> list[dict]:
-        with self.lock:
-            return [dict(r) for r in self.db.execute(sql, args).fetchall()]
+    # ---------------------------------------------------------------- plumbing
+    def _q(self, sql: str, args=None) -> list[dict]:
+        with self.pool.connection() as c:
+            cur = c.execute(sql, args)
+            return cur.fetchall() if cur.description else []
 
-    def _exec(self, sql: str, args=()) -> None:
-        with self.lock:
-            self.db.execute(sql, args)
-            self.db.commit()
+    def _ensure_schema(self) -> None:
+        """Create the schema if this is an empty database (docker-entrypoint may already have done it)."""
+        with self.pool.connection() as c:
+            for table, f in (("nodes", "001_schema.sql"), ("intake_items", "010_northstar.sql")):
+                if c.execute("SELECT to_regclass(%s) AS t", (f"public.{table}",)).fetchone()["t"] is None:
+                    c.execute((DB_DIR / f).read_text())
+            c.execute("INSERT INTO projects (id, name) VALUES (%s, %s) ON CONFLICT (id) DO NOTHING",
+                      (self.project["id"], self.project["name"]))
 
-    @staticmethod
-    def _node(r: dict, with_vector: bool = False) -> dict:
-        n = {**r, "tags": json.loads(r["tags"] or "[]"), "data": json.loads(r["data"] or "{}")}
-        vec = n.pop("vector", None)
-        if with_vector:
-            n["vector"] = json.loads(vec) if vec else None
-        return n
+    def user(self, name: str | None) -> str:
+        """Users table id for a display name; creates the user on first use."""
+        name = (name or "someone").strip()
+        fixed = {"system": ("svc_northstar", "North star", "service"), "jev": ("agent_jev", "Jev", "agent")}
+        uid, label, kind = fixed.get(name.lower(), ("u_" + re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_"), name, "human"))
+        self._q("INSERT INTO users (id, name, kind) VALUES (%s, %s, %s) ON CONFLICT (id) DO NOTHING", (uid, label, kind))
+        return uid
 
-    # ---- nodes / edges
-    def nodes(self, with_vectors: bool = False) -> list[dict]:
-        return [self._node(r, with_vectors) for r in self._rows("SELECT * FROM nodes ORDER BY created_at")]
-
-    def node(self, node_id: str) -> dict | None:
-        rows = self._rows("SELECT * FROM nodes WHERE id=?", (node_id,))
-        return self._node(rows[0]) if rows else None
-
-    def put_node(self, n: dict, vector: list[float] | None = None, vector_model: str | None = None) -> None:
-        self._exec("INSERT OR REPLACE INTO nodes VALUES (?,?,?,?,?,?,?,?,?,?,?)", (
-            n["id"], n["type"], n["title"], n.get("summary", ""), n.get("status", "active"), n.get("owner"),
-            json.dumps(n.get("tags", [])), json.dumps(n.get("data", {})),
-            json.dumps(vector) if vector else None, vector_model, n.get("created_at", now())))
-
-    def set_status(self, node_id: str, status: str) -> None:
-        self._exec("UPDATE nodes SET status=? WHERE id=?", (status, node_id))
-
-    def edges(self) -> list[dict]:
-        return self._rows("SELECT * FROM edges ORDER BY created_at")
-
-    def put_edge(self, src: str, dst: str, type_: str, reason: str = "", confidence: float = 1.0, origin: str = "seed") -> str:
-        eid = new_id("e")
-        self._exec("INSERT INTO edges VALUES (?,?,?,?,?,?,?,?)", (eid, src, dst, type_, reason, confidence, origin, now()))
-        return eid
-
-    # ---- intake items
-    def items(self) -> list[dict]:
-        out = []
-        for r in self._rows("SELECT * FROM items ORDER BY created_at DESC"):
-            for k in ("source", "proposal", "timings"):
-                r[k] = json.loads(r[k]) if r[k] else None
-            out.append(r)
-        return out
-
-    def item(self, item_id: str) -> dict | None:
-        return next((i for i in self.items() if i["id"] == item_id), None)
-
-    def put_item(self, it: dict) -> None:
-        self._exec("INSERT OR REPLACE INTO items VALUES (?,?,?,?,?,?,?,?,?,?)", (
-            it["id"], it["status"], it["label"], it.get("author"), json.dumps(it.get("source")),
-            json.dumps(it.get("proposal")), json.dumps(it.get("timings")), it.get("error"),
-            it.get("created_at", now()), now()))
-
-    # ---- event log (the revision history)
-    def log(self, actor: str, kind: str, title: str, reason: str = "", payload: dict | None = None) -> int:
-        with self.lock:
-            cur = self.db.execute("INSERT INTO events (at, actor, kind, title, reason, payload) VALUES (?,?,?,?,?,?)",
-                                  (now(), actor, kind, title, reason, json.dumps(payload or {})))
-            self.db.commit()
-            return cur.lastrowid
-
-    def events(self, limit: int = 200) -> list[dict]:
-        rows = self._rows("SELECT * FROM events ORDER BY seq DESC LIMIT ?", (limit,))
-        for r in rows:
-            r["payload"] = json.loads(r["payload"] or "{}")
+    # ---------------------------------------------------------------- read the graph
+    def nodes(self) -> list[dict]:
+        rows = self._q("""
+            SELECT n.id::text AS id, n.ref, n.type, n.title, n.state, n.tags, n.data, n.importance,
+                   extract(epoch FROM n.created_at)::float AS created_at, u.name AS owner, coalesce(h.summary, '') AS summary
+            FROM nodes n LEFT JOIN users u ON u.id = n.owner_id LEFT JOIN node_head h ON h.node_id = n.id
+            WHERE n.project_id = %s AND n.status = 'confirmed' ORDER BY n.id""", (self.project["id"],))
+        aliases: dict[str, list[str]] = {}
+        for r in self._q("SELECT entity_node_id::text AS id, alias FROM entity_aliases"):
+            aliases.setdefault(r["id"], []).append(r["alias"])
+        flags: dict[str, str] = {}
+        for r in self._q("SELECT touches, matched_by FROM attention_items WHERE project_id = %s AND state = 'open' ORDER BY id",
+                         (self.project["id"],)):
+            status = next((m.split(":", 1)[1] for m in r["matched_by"] if m.startswith("effect:")), None)
+            for nid in r["touches"]:
+                if status:
+                    flags[str(nid)] = status
+        for n in rows:
+            n["data"] = {**(n["data"] or {}), **({"aliases": aliases[n["id"]]} if n["id"] in aliases else {})}
+            n["status"] = flags.get(n["id"], n["state"])   # what the UI shows: an open attention flag wins over the state
         return rows
 
+    def node(self, node_id: str) -> dict | None:
+        return next((n for n in self.nodes() if n["id"] == str(node_id)), None)
+
+    def edges(self) -> list[dict]:
+        return self._q("""SELECT id::text AS id, from_node::text AS src, to_node::text AS dst, type, reason, confidence, origin
+                          FROM edges WHERE project_id = %s AND status = 'accepted' ORDER BY id""", (self.project["id"],))
+
+    def similar(self, vector: list[float], model: str) -> dict[str, float]:
+        """Cosine similarity of every node's card vector to `vector` (pgvector), within one embedding model."""
+        rows = self._q("""
+            SELECT h.node_id::text AS id, 1 - (c.embedding <=> %s::vector) AS sim
+            FROM chunks c JOIN node_head h ON h.id = c.node_version_id JOIN nodes n ON n.id = h.node_id
+            WHERE c.role = 'card' AND c.embedding IS NOT NULL AND c.embedding_model = %s
+              AND n.project_id = %s AND n.status = 'confirmed'""", (_vec(vector), model, self.project["id"]))
+        return {r["id"]: float(r["sim"]) for r in rows}
+
     def empty(self) -> bool:
-        return not self._rows("SELECT id FROM nodes LIMIT 1")
+        return not self._q("SELECT 1 FROM nodes WHERE project_id = %s LIMIT 1", (self.project["id"],))
+
+    # ---------------------------------------------------------------- write the graph
+    def _insert_node(self, c, n: dict, vector, vector_model, created_by: str) -> int:
+        state = n.get("state") or self._states[n["type"]][0]
+        data = dict(n.get("data") or {})
+        aliases = data.pop("aliases", [])
+        node_id = c.execute("""
+            INSERT INTO nodes (project_id, type, ref, title, status, state, owner_id, tags, data, importance, created_by)
+            VALUES (%s, %s, %s, %s, 'confirmed', %s, %s, %s, %s, %s, %s) RETURNING id""",
+            (self.project["id"], n["type"], n.get("ref"), n["title"], state, self.user(n["owner"]) if n.get("owner") else None,
+             n.get("tags", []), Jsonb(data), n.get("importance"), created_by)).fetchone()["id"]
+        version_id = c.execute("""
+            INSERT INTO node_versions (node_id, version_no, content_text, summary, metadata, created_by, valid_at)
+            VALUES (%s, 1, %s, %s, %s, %s, now()) RETURNING id""",
+            (node_id, n.get("text") or n.get("summary", ""), n.get("summary", ""), Jsonb(n.get("metadata") or {}), created_by)).fetchone()["id"]
+        card = f"{n['title']}. {n.get('summary', '')} Tags: {', '.join(n.get('tags', []))}"
+        c.execute("""INSERT INTO chunks (node_version_id, idx, modality, role, text, embedding, embedding_model, embedded_at)
+                     VALUES (%s, 0, 'text', 'card', %s, %s::vector, %s, CASE WHEN %s::text IS NULL THEN NULL ELSE now() END)""",
+                  (version_id, card, _vec(vector), vector_model if vector else None, _vec(vector)))
+        for a in aliases:
+            c.execute("INSERT INTO entity_aliases VALUES (%s, %s) ON CONFLICT DO NOTHING", (node_id, a.lower()))
+        return node_id
+
+    def _insert_edge(self, c, src, dst, type_, reason, confidence, origin, created_by) -> None:
+        c.execute("""INSERT INTO edges (project_id, from_node, to_node, type, origin, confidence, reason, status, created_by)
+                     VALUES (%s, %s, %s, %s, %s, %s, %s, 'accepted', %s) ON CONFLICT DO NOTHING""",
+                  (self.project["id"], int(src), int(dst), type_, _EDGE_ORIGIN.get(origin, "user"),
+                   max(0.0, min(1.0, float(confidence))), reason, created_by))
+
+    def put_node(self, n: dict, vector=None, vector_model=None, created_by: str = "system") -> str:
+        with self.pool.connection() as c, c.transaction():
+            return str(self._insert_node(c, n, vector, vector_model, self.user(created_by)))
+
+    def put_edge(self, src: str, dst: str, type_: str, reason: str = "", confidence: float = 1.0, origin: str = "seed") -> None:
+        with self.pool.connection() as c:
+            self._insert_edge(c, src, dst, type_, reason, confidence, origin, self.user("system"))
+
+    def approve_placement(self, item: dict, node: dict, links: list[dict], fx: dict, by: str, reason: str, edited: bool) -> tuple[str, int]:
+        """One transaction: node + version + card vector, edges, approval, event, attention flags."""
+        uid, author = self.user(by), self.user(item.get("author"))
+        prop = item["proposal"]
+        with self.pool.connection() as c, c.transaction():
+            node_id = self._insert_node(c, node, prop.get("vector"), prop.get("vector_model"), author)
+            for l in links:
+                self._insert_edge(c, node_id, l["target"], l["type"], l["reason"], l["confidence"], l["origin"],
+                                  self.user("jev") if l["origin"] == "jev" else uid)
+            approval_id = c.execute("""INSERT INTO approvals (project_id, subject_type, subject_id, verdict, reason, by_user, via)
+                                       VALUES (%s, 'candidate', %s, %s, %s, %s, 'app') RETURNING id""",
+                                    (self.project["id"], str(node_id), "edited" if edited else "approved", reason or None, uid)).fetchone()["id"]
+            payload = {"title": f"Added “{node['title']}” as {node['type']}", "reason": reason, "node_id": str(node_id),
+                       "item_id": item["id"], "approval_id": approval_id, "source": node["data"].get("source"),
+                       "added_by": item.get("author"), "proposed_by": prop.get("by"), "edited_by_user": edited,
+                       "links": [{"target": l["target"], "type": l["type"], "reason": l["reason"]} for l in links],
+                       "effects": [{"node_id": e["node_id"], "title": e["title"], "change": e["change"], "why": e["why"]} for e in fx["effects"]],
+                       "notify": fx["notify"]}
+            event_id = c.execute("""INSERT INTO events (project_id, actor_id, verb, object_type, object_id, payload)
+                                    VALUES (%s, %s, 'candidate.confirmed', 'node', %s, %s) RETURNING id""",
+                                 (self.project["id"], uid, node_id, Jsonb(payload))).fetchone()["id"]
+            for e in fx["effects"]:
+                if not e["new_status"]:
+                    continue
+                c.execute("""INSERT INTO attention_items (project_id, event_id, type, touches, matched_by, reason, suggested_action, levels)
+                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                          (self.project["id"], event_id, _ATTENTION_TYPE.get(e["new_status"], "fyi"), [int(e["node_id"])],
+                           [f"effect:{e['new_status']}", "chain:" + ">".join(e["chain"])], e["why"], e["change"],
+                           Jsonb({"pilot": "red", "pm": "red"} if e["new_status"] in ("blocked", "at_risk") else {"pilot": "amber", "pm": "amber"})))
+            c.execute("UPDATE intake_items SET status = 'approved', node_id = %s, updated_at = now() WHERE id = %s", (node_id, item["id"]))
+        return str(node_id), event_id
+
+    def dismiss(self, item: dict, by: str, reason: str) -> int:
+        uid = self.user(by)
+        title = (item.get("proposal") or {}).get("title") or item["label"]
+        with self.pool.connection() as c, c.transaction():
+            approval_id = c.execute("""INSERT INTO approvals (project_id, subject_type, subject_id, verdict, reason, by_user, via)
+                                       VALUES (%s, 'candidate', %s, 'dismissed', %s, %s, 'app') RETURNING id""",
+                                    (self.project["id"], item["id"], reason or None, uid)).fetchone()["id"]
+            event_id = c.execute("""INSERT INTO events (project_id, actor_id, verb, object_type, payload)
+                                    VALUES (%s, %s, 'candidate.dismissed', 'intake_item', %s) RETURNING id""",
+                                 (self.project["id"], uid, Jsonb({"title": f"Dismissed “{title}”", "reason": reason,
+                                                                  "item_id": item["id"], "approval_id": approval_id}))).fetchone()["id"]
+            c.execute("UPDATE intake_items SET status = 'dismissed', updated_at = now() WHERE id = %s", (item["id"],))
+        return event_id
+
+    # ---------------------------------------------------------------- intake items
+    _ITEM = """SELECT id, status, label, author, source, proposal, timings, error, node_id::text AS node_id,
+                      extract(epoch FROM created_at)::float AS created_at FROM intake_items"""
+
+    def items(self) -> list[dict]:
+        return self._q(self._ITEM + " WHERE project_id = %s ORDER BY created_at DESC", (self.project["id"],))
+
+    def item(self, item_id: str) -> dict | None:
+        rows = self._q(self._ITEM + " WHERE id = %s", (item_id,))
+        return rows[0] if rows else None
+
+    def put_item(self, it: dict) -> None:
+        self._q("""INSERT INTO intake_items (id, project_id, status, label, author, source, proposal, timings, error)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                   ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status, proposal = EXCLUDED.proposal,
+                       timings = EXCLUDED.timings, error = EXCLUDED.error, updated_at = now()""",
+                (it["id"], self.project["id"], it["status"], it["label"], it.get("author"), Jsonb(it.get("source") or {}),
+                 Jsonb(it["proposal"]) if it.get("proposal") else None, Jsonb(it["timings"]) if it.get("timings") else None, it.get("error")))
+
+    # ---------------------------------------------------------------- history
+    def log(self, actor: str, verb: str, title: str, reason: str = "", payload: dict | None = None) -> int:
+        return self._q("""INSERT INTO events (project_id, actor_id, verb, object_type, payload)
+                          VALUES (%s, %s, %s, 'project', %s) RETURNING id""",
+                       (self.project["id"], self.user(actor), verb, Jsonb({"title": title, "reason": reason, **(payload or {})})))[0]["id"]
+
+    def events(self, limit: int = 200) -> list[dict]:
+        rows = self._q("""SELECT e.id AS seq, extract(epoch FROM e.at)::float AS at, u.name AS actor, e.verb AS kind, e.payload
+                          FROM events e JOIN users u ON u.id = e.actor_id WHERE e.project_id = %s ORDER BY e.id DESC LIMIT %s""",
+                       (self.project["id"], limit))
+        for r in rows:
+            r["title"], r["reason"] = r["payload"].get("title", r["kind"]), r["payload"].get("reason", "")
+        return rows
+
+    def reset(self) -> None:
+        """Demo helper. TRUNCATE (not DELETE) because events and versions are append-only by trigger."""
+        self._q("TRUNCATE nodes, events, intake_items, approvals RESTART IDENTITY CASCADE")
