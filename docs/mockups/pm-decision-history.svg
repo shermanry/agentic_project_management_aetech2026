@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 580" width="960" height="580" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="960" height="580" rx="0" fill="#f6f7f9" stroke="none" stroke-width="1"/>
+<rect x="0" y="0" width="960" height="44" rx="0" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<text x="16" y="28" font-size="14" fill="#1f2933" font-weight="600" text-anchor="start">East Tower facade survey</text>
+<rect x="891.6" y="12" width="52.400000000000006" height="20" rx="10" fill="#e8ecf0" stroke="none" stroke-width="1"/>
+<text x="917.8000000000001" y="26" font-size="11" fill="#66788a" font-weight="600" text-anchor="middle">Client</text>
+<rect x="775.6" y="12" width="110.0" height="20" rx="10" fill="#2563eb" stroke="none" stroke-width="1"/>
+<text x="830.6" y="26" font-size="11" fill="#fff" font-weight="600" text-anchor="middle">Project manager</text>
+<rect x="723.6" y="12" width="46.0" height="20" rx="10" fill="#e8ecf0" stroke="none" stroke-width="1"/>
+<text x="746.6" y="26" font-size="11" fill="#66788a" font-weight="600" text-anchor="middle">Pilot</text>
+<text x="713.6" y="27" font-size="11" fill="#66788a" text-anchor="end">View as:</text>
+<text x="300" y="28" font-size="11.5" fill="#66788a" text-anchor="start">Decision history</text>
+<rect x="12" y="56" width="936" height="92" rx="6" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<text x="24" y="78" font-size="10.5" fill="#66788a" font-weight="600" text-anchor="start">SCHEDULE</text>
+<rect x="24" y="88" width="123" height="50" rx="6" fill="#fafbfc" stroke="#d5dbe1" stroke-width="1"/>
+<text x="32" y="104" font-size="10.5" fill="#66788a" font-weight="600" text-anchor="start">Mon 16</text>
+<rect x="30" y="110" width="111" height="22" rx="4" fill="#16a34a" stroke="none" stroke-width="1"/>
+<text x="36" y="125" font-size="9.5" fill="#fff" font-weight="600" text-anchor="start">Flight 4 · done</text>
+<rect x="155" y="88" width="123" height="50" rx="6" fill="#fafbfc" stroke="#d5dbe1" stroke-width="1"/>
+<text x="163" y="104" font-size="10.5" fill="#66788a" font-weight="600" text-anchor="start">Tue 17</text>
+<rect x="286" y="88" width="123" height="50" rx="6" fill="#fafbfc" stroke="#d5dbe1" stroke-width="1"/>
+<text x="294" y="104" font-size="10.5" fill="#66788a" font-weight="600" text-anchor="start">Wed 18</text>
+<rect x="417" y="88" width="123" height="50" rx="6" fill="#fafbfc" stroke="#d5dbe1" stroke-width="1"/>
+<text x="425" y="104" font-size="10.5" fill="#66788a" font-weight="600" text-anchor="start">Thu 19</text>
+<rect x="423" y="110" width="111" height="22" rx="4" fill="#dc2626" stroke="none" stroke-width="1"/>
+<text x="429" y="125" font-size="9.5" fill="#fff" font-weight="600" text-anchor="start">Flight 5 · wind 28 mph</text>
+<rect x="548" y="88" width="123" height="50" rx="6" fill="#fafbfc" stroke="#d5dbe1" stroke-width="1"/>
+<text x="556" y="104" font-size="10.5" fill="#66788a" font-weight="600" text-anchor="start">Fri 20</text>
+<rect x="554" y="110" width="111" height="22" rx="4" fill="#f59e0b" stroke="none" stroke-width="1"/>
+<text x="560" y="125" font-size="9.5" fill="#fff" font-weight="600" text-anchor="start">Crane on site</text>
+<rect x="679" y="88" width="123" height="50" rx="6" fill="#fafbfc" stroke="#d5dbe1" stroke-width="1"/>
+<text x="687" y="104" font-size="10.5" fill="#66788a" font-weight="600" text-anchor="start">Mon 23</text>
+<rect x="685" y="110" width="111" height="22" rx="4" fill="#eef4ff" stroke="#2563eb" stroke-width="1" stroke-dasharray="4 3"/>
+<text x="691" y="125" font-size="9.5" fill="#2563eb" font-weight="600" text-anchor="start">Suggested · 8–11am</text>
+<rect x="810" y="88" width="123" height="50" rx="6" fill="#fafbfc" stroke="#d5dbe1" stroke-width="1"/>
+<text x="818" y="104" font-size="10.5" fill="#66788a" font-weight="600" text-anchor="start">Tue 24</text>
+<rect x="12" y="158" width="430" height="410" rx="6" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<text x="24" y="180" font-size="10.5" fill="#66788a" font-weight="600" text-anchor="start">DECISION TIMELINE</text>
+<rect x="300" y="166" width="33.2" height="20" rx="10" fill="#e8ecf0" stroke="none" stroke-width="1"/>
+<text x="316.6" y="180" font-size="11" fill="#66788a" font-weight="600" text-anchor="middle">All</text>
+<rect x="338" y="166" width="71.6" height="20" rx="10" fill="#e8ecf0" stroke="none" stroke-width="1"/>
+<text x="373.8" y="180" font-size="11" fill="#66788a" font-weight="600" text-anchor="middle">Technical</text>
+<rect x="408" y="166" width="28" height="20" rx="10" fill="#e8ecf0" stroke="none" stroke-width="1"/>
+<text x="422.0" y="180" font-size="11" fill="#66788a" font-weight="600" text-anchor="middle">Me</text>
+<line x1="40" y1="200" x2="40" y2="552" stroke="#d5dbe1" stroke-width="2"/>
+<rect x="58" y="204" width="372" height="60" rx="6" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<circle cx="40" cy="234" r="6" fill="#dc2626"/>
+<text x="68" y="221" font-size="10" fill="#66788a" text-anchor="start">Rev 14 · today 1:10 pm · Agent</text>
+<text x="68" y="239" font-size="11.5" fill="#1f2933" font-weight="600" text-anchor="start">Flagged Thu flight: wind over limit</text>
+<text x="68" y="255" font-size="10" fill="#66788a" text-anchor="start">pending your approval</text>
+<rect x="58" y="274" width="372" height="60" rx="6" fill="#eef4ff" stroke="#2563eb" stroke-width="1"/>
+<circle cx="40" cy="304" r="6" fill="#2563eb"/>
+<text x="68" y="291" font-size="10" fill="#66788a" text-anchor="start">Rev 13 · today 11:40 am · Sam (pilot)</text>
+<text x="68" y="309" font-size="11.5" fill="#1f2933" font-weight="600" text-anchor="start">Wind limit set to 20 mph for facade passes</text>
+<text x="68" y="325" font-size="10" fill="#66788a" text-anchor="start">because: Wind CFD result, manufacturer spec</text>
+<rect x="58" y="344" width="372" height="60" rx="6" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<circle cx="40" cy="374" r="6" fill="#2563eb"/>
+<text x="68" y="361" font-size="10" fill="#66788a" text-anchor="start">Rev 12 · Fri · Sam (pilot)</text>
+<text x="68" y="379" font-size="11.5" fill="#1f2933" font-weight="600" text-anchor="start">Flight plan v3: added north observation point</text>
+<text x="68" y="395" font-size="10" fill="#66788a" text-anchor="start">because: RFI #9, site photo 14</text>
+<rect x="58" y="414" width="372" height="60" rx="6" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<circle cx="40" cy="444" r="6" fill="#2563eb"/>
+<text x="68" y="431" font-size="10" fill="#66788a" text-anchor="start">Rev 11 · Fri · You</text>
+<text x="68" y="449" font-size="11.5" fill="#1f2933" font-weight="600" text-anchor="start">Flights moved to every 2 weeks</text>
+<text x="68" y="465" font-size="10" fill="#66788a" text-anchor="start">because: client email 6 Nov</text>
+<rect x="58" y="484" width="372" height="60" rx="6" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<circle cx="40" cy="514" r="6" fill="#94a3b8"/>
+<text x="68" y="501" font-size="10" fill="#66788a" text-anchor="start">Rev 10 · Thu · Agent</text>
+<text x="68" y="519" font-size="11.5" fill="#1f2933" font-weight="600" text-anchor="start">Suggested LiDAR instead of photogrammetry</text>
+<text x="68" y="535" font-size="10" fill="#66788a" text-anchor="start">rejected by Sam: glare not an issue</text>
+<rect x="452" y="158" width="496" height="250" rx="6" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<text x="464" y="180" font-size="11" fill="#1f2933" font-weight="600" text-anchor="start">REV 13  ·  Wind limit set to 20 mph for facade passes</text>
+<text x="464" y="204" font-size="10.5" fill="#66788a" text-anchor="start">Changed</text>
+<text x="540" y="204" font-size="11" fill="#1f2933" text-anchor="start">Max wind:  25 mph  →  20 mph</text>
+<text x="464" y="226" font-size="10.5" fill="#66788a" text-anchor="start">By</text>
+<text x="540" y="226" font-size="11" fill="#1f2933" text-anchor="start">Sam (pilot)  ·  today 11:40 am</text>
+<text x="464" y="248" font-size="10.5" fill="#66788a" text-anchor="start">Reason</text>
+<text x="540" y="248" font-size="11" fill="#1f2933" text-anchor="start">“CFD shows gusts funnel along the east face.”</text>
+<text x="464" y="276" font-size="10.5" fill="#66788a" font-weight="600" text-anchor="start">EVIDENCE (linked nodes)</text>
+<rect x="464" y="286" width="148" height="46" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="2"/>
+<rect x="464" y="286" width="6" height="46" rx="3" fill="#94a3b8" stroke="none" stroke-width="1"/>
+<text x="478" y="305" font-size="12" fill="#1f2933" font-weight="600" text-anchor="start">Wind CFD result</text>
+<text x="478" y="322" font-size="10.5" fill="#66788a" text-anchor="start">added by agent</text>
+<rect x="622" y="286" width="148" height="46" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="2"/>
+<rect x="622" y="286" width="6" height="46" rx="3" fill="#94a3b8" stroke="none" stroke-width="1"/>
+<text x="636" y="305" font-size="12" fill="#1f2933" font-weight="600" text-anchor="start">Drone spec sheet</text>
+<text x="636" y="322" font-size="10.5" fill="#66788a" text-anchor="start">PDF · p. 4</text>
+<rect x="780" y="286" width="148" height="46" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="2"/>
+<rect x="780" y="286" width="6" height="46" rx="3" fill="#94a3b8" stroke="none" stroke-width="1"/>
+<text x="794" y="305" font-size="12" fill="#1f2933" font-weight="600" text-anchor="start">Site photo 14</text>
+<text x="794" y="322" font-size="10.5" fill="#66788a" text-anchor="start">east face</text>
+<text x="464" y="356" font-size="10.5" fill="#66788a" font-weight="600" text-anchor="start">AFFECTED</text>
+<text x="464" y="376" font-size="11" fill="#1f2933" text-anchor="start">Flight: Thu 9am (now at risk)  ·  Flight plan v3  ·  2 future flights</text>
+<rect x="800" y="168" width="136" height="24" rx="5" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<text x="868.0" y="184" font-size="11" fill="#1f2933" font-weight="600" text-anchor="middle">Compare with rev 12</text>
+<rect x="452" y="418" width="496" height="150" rx="6" fill="#eef4ff" stroke="#2563eb" stroke-width="1"/>
+<text x="464" y="440" font-size="10.5" fill="#2563eb" font-weight="600" text-anchor="start">WHAT&#x27;S NEXT  ·  from the decision history</text>
+<text x="464" y="464" font-size="13" fill="#1f2933" font-weight="600" text-anchor="start">Move Flight 5 from Thu 19 to Mon 23, 8–11am</text>
+<text x="464" y="486" font-size="10.5" fill="#66788a" text-anchor="start">Rev 13 lowered the wind limit; Thursday&#x27;s forecast is 28 mph. Last time a flight</text>
+<text x="464" y="502" font-size="10.5" fill="#66788a" text-anchor="start">slipped (rev 7) the client was told the same day. Monday is the next clear window.</text>
+<rect x="464" y="526" width="183.0" height="24" rx="5" fill="#2563eb" stroke="#2563eb" stroke-width="1"/>
+<text x="555.5" y="542" font-size="11" fill="#fff" font-weight="600" text-anchor="middle">Approve and notify client</text>
+<rect x="640" y="526" width="130.2" height="24" rx="5" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<text x="705.1" y="542" font-size="11" fill="#1f2933" font-weight="600" text-anchor="middle">Pick another date</text>
+<rect x="770" y="526" width="64.19999999999999" height="24" rx="5" fill="#ffffff" stroke="#d5dbe1" stroke-width="1"/>
+<text x="802.1" y="542" font-size="11" fill="#1f2933" font-weight="600" text-anchor="middle">Dismiss</text>
+</svg>
