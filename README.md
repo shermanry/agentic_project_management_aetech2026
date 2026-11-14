@@ -115,5 +115,5 @@ Not tested on real data yet: real client markups, real Outlook `.msg` files, lar
 ## Git
 
 - Work happens on branch **`converter`** (pushed to `origin`). No PR into `main` yet; open one when the team approves. `main` has moved on (the `Ryan/` folder), but there are no overlapping files.
-- This clone has repo-local config: `user.name "Minh Dang Ngo"`, `user.email dangminh2606@outlook.com`, `credential.https://github.com.username dangminh2606@outlook.com`. A new contributor should set their own identity and **not** reuse these.
+- This clone has repo-local config: `user.name "Minh Dang Ngo"`, `user.email dangminh2606@outlook.com`, `credential.https://github.com.username MinhDangNgo` (must be the GitHub **username**, not the email, or Git Credential Manager asks to sign in on every push). A new contributor should set their own identity and **not** reuse these.
 - Ignored: `.venv/`, `converter_output/`, `samples/generated/`. Never commit converted outputs or client files.
