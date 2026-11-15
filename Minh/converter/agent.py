@@ -558,7 +558,7 @@ def undo(out: Path, pid: str) -> dict:
 
 
 # ---------------------------------------------------------------- the whole flow
-def ask(out: Path, prompt: str, files: list[tuple[Path, str]], convert) -> dict:
+def ask(out: Path, prompt: str, files: list[tuple[Path, str]], convert, extra_context: dict | None = None) -> dict:
     """files: [(temp path, original name)]; convert: callable(path, out, original_name, context) -> manifest."""
     from concurrent.futures import ThreadPoolExecutor
 
@@ -580,6 +580,7 @@ def ask(out: Path, prompt: str, files: list[tuple[Path, str]], convert) -> dict:
         for (path, name), ctx, extra in zip(files, plan["files"], overrides):
             context = {k: ctx.get(k) for k in ("author", "author_role", "channel", "note", "intent", "project")}
             context.update({k: v for k, v in extra.items() if v})
+            context.update({k: v for k, v in (extra_context or {}).items() if v})
             manifests.append(convert(path, out, name, context))
     finally:
         if intake:
