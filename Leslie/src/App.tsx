@@ -1,0 +1,148 @@
+import { useEffect, useState } from 'react'
+import './design/ui.css'
+import { PROJECT, type ComponentId } from './data/sampleProject'
+import { GraphProvider, useGraph } from './model/graph'
+import OverviewView from './views/OverviewView'
+import ClientView from './views/ClientView'
+import PMView from './views/PMView'
+import PilotView from './views/PilotView'
+import { Monogram, Wordmark } from './components/Logo'
+import ParkingView from './views/ParkingView'
+import { isParked } from './model/graph'
+
+type View = 'overview' | 'client' | 'pm' | 'pilot' | 'data'
+const VIEWS: { id: View; label: string; crumb: string; desc: string }[] = [
+  { id: 'overview', label: 'Overview', crumb: 'Overview', desc: 'Project twin board: status of every node, open questions and proposed links.' },
+  { id: 'client', label: 'Client', crumb: 'Building explorer', desc: 'Explore the building, see what is known about each part, and draft a design brief.' },
+  { id: 'pm', label: 'PM', crumb: 'Knowledge canvas', desc: 'Arrange, filter and review project information by constraint category.' },
+  { id: 'pilot', label: 'Pilot', crumb: '3D network', desc: 'Every node and relationship in space, colour-matched to the PM categories.' },
+  { id: 'data', label: 'Parking lot', crumb: 'Parking lot', desc: 'Everything imported lands here first, then gets organized into the graph.' },
+]
+
+const readView = (): View => {
+  try {
+    const h = location.hash.slice(1)
+    return (VIEWS.find((v) => v.id === h)?.id ?? 'overview') as View
+  } catch {
+    return 'overview'
+  }
+}
+
+function Clock() {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  const tz = 'America/New_York'
+  const f = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(undefined, { timeZone: tz, ...o }).format(now)
+  return (
+    <div className="clock">
+      <span className="clock-t">{f({ hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</span>
+      <span className="clock-z">{f({ weekday: 'short', day: 'numeric', month: 'short' })} · New York</span>
+    </div>
+  )
+}
+
+function Shell() {
+  const { state, dispatch } = useGraph()
+  const parkedCount = state.nodes.filter(isParked).length
+  const [view, setViewState] = useState<View>(readView)
+  const [clientComp, setClientComp] = useState<ComponentId>()
+  const [shared, setShared] = useState(false)
+  const setView = (v: View) => {
+    setViewState(v)
+    try {
+      history.replaceState(null, '', '#' + v)
+    } catch {
+      /* hash unavailable */
+    }
+  }
+  useEffect(() => {
+    const on = () => setViewState(readView())
+    window.addEventListener('hashchange', on)
+    return () => window.removeEventListener('hashchange', on)
+  }, [])
+  const info = VIEWS.find((v) => v.id === view)!
+
+  return (
+    <div className={`app light tab-${view} view-${view === 'overview' || view === 'data' ? 'monitor' : view === 'pm' ? 'pm' : 'twin'}`}>
+      <header className="topbar">
+        <a className="brand" href="#overview" aria-label="YBuild, go to overview">
+          <span className="brand-full">
+            <Wordmark height={24} />
+          </span>
+          <span className="brand-mono">
+            <Monogram height={24} />
+          </span>
+        </a>
+
+        <nav className="crumbs" aria-label="Breadcrumb">
+          <span>Projects</span>
+          <span className="sl">›</span>
+          <span>{PROJECT.name}</span>
+          <span className="sl">›</span>
+          <b>{info.crumb}</b>
+        </nav>
+
+        <nav className="seg views" aria-label="Role view">
+          {VIEWS.map((v) => (
+            <button key={v.id} className={view === v.id ? 'on' : ''} onClick={() => setView(v.id)}>
+              {v.label}
+              {v.id === 'data' && parkedCount > 0 && <sup className="tab-count">{parkedCount}</sup>}
+            </button>
+          ))}
+        </nav>
+
+        <div className="status-area">
+          <button
+            className="btn sm"
+            onClick={() => {
+              navigator.clipboard
+                ?.writeText(location.href)
+                .then(() => setShared(true))
+                .catch(() => setShared(false))
+              setTimeout(() => setShared(false), 1800)
+            }}
+          >
+            {shared ? 'Link copied' : 'Share'}
+          </button>
+          <Clock />
+        </div>
+      </header>
+
+      <div className="project-strip">
+        <span className="mono code">{PROJECT.code}</span>
+        <span className="badge t-info">{PROJECT.status}</span>
+        <b>
+          {PROJECT.name} · {PROJECT.title}
+        </b>
+        <span className="dim">{info.desc}</span>
+      </div>
+
+      {view === 'overview' && (
+        <OverviewView
+          openPM={(id) => (dispatch({ type: 'select', id }), setView('pm'))}
+          openClient={(c) => (setClientComp(c), setView('client'))}
+          openPilot={(id) => (dispatch({ type: 'select', id }), setView('pilot'))}
+          goTo={(s) => {
+            if (s.question) dispatch({ type: 'setQuery', query: s.question })
+            setView(s.tab)
+          }}
+        />
+      )}
+      {view === 'client' && <ClientView key={clientComp} initial={clientComp} />}
+      {view === 'pm' && <PMView />}
+      {view === 'pilot' && <PilotView />}
+      {view === 'data' && <ParkingView openPM={(id) => (dispatch({ type: 'select', id }), setView('pm'))} />}
+    </div>
+  )
+}
+
+export default function App() {
+  return (
+    <GraphProvider>
+      <Shell />
+    </GraphProvider>
+  )
+}

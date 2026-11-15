@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="-8 -8 339 236" role="img" aria-label="YBuild_YB_monogram ink">
+<title>YBuild_YB_monogram ink</title>
+
+<g style="color:#0B0E11"><g id="ybuild-logo" fill="currentColor">
+  <g id="y-mark">
+    <path id="y-left-arm" d="M0 0 H44 L108 88 L86 119 Z"/>
+    <path id="y-right-arm-and-stem" d="M164 0 H207 L64 220 H20 Z"/>
+  </g>
+  <g id="build-letter-b">
+    <path id="b-upper" d="M224 0 H261 C294 0 316 23 316 56 C316 88 294 113 261 113 H161 L171 98 H261 C285 98 301 80 301 56 C301 31 285 14 261 14 H215 Z"/>
+    <path id="b-lower" d="M171 98 H261 C300 98 322 125 322 160 C322 195 297 220 261 220 H96 L106 205 H261 C289 205 306 187 306 160 C306 133 289 113 261 113 H161 Z"/>
+  </g>
+  </g></g>
+</svg>
