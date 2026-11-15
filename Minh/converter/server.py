@@ -53,9 +53,10 @@ def create_app(out_root: str | Path) -> FastAPI:
     @app.post("/api/convert")
     def convert(files: list[UploadFile] = File(...), note: str = Form(""), author: str = Form(""),
                 author_role: str = Form(""), channel: str = Form(""), date: str = Form(""),
-                intent: str = Form(""), refers_to: str = Form("")):
+                intent: str = Form(""), refers_to: str = Form(""), folder: str = Form("")):
         context = {"note": note.strip(), "author": author.strip(), "author_role": author_role, "channel": channel,
-                   "date": date, "intent": intent, "refers_to": refers_to if refers_to.startswith("uep_") else ""}
+                   "date": date, "intent": intent, "refers_to": refers_to if refers_to.startswith("uep_") else "",
+                   "folder": folder.strip().strip("/")}
         results = []
         for f in files:
             with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
@@ -73,7 +74,8 @@ def create_app(out_root: str | Path) -> FastAPI:
         return {"available": agent.available(), "agent_model": agent.agent_model(), "router_model": agent.router_model()}
 
     @app.post("/api/ask")
-    def ask(prompt: str = Form(""), files: list[UploadFile] | None = File(None), package_ids: str = Form("")):
+    def ask(prompt: str = Form(""), files: list[UploadFile] | None = File(None), package_ids: str = Form(""),
+            folder: str = Form("")):
         from . import agent
         if not agent.available():
             raise HTTPException(400, "No OPENROUTER_API_KEY in .env: use 'Convert only' or add the key")
@@ -89,8 +91,10 @@ def create_app(out_root: str | Path) -> FastAPI:
                         shutil.copyfileobj(f.file, fh)
                     saved.append((tmp, name))
                 text_only = not saved and not package_ids.strip() and prompt.strip()
+                extra = {"folder": folder.strip().strip("/")} if folder.strip() else None  # path inside a dropped folder
                 result = agent.ask(out, prompt.strip(), saved,
-                                   lambda p, o, n, c: convert_file(p, o, original_name=n, context=c)) \
+                                   lambda p, o, n, c: convert_file(p, o, original_name=n, context=c),
+                                   extra_context=extra) \
                     if (saved or text_only) else {"prompt": prompt, "plan": None, "items": [], "cost_usd": 0}
             # run the agent on existing packages too ("re-read this with my prompt")
             for pid in [p for p in package_ids.split(",") if p.strip()]:

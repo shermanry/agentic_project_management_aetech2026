@@ -523,11 +523,37 @@ function addToTray(files) {
   drawTray(); promptEl.focus();
 }
 function drawTray() {
-  $("#tray").innerHTML = tray.map((t, i) => `<div class="att">${t.url ? `<img src="${t.url}" alt="">` :
+  const SHOW = 12;
+  $("#tray").innerHTML = tray.slice(0, SHOW).map((t, i) => `<div class="att">${t.url ? `<img src="${t.url}" alt="">` :
     `<span class="ext">${esc((t.f.name.split(".").pop() || "").toUpperCase().slice(0, 4))}</span>`}
-    <span class="nm" title="${esc(t.f.name)}">${esc(t.f.name)}</span><button data-rm="${i}" aria-label="Remove">✕</button></div>`).join("");
+    <span class="nm" title="${esc(t.f._rel || t.f.name)}">${esc(t.f.name)}</span><button data-rm="${i}" aria-label="Remove">✕</button></div>`).join("")
+    + (tray.length > SHOW ? `<div class="att"><span class="nm">+ ${tray.length - SHOW} more · ${(tray.reduce((s, t) => s + t.f.size, 0) / 1e6).toFixed(1)} MB in total</span><button data-clear aria-label="Clear all">✕</button></div>` : "");
   document.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { tray.splice(+b.dataset.rm, 1); drawTray(); });
+  document.querySelectorAll("[data-clear]").forEach(b => b.onclick = () => { takeTray(); });
 }
+// A dropped FOLDER arrives as an unreadable placeholder; open it and collect every file inside (keeping paths).
+const JUNK = /^(\.|~\$|thumbs\.db$|desktop\.ini$)/i;
+async function filesFromDrop(dt) {
+  const entries = [...(dt.items || [])].filter(i => i.kind === "file").map(i => i.webkitGetAsEntry?.()).filter(Boolean);
+  if (!entries.length || !entries.some(e => e.isDirectory)) return [...(dt.files || [])];
+  const out = [];
+  const walk = async (entry, prefix) => {
+    if (entry.isFile) {
+      const f = await new Promise((res, rej) => entry.file(res, rej));
+      if (!JUNK.test(f.name)) { f._rel = prefix + f.name; out.push(f); }
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      for (;;) {
+        const batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+        if (!batch.length) break;
+        for (const e of batch) await walk(e, prefix + entry.name + "/");
+      }
+    }
+  };
+  for (const e of entries) await walk(e, "");
+  return out;
+}
+const folderOf = f => (f._rel || f.webkitRelativePath || "").split("/").slice(0, -1).join("/");
 function takeTray() { const files = tray.map(t => t.f); tray.forEach(t => t.url && URL.revokeObjectURL(t.url)); tray = []; drawTray(); return files; }
 $("#attach").onclick = () => picker.click();
 picker.onchange = () => { addToTray([...picker.files]); picker.value = ""; };
@@ -535,7 +561,14 @@ let dragDepth = 0;
 document.addEventListener("dragenter", e => { e.preventDefault(); dragDepth++; composer.classList.add("over"); });
 document.addEventListener("dragover", e => e.preventDefault());
 document.addEventListener("dragleave", e => { e.preventDefault(); if (--dragDepth <= 0) { dragDepth = 0; composer.classList.remove("over"); } });
-document.addEventListener("drop", e => { e.preventDefault(); dragDepth = 0; composer.classList.remove("over"); if (e.dataTransfer?.files?.length) addToTray([...e.dataTransfer.files]); });
+document.addEventListener("drop", async e => {
+  e.preventDefault(); dragDepth = 0; composer.classList.remove("over");
+  if (!e.dataTransfer) return;
+  const hadFolder = [...(e.dataTransfer.items || [])].some(i => i.webkitGetAsEntry?.()?.isDirectory);
+  const files = await filesFromDrop(e.dataTransfer);
+  if (files.length) { addToTray(files); if (hadFolder) toast(`${files.length} file(s) from the folder: each becomes its own node`); }
+  else if (hadFolder) toast("That folder is empty");
+});
 $("#send").onclick = () => submit();
 promptEl.addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); } });
 document.querySelectorAll(".starter").forEach(b => b.onclick = () => { promptEl.value = b.dataset.p; grow(); promptEl.focus(); });
@@ -642,6 +675,7 @@ async function send(packageIds = [], promptOverride = null) {
   if (!files.length && !packageIds.length && !prompt) { toast("Type something, or drop a file"); promptEl.focus(); return; }
   if (!agentOn) { toast("Agent is off: add OPENROUTER_API_KEY to .env"); return; }
   if (promptOverride === null) { promptEl.value = ""; grow(); }
+  if (files.length > 1) return sendMany(files, prompt);
   const run = document.createElement("div");
   run.className = "run";
   const what = packageIds.length ? `re-reading ${packageIds.length} node(s)` : files.length ? files.map(f => f.name).join(", ") : "text only";
@@ -671,8 +705,60 @@ async function send(packageIds = [], promptOverride = null) {
     wireResults(run);
     refresh();
   } catch (err) {
-    run.querySelector(".status").innerHTML = `<span style="color:var(--err)">Failed: ${esc(err.message || err)}</span>`;
+    run.querySelector(".status").innerHTML = `<span style="color:var(--err)">Failed: ${esc(uploadError(err))}</span>`;
   } finally { clearInterval(tick); $("#send").disabled = false; }
+}
+const uploadError = err => String(err?.message || err) === "Failed to fetch"
+  ? "Could not reach the converter or read the file (is the server running? a dropped folder should now be opened automatically)"
+  : String(err?.message || err);
+
+// Many files (e.g. a dropped folder): one request per file, two at a time, results appear as each one finishes.
+async function sendMany(files, prompt) {
+  const run = document.createElement("div");
+  run.className = "run";
+  const total = files.length, mb = files.reduce((s, f) => s + f.size, 0) / 1e6;
+  const roots = [...new Set(files.map(f => (f._rel || "").split("/")[0]).filter(Boolean))];
+  run.innerHTML = `<div class="you"><div class="av">${esc(initials())}</div><div style="min-width:0"><div class="p">${esc(prompt || "(no prompt)")}</div>
+      <div class="f">${roots.length ? "folder " + esc(roots.join(", ")) + " · " : ""}${total} files · ${mb.toFixed(1)} MB · each becomes its own node</div></div></div>
+    <div style="padding:14px 18px"><div style="display:flex;gap:10px;align-items:center"><div class="spin" data-sp></div><b data-st>Converting…</b>
+      <span class="muted small" data-ct>0 / ${total}</span><span style="flex:1"></span><button class="btn" data-stopmany>Stop</button></div>
+      <div class="prog"><div data-bar></div></div></div>`;
+  $("#feed").prepend(run);
+  run.scrollIntoView({ behavior: "smooth", block: "center" });
+  let next = 0, done = 0, failed = 0, cost = 0, stopped = false;
+  run.querySelector("[data-stopmany]").onclick = () => { stopped = true; toast("Stopping after the files in progress"); };
+  const paint = () => {
+    run.querySelector("[data-ct]").textContent = `${done + failed} / ${total} · ${failed} failed · $${cost.toFixed(3)}`;
+    run.querySelector("[data-bar]").style.width = `${Math.round(100 * (done + failed) / total)}%`;
+  };
+  const one = async f => {
+    const fd = new FormData();
+    fd.append("prompt", prompt);
+    fd.append("files", f, f.name);
+    const folder = folderOf(f);
+    if (folder) fd.append("folder", folder);
+    try {
+      const r = await fetch("/api/ask", { method: "POST", body: fd });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+      const res = await r.json();
+      cost += res.cost_usd || 0;
+      res.items.forEach(it => run.insertAdjacentHTML("beforeend", resultHtml(it)));
+      done++;
+    } catch (err) {
+      failed++;
+      run.insertAdjacentHTML("beforeend", `<div class="res"><div></div><div class="small" style="color:var(--err)">${esc(f._rel || f.name)}: ${esc(uploadError(err))}</div></div>`);
+    }
+    paint(); wireResults(run);
+    if ((done + failed) % 3 === 0) refresh();
+  };
+  $("#send").disabled = true;
+  const worker = async () => { while (!stopped && next < total) await one(files[next++]); };
+  await Promise.all([worker(), worker()]);
+  $("#send").disabled = false;
+  run.querySelector("[data-sp]")?.remove(); run.querySelector("[data-stopmany]")?.remove();
+  run.querySelector("[data-st]").textContent = stopped ? "Stopped" : "Done";
+  run.insertAdjacentHTML("beforeend", `<div class="foot">${done} of ${total} file(s) converted${failed ? ` · ${failed} failed` : ""} · $${cost.toFixed(3)}</div>`);
+  refresh();
 }
 const kindChip = k => `<span class="chip">${esc(String(k || "").replace("_", " "))}</span>`;
 function resultHtml(it) {
@@ -757,6 +843,7 @@ function pump() {
     row.querySelector(".st").textContent = "converting…";
     const fd = new FormData(); fd.append("files", f, f.name);
     for (const [k, v] of Object.entries(ctx)) if (v) fd.append(k, v);
+    if (folderOf(f)) fd.append("folder", folderOf(f));
     fetch("/api/convert", { method: "POST", body: fd })
       .then(r => r.ok ? r.json() : r.text().then(t => Promise.reject(t)))
       .then(([m]) => {
