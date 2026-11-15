@@ -7,6 +7,9 @@ A project system for complex project with many dependencies and risk factors suc
 
 Built at the AEC Tech NYC Hackathon, November 2026.
 
+<img width="2740" height="1507" alt="Screenshot 2026-11-15 135238" src="https://github.com/user-attachments/assets/019d352f-a0fd-41ae-a806-41fba4a6b6b6" />
+
+
 ## What it does
 
 - **Add anything.** Drop files, paste text or point at a folder. The converter turns each item into text, images and metadata.
@@ -15,6 +18,8 @@ Built at the AEC Tech NYC Hackathon, November 2026.
 - **Watch the outside world.** Live feeds for weather, airspace, city events, rule changes and space weather raise flags on the nodes that depend on them.
 - **Views by role.** Technical expert, project manager and client each see the project at the level they decide on.
 - **Several projects.** Each project runs as its own copy of the app with its own database; projects can be added and deleted from the page.
+<img width="3840" height="1010" alt="Monitoring components" src="https://github.com/user-attachments/assets/ee570d17-43e9-493d-8628-0e1bba60d39f" />
+<img width="2279" height="1062" alt="Screenshot 2026-11-14 220603" src="https://github.com/user-attachments/assets/db66a505-5e2c-41a9-979b-b470ea7ad93a" />
 
 ## Repository layout
 
