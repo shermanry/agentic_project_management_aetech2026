@@ -10,10 +10,12 @@ __pycache__/
 *.pyc
 
 # monitors
-monitors/data/
-monitors/site.json
+src/monitors/data/
+src/monitors/site.json
 
 # converter
 converter_output/
 samples/generated/
-Minh/samples/generated/
+src/converter/samples/generated/
+src/converter/converter_output/
+node_modules/
