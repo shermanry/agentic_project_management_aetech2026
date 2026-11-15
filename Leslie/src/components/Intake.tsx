@@ -67,6 +67,48 @@ export default function Intake({ open, setOpen, reveal, scene3d }: Props) {
   const depth = useRef(0)
   const parked = state.nodes.filter(isParked)
   const [notice, setNotice] = useState<string>()
+  // Batch placement: tick rows, or accept everything / everything the suggester is confident about.
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const CONFIDENT = 0.7
+  const suggestionOf = (n: GraphNode): { sg: Suggestion; target?: GraphNode } => {
+    const base = suggestFor(n, state.nodes)
+    const target = n.attach ? state.nodes.find((x) => x.id === n.attach!.id) : undefined
+    // Dropped onto something in 3D: that is the strongest signal of where it belongs.
+    const sg: Suggestion = target
+      ? {
+          category: target.category ?? base.category,
+          confidence: 0.9,
+          links: [{ target: target.id, relation: 'relates to' }],
+          reason: `Dropped on ${n.attach!.label}`,
+        }
+      : base
+    return { sg, target }
+  }
+  const acceptMany = (nodes: GraphNode[]) => {
+    if (!nodes.length) return
+    if (nodes.length > 20 && !window.confirm(`Place ${nodes.length} items where they are suggested?`)) return
+    const suggestions: Record<string, Suggestion> = {}
+    for (const n of nodes) suggestions[n.id] = suggestionOf(n).sg
+    dispatch({ type: 'setSuggestions', suggestions })
+    for (const n of nodes) dispatch({ type: 'applySuggestion', id: n.id })
+    setSelected(new Set())
+    setNotice(`Placed ${plural(nodes.length, 'item')} in the project`)
+  }
+  const removeMany = (nodes: GraphNode[]) => {
+    if (!nodes.length) return
+    if (nodes.length > 5 && !window.confirm(`Remove ${nodes.length} items from the waiting list?`)) return
+    for (const n of nodes) dispatch({ type: 'removeNode', id: n.id })
+    setSelected(new Set())
+  }
+  const toggle = (id: string) =>
+    setSelected((s) => {
+      const next = new Set(s)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const chosen = parked.filter((n) => selected.has(n.id))
+  const confident = parked.filter((n) => suggestionOf(n).sg.confidence >= CONFIDENT)
   const hint = state.dropHint
   const hintRef = useRef<DropHint | undefined>(hint)
   const sceneRef = useRef(scene3d)
@@ -391,22 +433,62 @@ export default function Intake({ open, setOpen, reveal, scene3d }: Props) {
               </li>
             </ul>
           )}
+          {parked.length > 1 && (
+            <div className="intake-batch">
+              <label className="intake-check">
+                <input
+                  type="checkbox"
+                  checked={chosen.length === parked.length}
+                  ref={(el) => {
+                    if (el) el.indeterminate = chosen.length > 0 && chosen.length < parked.length
+                  }}
+                  onChange={() => setSelected(chosen.length === parked.length ? new Set() : new Set(parked.map((n) => n.id)))}
+                />
+                {chosen.length ? `${chosen.length} selected` : 'Select all'}
+              </label>
+              <span className="grow" />
+              {chosen.length > 0 ? (
+                <>
+                  <button className="ed-link plain" onClick={() => acceptMany(chosen)}>
+                    Accept selected · {chosen.length}
+                  </button>
+                  <button className="ed-link dim" onClick={() => removeMany(chosen)}>
+                    Remove selected
+                  </button>
+                </>
+              ) : (
+                <>
+                  {confident.length > 0 && confident.length < parked.length && (
+                    <button
+                      className="ed-link plain"
+                      title={`Place only items the suggester is at least ${Math.round(CONFIDENT * 100)}% sure about`}
+                      onClick={() => acceptMany(confident)}
+                    >
+                      Accept confident · {confident.length}
+                    </button>
+                  )}
+                  <button className="ed-link plain" onClick={() => acceptMany(parked)}>
+                    Accept all · {parked.length}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
           {parked.length ? (
             <ul className="ed-rows">
               {parked.map((n) => {
-                const base = suggestFor(n, state.nodes)
-                const target = n.attach ? byId(n.attach.id) : undefined
-                // Dropped onto something in 3D: that is the strongest signal of where it belongs.
-                const sg: Suggestion = target
-                  ? {
-                      category: target.category ?? base.category,
-                      confidence: 0.9,
-                      links: [{ target: target.id, relation: 'relates to' }],
-                      reason: `Dropped on ${n.attach!.label}`,
-                    }
-                  : base
+                const { sg, target } = suggestionOf(n)
                 return (
-                  <li key={n.id} className="intake-row">
+                  <li key={n.id} className={`intake-row${selected.has(n.id) ? ' picked' : ''}`}>
+                    {parked.length > 1 && (
+                      <input
+                        type="checkbox"
+                        className="intake-pick"
+                        aria-label={`Select ${n.title}`}
+                        checked={selected.has(n.id)}
+                        onChange={() => toggle(n.id)}
+                      />
+                    )}
                     {n.pkg?.thumbnail ? (
                       <img src={n.pkg.thumbnail} alt="" />
                     ) : (

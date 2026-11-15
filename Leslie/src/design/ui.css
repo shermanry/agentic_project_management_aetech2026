@@ -441,6 +441,13 @@ html, body { background: #ffffff; color: #0a0a0a; color-scheme: light; }
 .intake-fails-foot { padding: 10px 0; border-bottom: 1px solid var(--ink); }
 .intake-list { display: flex; flex-direction: column; gap: 10px; }
 .intake-row { display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--hair); }
+/* batch placement */
+.intake-batch { display: flex; align-items: center; gap: 18px; padding: 10px 0; border-bottom: 1px solid var(--ink); flex-wrap: wrap; }
+.intake-batch .grow { flex: 1; }
+.intake-check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); cursor: pointer; user-select: none; }
+.intake-check input, .intake-pick { width: 16px; height: 16px; accent-color: var(--ink); cursor: pointer; flex-shrink: 0; }
+.intake-pick { margin-top: 4px; }
+.intake-row.picked { background: var(--hair-2, rgba(0, 0, 0, .03)); }
 .intake-row img, .intake-row .ph { width: 64px; height: 64px; flex: none; object-fit: cover; background: var(--tile); }
 .intake-row .ph { display: grid; place-items: center; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
 .intake-row .grow { min-width: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
