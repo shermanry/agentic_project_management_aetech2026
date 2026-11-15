@@ -158,10 +158,10 @@ export default function BuildingScene({ selected, onSelect, labels = true, orbit
       {!light && <gridHelper args={[260, 52, '#12324a', '#0d2234']} position={[0, 0.02, 0]} />}
       {labels && (
         <>
-          <Html position={[-40, 0.5, -D / 2 - 14]} center style={{ pointerEvents: 'none' }}>
+          <Html zIndexRange={[5, 0]} position={[-40, 0.5, -D / 2 - 14]} center style={{ pointerEvents: 'none' }}>
             <div className="tag dim-tag">Hudson St</div>
           </Html>
-          <Html position={[W / 2 + 10, 0.5, 30]} center style={{ pointerEvents: 'none' }}>
+          <Html zIndexRange={[5, 0]} position={[W / 2 + 10, 0.5, 30]} center style={{ pointerEvents: 'none' }}>
             <div className="tag dim-tag">side street</div>
           </Html>
         </>
@@ -265,8 +265,10 @@ export default function BuildingScene({ selected, onSelect, labels = true, orbit
 
       {labels &&
         COMPONENTS.map((c) => (
-          <Html key={c.id} position={anchors[c.id]} center style={{ pointerEvents: 'none' }}>
-            <div className={`tag comp-tag ${selected === c.id ? 'on' : ''}`}>{c.label}</div>
+          <Html zIndexRange={[5, 0]} key={c.id} position={anchors[c.id]} center style={{ pointerEvents: 'none' }}>
+            <div className={`tag comp-tag ${selected === c.id ? 'on' : ''}`} data-comp={c.id}>
+              {c.label}
+            </div>
           </Html>
         ))}
 

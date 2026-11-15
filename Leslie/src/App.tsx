@@ -127,6 +127,7 @@ function Shell() {
           openPM={(id) => (dispatch({ type: 'select', id }), setView('pm'))}
           openClient={(c) => (setClientComp(c), setView('client'))}
           openPilot={(id) => (dispatch({ type: 'select', id }), setView('pilot'))}
+          onAdd={() => setIntake(true)}
           goTo={(s) => {
             if (s.tab === 'add') return setIntake(true)
             if (s.question) dispatch({ type: 'setQuery', query: s.question })
@@ -137,7 +138,7 @@ function Shell() {
       {view === 'client' && <ClientView key={clientComp} initial={clientComp} />}
       {view === 'pm' && <PMView />}
       {view === 'pilot' && <PilotView />}
-      <Intake open={intake} setOpen={setIntake} reveal={(id) => (dispatch({ type: 'select', id }), setView('pm'), setIntake(false))} />
+      <Intake open={intake} setOpen={setIntake} scene3d={view === 'pilot' ? 'network' : view === 'client' ? 'building' : undefined} reveal={(id) => (dispatch({ type: 'select', id }), setView('pm'), setIntake(false))} />
     </div>
   )
 }

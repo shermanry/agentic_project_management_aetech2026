@@ -19,11 +19,13 @@ interface Props {
   openPilot: (id?: string) => void
   /** Go to a tab, optionally asking the guide a question on arrival. */
   goTo: (s: Start) => void
+  /** Open the Add page. */
+  onAdd: () => void
 }
 
 const two = (n: number) => String(n).padStart(2, '0')
 
-export default function OverviewView({ openPM, openClient, openPilot, goTo }: Props) {
+export default function OverviewView({ openPM, openClient, openPilot, goTo, onAdd }: Props) {
   const { state, dispatch, byId } = useGraph()
   const [comp, setComp] = useState<ComponentId>('roof')
   const { nodes, edges, candidates } = state
@@ -37,6 +39,7 @@ export default function OverviewView({ openPM, openClient, openPilot, goTo }: Pr
   if (!state.onboarding && !skipped)
     return (
       <Onboarding
+        onAdd={onAdd}
         onSkip={() => setSkipped(true)}
         onDone={(a, go) => {
           dispatch({ type: 'setOnboarding', onboarding: a })

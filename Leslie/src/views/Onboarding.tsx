@@ -53,9 +53,11 @@ const STEPS = [
 interface Props {
   onDone: (a: Answers, go: Start | null) => void
   onSkip: () => void
+  /** Open the Add page (drag and drop). */
+  onAdd: () => void
 }
 
-export default function Onboarding({ onDone, onSkip }: Props) {
+export default function Onboarding({ onDone, onSkip, onAdd }: Props) {
   const [step, setStep] = useState(0)
   const [ans, setAns] = useState<Partial<Answers>>({})
   const done = step >= STEPS.length
@@ -77,6 +79,15 @@ export default function Onboarding({ onDone, onSkip }: Props) {
           Skip
         </button>
       </header>
+
+      <div className="ob-drop">
+        <button className="ed-cta" onClick={onAdd}>
+          + Add files
+        </button>
+        <p>
+          <b>Have material already?</b> Drag files anywhere onto this page, at any time: emails, drawings, photos, notes. They are read and you choose where they go.
+        </p>
+      </div>
 
       {!done ? (
         <section className="ob-step" key={step}>

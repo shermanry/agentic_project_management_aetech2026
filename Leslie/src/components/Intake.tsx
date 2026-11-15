@@ -1,10 +1,11 @@
 // Drag and drop is native to the whole app: drop files anywhere and they go through the converter
 // service (Minh/converter), then wait in this drawer until someone places them in the graph.
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CAT } from '../data/sampleProject'
+import { CAT, COMPONENTS } from '../data/sampleProject'
 import { CONVERTER_PAGE, converterOnline, convertFiles, nodeKindFor } from '../features/converter'
 import { suggestFor } from '../features/organize'
-import { isParked, useGraph } from '../model/graph'
+import { isParked, useGraph, type DropHint, type Suggestion } from '../model/graph'
+import type { GraphNode } from '../data/sampleProject'
 
 const TEXT_FILE = /\.(txt|md|csv|json|log|xml|html?)$/i
 
@@ -13,9 +14,11 @@ interface Props {
   setOpen: (v: boolean) => void
   /** Show a node on the PM tab. */
   reveal: (id: string) => void
+  /** The current tab is a 3D view: dropping attaches to what is under the cursor and does not cover the scene. */
+  scene3d?: 'network' | 'building'
 }
 
-export default function Intake({ open, setOpen, reveal }: Props) {
+export default function Intake({ open, setOpen, reveal, scene3d }: Props) {
   const { state, dispatch, byId } = useGraph()
   const [online, setOnline] = useState<boolean>()
   const [dragging, setDragging] = useState(false)
@@ -25,16 +28,34 @@ export default function Intake({ open, setOpen, reveal }: Props) {
   const picker = useRef<HTMLInputElement>(null)
   const depth = useRef(0)
   const parked = state.nodes.filter(isParked)
+  const [notice, setNotice] = useState<string>()
+  const hint = state.dropHint
+  const hintRef = useRef<DropHint | undefined>(hint)
+  const sceneRef = useRef(scene3d)
+  useEffect(() => {
+    hintRef.current = hint
+    sceneRef.current = scene3d
+  })
+
+  /** What a drop target means in graph terms: the node to attach to. */
+  const attachFor = useCallback((h?: DropHint): GraphNode['attach'] => {
+    if (!h) return undefined
+    if (h.kind === 'node') return { id: h.id, label: h.label }
+    const first = COMPONENTS.find((c) => c.id === h.id)?.nodes[0]
+    return first ? { id: first, label: h.label } : undefined
+  }, [])
 
   useEffect(() => {
     void converterOnline().then(setOnline)
   }, [open])
 
   const addFiles = useCallback(
-    async (list: FileList | File[]) => {
+    async (list: FileList | File[], attach?: GraphNode['attach'], quiet = false) => {
       const files = Array.from(list)
       if (!files.length) return
-      setOpen(true)
+      // In a 3D view the scene stays visible: the new item appears where it was dropped.
+      if (!quiet) setOpen(true)
+      else setNotice(`Adding ${files.length} file${files.length === 1 ? '' : 's'}…`)
       setError(undefined)
       setBusy(files.length)
       const up = await converterOnline()
@@ -48,20 +69,38 @@ export default function Intake({ open, setOpen, reveal }: Props) {
               title: c.title,
               kind: nodeKindFor(c.kind),
               text: c.description || c.tags.join(', '),
-              pkg: { id: c.packageId, kind: c.kind, chunks: c.chunkCount, warnings: c.warnings, thumbnail: c.thumbnail },
+              pkg: {
+                id: c.packageId,
+                kind: c.kind,
+                chunks: c.chunkCount,
+                warnings: c.warnings,
+                thumbnail: c.thumbnail,
+              },
+              attach,
             })
         } else {
           // Converter not running: keep the demo usable. Plain-text files are read locally; others by name only.
           for (const f of files) {
             const readable = (f.type.startsWith('text/') || TEXT_FILE.test(f.name)) && f.size < 200_000
             const text = readable ? await f.text().catch(() => undefined) : undefined
-            dispatch({ type: 'addNode', title: f.name, kind: 'file', text, offline: true })
+            dispatch({
+              type: 'addNode',
+              title: f.name,
+              kind: 'file',
+              text,
+              offline: true,
+              attach,
+            })
           }
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'The converter could not read those files.')
       }
       setBusy(0)
+      if (quiet) {
+        setNotice(attach ? `Added next to ${attach.label}. Open + Add to place it.` : 'Added. Open + Add to place it.')
+        setTimeout(() => setNotice(undefined), 4200)
+      }
     },
     [dispatch, setOpen],
   )
@@ -87,7 +126,9 @@ export default function Intake({ open, setOpen, reveal }: Props) {
       e.preventDefault()
       depth.current = 0
       setDragging(false)
-      if (e.dataTransfer?.files.length) void addFiles(e.dataTransfer.files)
+      const attach = attachFor(hintRef.current)
+      dispatch({ type: 'setDropHint', hint: undefined })
+      if (e.dataTransfer?.files.length) void addFiles(e.dataTransfer.files, attach, !!sceneRef.current)
     }
     window.addEventListener('dragenter', enter)
     window.addEventListener('dragover', over)
@@ -99,14 +140,32 @@ export default function Intake({ open, setOpen, reveal }: Props) {
       window.removeEventListener('dragleave', leave)
       window.removeEventListener('drop', drop)
     }
-  }, [addFiles])
+  }, [addFiles, attachFor, dispatch])
 
   return (
     <>
-      {dragging && (
+      {dragging && !scene3d && (
         <div className="drop-veil" aria-hidden>
           <span className="ed-meta">{online === false ? 'Converter offline · files are added by name' : 'Converter'}</span>
           <span className="big">Drop to add to the project</span>
+        </div>
+      )}
+      {dragging && scene3d && (
+        <div className={`drop-bar ${hint ? 'on' : ''}`} aria-hidden>
+          {hint ? (
+            <>
+              Drop to attach to <b>{hint.label}</b>
+            </>
+          ) : scene3d === 'network' ? (
+            'Drop on a node to attach it there, or anywhere to add it'
+          ) : (
+            'Drop on a part of the building to attach it there'
+          )}
+        </div>
+      )}
+      {notice && !dragging && (
+        <div className="drop-bar on" role="status">
+          {notice}
         </div>
       )}
 
@@ -159,7 +218,12 @@ export default function Intake({ open, setOpen, reveal }: Props) {
               e.preventDefault()
               const t = note.trim()
               if (!t) return
-              dispatch({ type: 'addNode', title: t.length > 60 ? t.slice(0, 57) + '…' : t, kind: 'note', text: t })
+              dispatch({
+                type: 'addNode',
+                title: t.length > 60 ? t.slice(0, 57) + '…' : t,
+                kind: 'note',
+                text: t,
+              })
               setNote('')
             }}
           >
@@ -182,10 +246,24 @@ export default function Intake({ open, setOpen, reveal }: Props) {
           {parked.length ? (
             <ul className="ed-rows">
               {parked.map((n) => {
-                const sg = suggestFor(n, state.nodes)
+                const base = suggestFor(n, state.nodes)
+                const target = n.attach ? byId(n.attach.id) : undefined
+                // Dropped onto something in 3D: that is the strongest signal of where it belongs.
+                const sg: Suggestion = target
+                  ? {
+                      category: target.category ?? base.category,
+                      confidence: 0.9,
+                      links: [{ target: target.id, relation: 'relates to' }],
+                      reason: `Dropped on ${n.attach!.label}`,
+                    }
+                  : base
                 return (
                   <li key={n.id} className="intake-row">
-                    {n.pkg?.thumbnail ? <img src={n.pkg.thumbnail} alt="" /> : <span className="ph">{(n.pkg?.kind ?? n.kind).replace(/_.*/, '').slice(0, 5)}</span>}
+                    {n.pkg?.thumbnail ? (
+                      <img src={n.pkg.thumbnail} alt="" />
+                    ) : (
+                      <span className="ph">{(n.pkg?.kind ?? n.kind).replace(/_.*/, '').slice(0, 5)}</span>
+                    )}
                     <div className="grow">
                       <button className="t" onClick={() => reveal(n.id)} title="Show in the project tree">
                         {n.title}
@@ -195,14 +273,18 @@ export default function Intake({ open, setOpen, reveal }: Props) {
                         {n.pkg && n.pkg.warnings > 0 ? ` · ${n.pkg.warnings} warning${n.pkg.warnings === 1 ? '' : 's'}` : ''}
                       </span>
                       <span className="sg" title={sg.reason}>
-                        Suggested: <b>{CAT[sg.category].label}</b> {Math.round(sg.confidence * 100)}%
+                        {target ? `Dropped on ${n.attach!.label}: ` : 'Suggested: '}
+                        <b>{CAT[sg.category].label}</b> {Math.round(sg.confidence * 100)}%
                         {sg.links[0] ? ` · ${sg.links[0].relation} ${byId(sg.links[0].target)?.title}` : ''}
                       </span>
                       <span className="acts">
                         <button
                           className="ed-link plain"
                           onClick={() => {
-                            dispatch({ type: 'setSuggestions', suggestions: { [n.id]: sg } })
+                            dispatch({
+                              type: 'setSuggestions',
+                              suggestions: { [n.id]: sg },
+                            })
                             dispatch({ type: 'applySuggestion', id: n.id })
                           }}
                         >

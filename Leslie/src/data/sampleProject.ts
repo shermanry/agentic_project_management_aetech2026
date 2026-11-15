@@ -47,6 +47,8 @@ export interface GraphNode {
   pos3d: [number, number, number]
   /** Set when the node came from the converter service. */
   pkg?: { id: string; kind: string; chunks: number; warnings: number; thumbnail?: string }
+  /** Set when the item was dropped onto something in a 3D view: the node it should attach to. */
+  attach?: { id: string; label: string }
 }
 
 export interface GraphEdge {

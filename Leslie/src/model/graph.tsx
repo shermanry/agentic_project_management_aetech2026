@@ -56,18 +56,27 @@ export interface GraphState {
   /** Organizer output per parked node id. */
   suggestions: Record<string, Suggestion>
   onboarding?: Onboarding
+  /** While files are dragged over a 3D view: what they would attach to if dropped now. */
+  dropHint?: DropHint
+}
+
+export interface DropHint {
+  kind: 'node' | 'component'
+  id: string
+  label: string
 }
 
 type Action =
   | { type: 'select'; id?: string }
   | { type: 'setQuery'; query: string }
   | { type: 'setOnboarding'; onboarding?: Onboarding }
+  | { type: 'setDropHint'; hint?: DropHint }
   | { type: 'setFilter'; filter: Filter }
   | { type: 'move'; id: string; x: number; y: number }
   | { type: 'resetLayout' }
   | { type: 'accept'; id: string }
   | { type: 'dismiss'; id: string }
-  | { type: 'addNode'; title: string; kind: GraphNode['kind']; text?: string; pkg?: GraphNode['pkg']; offline?: boolean }
+  | { type: 'addNode'; title: string; kind: GraphNode['kind']; text?: string; pkg?: GraphNode['pkg']; offline?: boolean; attach?: GraphNode['attach'] }
   | { type: 'setSuggestions'; suggestions: Record<string, Suggestion> }
   | { type: 'applySuggestion'; id: string }
   | { type: 'dropSuggestion'; id: string }
@@ -81,6 +90,8 @@ function reducer(s: GraphState, a: Action): GraphState {
       return { ...s, selectedId: a.id }
     case 'setQuery':
       return { ...s, query: a.query }
+    case 'setDropHint':
+      return s.dropHint?.id === a.hint?.id && s.dropHint?.kind === a.hint?.kind ? s : { ...s, dropHint: a.hint }
     case 'setOnboarding':
       saveOnboarding(a.onboarding)
       return { ...s, onboarding: a.onboarding }
@@ -119,7 +130,8 @@ function reducer(s: GraphState, a: Action): GraphState {
     }
     case 'addNode': {
       const inInbox = s.nodes.filter((n) => n.category === null).length
-      const id = `local-${Date.now().toString(36)}`
+      const id = `local-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`
+      const near = a.attach ? s.nodes.find((n) => n.id === a.attach!.id)?.pos3d : undefined
       const node: GraphNode = {
         id,
         title: a.title,
@@ -132,13 +144,15 @@ function reducer(s: GraphState, a: Action): GraphState {
           ? { kind: 'converter', name: `Converter · ${a.pkg.kind.replace(/_/g, ' ')} · ${a.pkg.chunks} chunks` }
           : { kind: 'local', name: a.kind === 'note' ? 'Typed note' : a.offline ? 'Added by name (converter offline)' : 'Dropped file (name only)' },
         pkg: a.pkg,
+        attach: a.attach,
         owner: 'You (local)',
         updatedAt: new Date().toISOString().slice(0, 10),
         verification: 'Unreviewed',
         importance: 'low',
         openQuestion: 'Parked. Organize it into the graph, or remove it.',
         canvas: { x: 1170, y: 340 + 135 * inInbox },
-        pos3d: [-200 + Math.random() * 60, -150 + Math.random() * 40, 150],
+        // dropped onto a node in 3D: appear right next to it; otherwise in the parked corner
+        pos3d: near ? [near[0] + 26 + inInbox * 6, near[1] + 22, near[2] + 26] : [-200 + Math.random() * 60, -150 + Math.random() * 40, 150],
       }
       return {
         ...s,

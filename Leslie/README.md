@@ -31,8 +31,9 @@ Changes (accepted links, moved cards, added notes) live only in the browser tab.
 - **Onboarding (Overview):** first-time visitors answer three questions (role, first goal, familiarity) and get a suggested starting tab. Answers are stored in the browser only and can be retaken from the Overview.
 
 ## Adding files (drag and drop + converter)
-Drag and drop works anywhere in the app. Dropped files are sent to the **converter** in [`../Minh/converter`](../Minh/converter), which turns each file into an embedding-ready package (text, images, audio, video chunks plus metadata). YBuild adds one node per package and shows it in the **+ Add** drawer under "Waiting to be placed", with a suggested category and link. Nothing joins the graph until you accept.
+Drag and drop works anywhere in the app. Dropped files are sent to the **converter** in [`../Minh/converter`](../Minh/converter), which turns each file into an embedding-ready package (text, images, audio, video chunks plus metadata). YBuild adds one node per package and shows it on the **+ Add** page under "Waiting to be placed", with a suggested category and link. Nothing joins the graph until you accept.
 
+- **Dropping in 3D:** on the Expert tab, drop a file onto a node and it attaches to that node (the node highlights as you drag, and the new item appears next to it). On the Client tab, drop onto a part of the building. The scene stays visible; a bar at the bottom says what the file will attach to. Elsewhere a drop opens the full-screen **+ Add** page.
 - Start the converter first (from `Minh/`): `python -m converter serve` (port 8765). In development Vite proxies `/api` and `/files` to it; set `VITE_CONVERTER_URL` to use another address.
 - If the converter is not running, files are still added by name (plain-text files are read locally) and the drawer says "Converter offline".
 - The placement suggestions come from `src/features/organize.ts`, a local keyword stand-in for an LLM. The converter itself only converts; it does not decide where things belong.

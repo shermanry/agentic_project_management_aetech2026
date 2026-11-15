@@ -6,7 +6,7 @@ import { generateDesignBrief } from '../features/generateDesignBrief'
 import { useGraph } from '../model/graph'
 
 export default function ClientView({ initial }: { initial?: ComponentId }) {
-  const { state, byId } = useGraph()
+  const { state, dispatch, byId } = useGraph()
   const [comp, setComp] = useState<ComponentId | undefined>(initial ?? 'north')
   const [openNode, setOpenNode] = useState<string>()
   const [labels, setLabels] = useState(true)
@@ -16,7 +16,27 @@ export default function ClientView({ initial }: { initial?: ComponentId }) {
   const c = COMPONENTS.find((x) => x.id === comp)
 
   return (
-    <div className="twin">
+    <div
+      className="twin"
+      onDragOver={(e) => {
+        // Dragging a file over the building: the nearest part lights up and becomes the drop target.
+        if (!Array.from(e.dataTransfer.types).includes('Files')) return
+        let best: { id: ComponentId; d: number } | undefined
+        e.currentTarget.querySelectorAll<HTMLElement>('.comp-tag[data-comp]').forEach((el) => {
+          const r = el.getBoundingClientRect()
+          const d = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2))
+          if (d < 170 && (!best || d < best.d)) best = { id: el.dataset.comp as ComponentId, d }
+        })
+        if (best) {
+          const part = COMPONENTS.find((x) => x.id === best!.id)!
+          if (comp !== part.id) setComp(part.id)
+          dispatch({ type: 'setDropHint', hint: { kind: 'component', id: part.id, label: part.label } })
+        } else dispatch({ type: 'setDropHint', hint: undefined })
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) dispatch({ type: 'setDropHint', hint: undefined })
+      }}
+    >
       <div className="twin-canvas">
         <BuildingScene mono selected={comp} onSelect={(id) => (setComp(id), setOpenNode(undefined))} labels={labels} orbit={orbit} preset={preset} />
       </div>
@@ -24,11 +44,11 @@ export default function ClientView({ initial }: { initial?: ComponentId }) {
       <div className="hud">
         <div className="hud-col left">
           <section className="glass">
-            <div className="eyebrow">
-              {PROJECT.code} · Building explorer
-            </div>
+            <div className="eyebrow">{PROJECT.code} · Building explorer</div>
             <h1 className="site-name">{PROJECT.name}</h1>
-            <div className="coords">{PROJECT.title} · {PROJECT.city}</div>
+            <div className="coords">
+              {PROJECT.title} · {PROJECT.city}
+            </div>
             <p className="disclaimer">Illustrative model, not a scan. Sample data.</p>
             <button className="btn primary wide" onClick={() => setBrief(generateDesignBrief(state))}>
               Generate design brief
@@ -71,7 +91,7 @@ export default function ClientView({ initial }: { initial?: ComponentId }) {
               Auto-orbit
             </label>
             <span className="sep hint" />
-            <span className="dim small hint">Click a surface</span>
+            <span className="dim small hint">Click a surface, or drop a file on it</span>
           </div>
         </div>
 
@@ -180,7 +200,10 @@ function BriefModal({ md, onClose }: { md: string; onClose: () => void }) {
 /** Tiny Markdown renderer for the brief preview (headings, lists, bold/italic, quotes). */
 function renderMd(md: string) {
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
-  const inline = (s: string) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>')
+  const inline = (s: string) =>
+    esc(s)
+      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+      .replace(/\*(.+?)\*/g, '<i>$1</i>')
   const out: string[] = []
   let list = 0
   const close = (to: number) => {

@@ -67,7 +67,7 @@ export default function NetworkScene({ labels, focus, showProposed, orbit, reset
               <meshBasicMaterial color={mono ? '#000000' : c.color} transparent opacity={mono ? 0.025 : light ? 0.07 : 0.05} depthWrite={false} />
             </mesh>
             {labels && !compact && (
-              <Html position={[0, -(40 + count * 8), 0]} center style={{ pointerEvents: 'none' }}>
+              <Html zIndexRange={[5, 0]} position={[0, -(40 + count * 8), 0]} center style={{ pointerEvents: 'none' }}>
                 <div className="cluster-tag" style={{ color: mono ? '#6b6b6b' : c.color }}>
                   {c.label}
                 </div>
@@ -130,7 +130,7 @@ export default function NetworkScene({ labels, focus, showProposed, orbit, reset
               </mesh>
             )}
             {labels && (
-              <Html position={[0, r + 8, 0]} center>
+              <Html zIndexRange={[5, 0]} position={[0, r + 8, 0]} center>
                 {/* selected / dimmed styling comes from a stylesheet in PilotView, keyed on data-id */}
                 <button
                   type="button"
