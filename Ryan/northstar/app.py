@@ -23,6 +23,7 @@ import livefeeds
 import brief
 import links
 import pipeline
+import projects
 import qa
 import seed
 from replay import Replay
@@ -38,6 +39,8 @@ for d in (UPLOADS, PACKAGES):
 MODE = os.environ.get("NORTHSTAR_MODE", "project").lower()
 DEMO_URL = os.environ.get("DEMO_URL", "http://localhost:8200")
 store = Store(os.environ.get("DATABASE_URL", "postgresql://drone:drone@localhost:5433/drone"), seed.PROJECT)
+# The live feeds watch New York airspace, weather and rules for the facade survey. Other example projects run without them.
+PROJECT_FEEDS = bool((projects.entry(seed.PROJECT["id"]) or {"feeds": True}).get("feeds", True))
 app = FastAPI(title="North star intake")
 replay: Replay = None  # type: ignore  (created at startup, once notify works)
 feeds: livefeeds.LiveFeeds | None = None
@@ -59,21 +62,21 @@ async def _startup() -> None:
     global _loop, _seed_warning, replay, feeds
     _loop = asyncio.get_running_loop()
     feeds = livefeeds.LiveFeeds(store, notify, submit_text, DATA)
-    replay = Replay(store, DATA, PACKAGES, notify, _approve, feeds, enabled=MODE == "demo")
+    replay = Replay(store, DATA, PACKAGES, notify, _approve, feeds if PROJECT_FEEDS else None, enabled=MODE == "demo")
     if MODE == "demo":                                     # presentation app: the replay drives the graph
-        feeds.gate = lambda: not replay.in_setup()         # no feed nodes while the replay is still adding the project's own
+        feeds.gate = lambda: PROJECT_FEEDS and not replay.in_setup()   # no feed nodes while the replay is still adding the project's own
         if store.empty() and replay.fresh:
             await asyncio.to_thread(replay.goto, "setup")
     else:                                                  # working project: no replay; feeds only in the full example
-        feeds.gate = lambda: replay.template == "full"
+        feeds.gate = lambda: PROJECT_FEEDS and replay.template == "full"
         if store.empty() and replay.fresh:
-            await asyncio.to_thread(replay.start_project, "starter")
+            await asyncio.to_thread(replay.start_project, os.environ.get("NORTHSTAR_TEMPLATE", "starter"))
     _seed_warning = replay.warning
     await asyncio.to_thread(replay.ensure_setup_nodes)     # e.g. building parts added to the seed after this project was set up
     await asyncio.to_thread(store.sweep)
     await asyncio.to_thread(analysis.load_active, store)   # approved rules from earlier analysis runs
     await asyncio.to_thread(feeds.sync_custom)             # feeds people added earlier
-    if os.environ.get("FEEDS_ENABLED", "1").lower() not in ("0", "false", "no"):
+    if PROJECT_FEEDS and os.environ.get("FEEDS_ENABLED", "1").lower() not in ("0", "false", "no"):
         feeds.start()   # polls weather, airspace, rules, city events on their cadences
     threading.Thread(target=pipeline.warm_up, args=(DATA / "warmup",), daemon=True).start()
     threading.Thread(target=pipeline.index_missing, args=(store, PACKAGES, notify), daemon=True).start()
@@ -573,6 +576,12 @@ def neighbours(node_id: str, direction: str = "any", depth: int = 2) -> dict:
         raise HTTPException(404, "No such node")
     depth = max(1, min(depth, 6))
     return {"node_id": node_id, "direction": direction, "depth": depth, "nodes": store.neighbours(node_id, direction, depth)}
+
+
+@app.get("/api/projects")
+def project_list() -> dict:
+    """The example projects (projects.json): which one this app is, and which others are running on their ports."""
+    return {"current": seed.PROJECT["id"], "projects": projects.listing(seed.PROJECT["id"])}
 
 
 @app.get("/api/brief")

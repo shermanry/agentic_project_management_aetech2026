@@ -127,6 +127,7 @@ img.prev{max-width:100%;max-height:150px;border-radius:6px;margin-top:8px;border
 <body>
 <header>
   <h1 id="pname">Project</h1>
+  <select id="proj" hidden title="Switch to another example project" aria-label="Switch project"></select>
   <div class="meta" id="meta"></div>
   <label>You are <select id="who"></select></label>
   <button id="rulesb" title="See rules and ask the analysis loop to suggest new ones">Rules</button>
@@ -605,6 +606,11 @@ es.onmessage = async m => { const ev = JSON.parse(m.data);
   if (ev.type === "ready" && ev.id !== S.replay.item_id) toast(`Ready to review: ${ev.title} (${ev.seconds}s)`, () => { const it = S.items.find(i => i.id === ev.id); if (it) { selItem = it.id; selNode = null; startDraft(it); render(); } });
 };
 refresh();
+/* example projects: each runs as its own copy of the app; the menu jumps to another one */
+(async () => { try { const ps = (await api("/api/projects")).projects || []; if (ps.length < 2) return; const sel = $("#proj");
+  sel.innerHTML = ps.map(p => `<option value="${p.port}" ${p.current ? "selected" : ""} ${p.current || p.running ? "" : "disabled"}>${esc(p.name)}${p.current || p.running ? "" : p.available ? " · not running" : " · not installed"}</option>`).join("");
+  sel.hidden = false; $("#pname").hidden = true; sel.style.fontWeight = "600"; sel.style.fontSize = "15px";
+  sel.onchange = () => { location.href = `${location.protocol}//${location.hostname}:${sel.value}/`; }; } catch {} })();
 </script>
 </body>
 </html>

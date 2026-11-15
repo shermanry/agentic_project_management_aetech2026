@@ -92,3 +92,38 @@ PART_EDGES = [
 
 def card_text(n: dict) -> str:
     return f"{n['title']}. {n.get('summary', '')} Tags: {', '.join(n.get('tags', []))}"
+
+
+# ---------------------------------------------------------------- example projects
+# NORTHSTAR_PROJECT picks another project from projects.json. Its seed file replaces the tables above, so every
+# place that reads seed.NODES, seed.PROJECT and so on gets the chosen project without knowing about it.
+SCENARIO = None                                                       # None = the facade story in replay.py
+STARTER_REFS = ["site", "drone_4a", "flight_plan", "permit", "flight_thu"]
+
+
+def _load_project() -> None:
+    import importlib.util
+    import os
+
+    import projects
+    pid = os.environ.get("NORTHSTAR_PROJECT", "").strip()
+    if not pid or pid == PROJECT["id"]:
+        return
+    p = projects.entry(pid)
+    if not p:
+        raise SystemExit(f"NORTHSTAR_PROJECT={pid} is not in projects.json")
+    path = projects.seed_path(p)
+    if not path.is_file():
+        raise SystemExit(f"Project '{pid}' needs its seed file, which is not on disk: {path}")
+    spec = importlib.util.spec_from_file_location("project_seed", path)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    g = globals()
+    for k in ("PROJECT", "PEOPLE", "NODES", "EDGES"):
+        g[k] = getattr(m, k)
+    g["PARTS"], g["PART_EDGES"] = getattr(m, "PARTS", []), getattr(m, "PART_EDGES", [])
+    g["SCENARIO"] = getattr(m, "SCENARIO", None)
+    g["STARTER_REFS"] = getattr(m, "STARTER_REFS", [n["ref"] for n in g["NODES"][:5]])
+
+
+_load_project()

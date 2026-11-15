@@ -84,6 +84,24 @@ A link can change other nodes. If the new link makes something depend on a node 
 
 Endpoints: `POST /api/edges/suggest` and `POST /api/edges/preview` save nothing; `POST /api/edges` adds the link. All take `{source, target, type, reason, by}` where `source` is the "from" node. The logic is in `links.py`.
 
+## Example projects and switching between them
+
+Each example project runs as **its own copy of the app**, with its own port, database and data folder, so one can never disturb another. The list is in `projects.json`.
+
+| Project | Start it | Opens at |
+| --- | --- | --- |
+| East Tower facade survey (the default) | the usual `uvicorn app:app --port 8100`, or `./run_project.sh east-tower` | http://localhost:8100/app/ |
+| Rooftop shell: aerial AM pilot (Ecem's manufacturing card) | `./run_project.sh rooftop-shell` | http://localhost:8110/app/ |
+
+- `./run_project.sh` with no name lists the projects and which are running.
+- **Switching:** when more than one is running, a **Project** menu appears in the top bar of `/app` (and in the header of the graph page). Picking a project opens the same tab on that project. A project that is not running is listed but greyed out.
+- The first start of a project creates its database and loads its seed. Postgres from `docker-compose.yml` must be up.
+- The rooftop shell needs `Ecem/manufacturing-card/seed_manufacturing.py`, which arrives with PR #3. Until then it shows as "not installed".
+
+**Adding a project:** write a seed file with the same shape as `seed.py` (`PROJECT`, `PEOPLE`, `NODES`, `EDGES`; optionally `PARTS`, `PART_EDGES`, a replay `SCENARIO` and `STARTER_REFS`), then add a line to `projects.json` with an unused port and database name. Set `"feeds": false` unless the New York live feeds make sense for it.
+
+How it works: `NORTHSTAR_PROJECT` picks the project; `seed.py` then loads that project's seed file in place of its own tables, so the rest of the app is unchanged. `GET /api/projects` returns the list for the menu.
+
 ## Querying the graph (for other features to build on)
 
 Three read-only endpoints. None of them calls a language model.
@@ -146,6 +164,7 @@ drop / paste / chat
 | `db/001_schema.sql` | Vendored copy of Sharare's decision-engine schema (branch `sharare/decision-engine`, commit d1d0b9d). Delete once that branch is merged and mount hers instead |
 | `db/020_search.sql` | Keyword-search and edge indexes, applied at every startup |
 | `db/010_northstar.sql` | One extra table, `intake_items`: things being processed or waiting for review |
+| `projects.json`, `projects.py`, `run_project.sh` | The example projects, their settings, and the launcher |
 | `brief.py` | Design brief generator for the Client tab |
 | `links.py` | Connecting two existing nodes: signals, Jev suggestions, dry-run effects |
 | `qa.py` | Question answering over the graph with cited sources |
@@ -205,6 +224,7 @@ Settings (environment or `.env`): `DATABASE_URL`, `FEEDS_ENABLED`, `MONITOR_SITE
 | GET | `/api/nodes/{id}` | Node detail: text, source, passages, links, flags, history |
 | GET | `/api/nodes/{id}/neighbours` | Graph walk: `affects`, `rests_on` or `any`, to a depth |
 | POST | `/api/edges/suggest`, `/api/edges/preview`, `/api/edges` | Suggest, dry-run and add a link between two existing nodes |
+| GET | `/api/projects` | The example projects, which one this app is, and which others are running |
 | GET | `/api/brief` | Draft design brief in Markdown, templated from the live record (no model call). Used by the Client tab |
 | POST | `/api/ask` | `{question}` -> answer, cited sources with quotes, timings. Saves nothing |
 | POST | `/api/nodes/{id}/resolve` | Mark a blocker, discovery or constraint resolved; clears the flags it raised |

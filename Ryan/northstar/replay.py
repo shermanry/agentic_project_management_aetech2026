@@ -72,6 +72,11 @@ TEMPLATES = {
     "starter": {"label": "Starter: site, drone, flight plan, permit, flight", "refs": ["site", "drone_4a", "flight_plan", "permit", "flight_thu"]},
     "full": {"label": "Full example: every project node, building parts and live feeds", "refs": None},
 }
+if seed.SCENARIO is not None:                # another example project (projects.json) brings its own story
+    SCENARIO = seed.SCENARIO
+if seed.PROJECT["id"] != "east-tower":
+    TEMPLATES["starter"] = {"label": "Starter: the first few project nodes", "refs": seed.STARTER_REFS}
+    TEMPLATES["full"] = {"label": "Full example: every project node", "refs": None}
 
 
 class Replay:

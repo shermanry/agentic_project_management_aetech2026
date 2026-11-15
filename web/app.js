@@ -138,6 +138,7 @@ function render() {
     <nav class="crumbs"><span>Projects</span><span class="sl">›</span><b>${esc(S.project.name)}</b><span class="sl">›</span><span>${CRUMB[tab]}</span></nav>
     <nav class="seg views">${TABS.map(([id, l]) => `<button class="${id === tab ? 'on' : ''}" data-act="tab" data-id="${id}">${l}${counts[id] ? `<sup class="tab-count">${counts[id]}</sup>` : ''}</button>`).join('')}</nav>
     <div class="status-area">
+      ${projectMenu()}
       <div class="add-wrap"><button class="add-btn" data-act="addmenu" aria-haspopup="menu" aria-expanded="${ui.addMenu ? 'true' : 'false'}">+ Add${D.open.length ? `<sup class="tab-count">${D.open.length}</sup>` : ''} <span class="caret">▾</span></button>
         ${ui.addMenu ? `<div class="add-menu${ui.addLeft ? ' from-left' : ''}" role="menu">
           <button role="menuitem" data-act="pickfiles"><b>Files</b><small>One or more files from this computer</small></button>
@@ -161,6 +162,16 @@ function render() {
 }
 const clock = () => new Date().toLocaleTimeString('en-US', {timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false});
 setInterval(() => { const c = $('#clock'); if (c) c.textContent = clock(); }, 20000);
+
+/* Example projects each run as their own copy of the app (Ryan/northstar/projects.json). The menu jumps to the
+   same tab of another one; a project that is not running is listed but cannot be picked. */
+let P = [];
+async function loadProjects() { try { P = (await api('/api/projects')).projects || []; } catch { P = []; } }
+function projectMenu() {      // in the status area: the design hides the breadcrumb, so the menu sits beside "As"
+  if (P.length < 2) return '';
+  return `<label class="who">Project <select class="proj" data-change="project" aria-label="Switch project" title="Switch to another example project">${P.map(p =>
+    `<option value="${p.port}" ${p.current ? 'selected' : ''} ${p.current || p.running ? '' : 'disabled'}>${esc(p.name)}${p.current || p.running ? '' : p.available ? ' · not running' : ' · not installed'}</option>`).join('')}</select></label>`;
+}
 
 function presenterBar() {
   const sc = (S.feeds && S.feeds.scenarios) || [];
@@ -795,6 +806,7 @@ document.addEventListener('input', e => {
 document.addEventListener('change', async e => {
   const t = e.target;
   if (t.closest('[data-feedform]') && ui.feed && t.name) { ui.feed[t.name] = t.value; if (t.name === 'kind') render(); }
+  else if (t.dataset.change === 'project') { location.href = `${location.protocol}//${location.hostname}:${t.value}/app/${location.search}${location.hash}`; }
   else if (t.dataset.change === 'who') { ui.who = t.value; try { localStorage.setItem('yb.who', ui.who); } catch {} }
   else if (t.dataset.change === 'inject' && t.value) { try { await post('/api/feeds/inject/' + t.value); toast('Simulated: ' + t.value.replace(/_/g, ' ')); } catch (err) { toast(err.message); } await refresh(); render(); }
 });
@@ -857,5 +869,6 @@ es.onopen = () => setLive(true); es.onerror = () => setLive(false);
 let deb; es.onmessage = () => { clearTimeout(deb); deb = setTimeout(refresh, 150); };
 setInterval(refresh, 20000);
 const UIX = window.makeUIX({ui, esc, $, api, post, render, toast, inspector, loadDetail, CATS, CAT_ORDER, UNCL, PRESENTER});   // the UI/UX design's additions (uix.js)
-route(); refresh();
+route(); loadProjects().then(() => { if (S) render(); }); refresh();
+setInterval(() => loadProjects().then(() => { if (S && !dirty) safeRender(); }), 30000);
 })();
