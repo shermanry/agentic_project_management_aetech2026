@@ -11,7 +11,7 @@ The one interaction from [plan.md](../plan.md), section 1, working end to end:
 
 The bar above the graph steps through the whole project from an **empty graph**, one thing at a time:
 
-1. **Setup (13 presses):** the project's own nodes are added one per press, in the order of `seed.py`: the site, the drones, the flight plan, the wind limit, the permit package, the flight, and so on, each bringing its links to what is already there. The last setup press connects the live data feeds.
+1. **Setup (18 presses):** the project's own nodes are added one per press, in the order of `seed.py`: the site, the drones, the flight plan, the wind limit, the permit package, the flight, and so on, then the five building parts, each bringing its links to what is already there. The last setup press connects the live data feeds.
 2. **The story (7 steps, 2 presses each):** notice to proceed, site visit findings, insurance delay, the airspace rule change, one flyable day, "drone 4a needs maintenance", and the image metadata problem. The first press brings the item in (it runs through the real pipeline and shows as a proposed placement with its effects); the second, labelled **Approve**, approves it.
 
 - **Forward / Back** move one press at a time; left and right arrow keys do the same. Back goes all the way to the empty project.
@@ -31,6 +31,18 @@ The box under the graph answers questions from what is in the graph, and shows w
 - Questions and answers are not saved to the graph.
 
 Limits: at most 12 sources reach Jev, so a fact buried in a long document can still be missed, and documents added before this feature are indexed in the background at startup. Images inside documents are not searched.
+
+## The building and its parts
+
+The project has five building-part nodes (east elevation, north façade, upper façade, roof and parapet, podium and entrance), tagged `building-part` and linked `part_of` the site. The flight, the flight plan, the wind limit, RFI #12 and the facade model are linked `about` the parts they concern, and new items that mention a part ("rooftop mechanical units", "north elevation") get linked to it by Jev.
+
+A part has no status of its own. `GET /api/parts` (also `parts` in `/api/state`) rolls up everything linked to it:
+
+- **red** if something about it is blocked or at risk,
+- **amber** if a decision about it is re-opened, or there is an open finding or blocker about it,
+- otherwise **none**; plus the list of linked items with their status and the reason for each link.
+
+The page shows this as a small massing of the tower in the left column: each face is a part, coloured from the roll-up, and clicking it opens the part with "At this part of the building". Any other front end (the 3D building in Leslie's prototype, for instance) can colour itself from the same call. The parts are placeholders modelled on Leslie's overview page; the drone experts should say which parts matter.
 
 ## Querying the graph (for other features to build on)
 
@@ -144,6 +156,7 @@ Settings (environment or `.env`): `DATABASE_URL`, `FEEDS_ENABLED`, `MONITOR_SITE
 | GET | `/api/feeds` | Live data monitors: site, last and next run, errors, demo scenarios |
 | POST | `/api/feeds/run?only=` | Run monitors now (all, or a comma-separated list) |
 | POST | `/api/feeds/inject/{scenario}` | Demo: push a canned feed change through the real path |
+| GET | `/api/parts` | Building parts with a red / amber / none level rolled up from linked nodes |
 | GET | `/api/search` | Hybrid search with filters; no model call. See "Querying the graph" |
 | GET | `/api/nodes/{id}` | Node detail: text, source, passages, links, flags, history |
 | GET | `/api/nodes/{id}/neighbours` | Graph walk: `affects`, `rests_on` or `any`, to a depth |

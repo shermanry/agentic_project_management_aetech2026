@@ -64,6 +64,8 @@ Return ONE JSON object with exactly these keys:
       discovery or constraint (e.g. "maintenance is done" supersedes the node saying maintenance is needed)
   Link to the most specific node. If equipment or a person is unavailable, link "blocks" to that entity node only;
   the system works out what depends on it. Never invent ids.
+  If the item concerns a specific part of the building (a facade or elevation, the roof, the podium, a level), also
+  link "about" to that building-part node when it is among the CANDIDATES.
 - "confidence": 0-1, how sure you are about type and links overall
 - "needs_deeper_read": true only if the material given is too thin to judge (e.g. unreadable file, no text, no image)
 - "missing_details": one short question for the user if a key fact is missing (what exactly, until when, who), else null

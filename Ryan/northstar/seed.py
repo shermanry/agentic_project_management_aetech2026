@@ -52,6 +52,43 @@ EDGES = [
     ("wind_limit", "weather", "about", "Checked against the forecast"),
 ]
 
+# Parts of the building (after Leslie's YBuild overview). Kept in their own list and added AFTER NODES during
+# setup, so the ids of the nodes above never change (cached replay steps link to them by id).
+PARTS = [
+    dict(ref="part_east", type="entity", title="East elevation", owner="Sam", tags=["building-part", "facade", "east"],
+         summary="East face of the tower, the main survey target. Gusts funnel along it; curtain wall with vertical fins.",
+         data={"aliases": ["east elevation", "east facade", "east façade", "east face", "east side"], "part": "east"}),
+    dict(ref="part_north", type="entity", title="North façade", owner="Sam", tags=["building-part", "facade", "north"],
+         summary="North face of the tower, in scope. Narrow street canyon below; observed from the north observation point.",
+         data={"aliases": ["north facade", "north façade", "north elevation", "north face", "north side"], "part": "north"}),
+    dict(ref="part_upper", type="entity", title="Upper façade, levels 10 and above", owner="Sam", tags=["building-part", "facade", "upper"],
+         summary="Upper curtain wall, including level 14 where the contractor asked about mullion spacing.",
+         data={"aliases": ["upper facade", "upper façade", "upper levels", "level 14"], "part": "upper"}),
+    dict(ref="part_roof", type="entity", title="Roof and parapet", owner="Sam", tags=["building-part", "roof"],
+         summary="Roof, parapet and rooftop mechanical units. A possible source of compass interference and wind exposure.",
+         data={"aliases": ["roof", "rooftop", "parapet", "mechanical units"], "part": "roof"}),
+    dict(ref="part_entrance", type="entity", title="Podium and ground-level entrance", owner="Mary", tags=["building-part", "ground"],
+         summary="Podium roof and street-level entrance. Candidate take-off and landing spot; pedestrians below.",
+         data={"aliases": ["podium", "podium roof", "entrance", "street level", "ground level"], "part": "entrance"}),
+]
+
+PART_EDGES = [
+    ("part_east", "site", "part_of", "East face of the tower"),
+    ("part_north", "site", "part_of", "North face of the tower"),
+    ("part_upper", "site", "part_of", "Upper levels of the tower"),
+    ("part_roof", "site", "part_of", "Top of the tower"),
+    ("part_entrance", "site", "part_of", "Base of the tower"),
+    ("flight_thu", "part_east", "about", "Maps the east elevation"),
+    ("flight_plan", "part_east", "about", "Flight paths along the east face"),
+    ("flight_plan", "part_north", "about", "Adds a north observation point"),
+    ("flight_plan", "part_entrance", "about", "Take-off and landing spots"),
+    ("wind_limit", "part_east", "about", "Set because gusts funnel along the east face"),
+    ("rfi12", "part_upper", "about", "Mullion spacing on level 14"),
+    ("rfi12", "part_east", "about", "East facade curtain wall"),
+    ("facade_model", "part_east", "about", "Models the east facade"),
+    ("facade_model", "part_north", "about", "Models the north facade"),
+]
+
 
 def card_text(n: dict) -> str:
     return f"{n['title']}. {n.get('summary', '')} Tags: {', '.join(n.get('tags', []))}"

@@ -140,7 +140,7 @@ Things a hand-built page on sample data can't do, that every component can get f
 | Component designs | **Exist** as prototypes: Leslie's React app (`uix-design`), Elcin's `web/` on the live API, Grant's pages |
 | A catalogue with declared data shapes | Missing. The components exist but each fetches and shapes its own data |
 | View spec format and renderer | Missing. `web/app.js` is close: its pages already read `/api/state`; they are hand-written, not spec-driven |
-| Building parts in the graph | Missing. The seed has one "site" node. Section 2 of the example needs a node per part and `about` links from evidence. The converter already extracts `level` and `elevation` names and GPS, which is enough to propose those links |
+| Building parts in the graph | **Exists** (added after this was first written): five part nodes, `about` links, and `GET /api/parts` rolling flags up to a red / amber / none level per part. Still missing: linking photos to parts from their GPS and altitude |
 | Analyst, binder, critic | Missing. The analysis loop exists for rules (`analysis.py`); view specs would be a second output |
 | Feed readings as queryable data | Partly. Feed events exist; "per day, against the limit" needs a small endpoint |
 

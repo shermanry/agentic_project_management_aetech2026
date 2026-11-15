@@ -71,12 +71,17 @@ class Replay:
         self.store, self.out_root, self.notify, self.approve, self.feeds = store, out_root, notify, approve, feeds
         self.state_file, self.cache_file = data / "replay_state.json", data / "replay_cache.json"
         self.lock = threading.Lock()
-        self.setup = [{"kind": "node", "node": n} for n in seed.NODES] + ([{"kind": "feeds"}] if feeds else [])
+        self.setup = ([{"kind": "node", "node": n} for n in seed.NODES + seed.PARTS]
+                      + ([{"kind": "feeds"}] if feeds else []))
         self.F = len(self.setup)
         st = self._read(self.state_file, None)
         self.fresh = st is None                                  # first run on this machine: caller sets the project up
         st = st or {}
-        self.pos: int = st["pos"] if "pos" in st else self.F + st.get("cursor", 0)   # older state files only had cursor
+        if "pos" in st:
+            old_f = st.get("F", len(seed.NODES) + (1 if feeds else 0))    # state written before the setup list grew
+            self.pos: int = st["pos"] - old_f + self.F if st["pos"] >= old_f else st["pos"]
+        else:
+            self.pos = self.F + st.get("cursor", 0)              # oldest state files only had the story cursor
         self.item_id: str | None = st.get("item_id")
         self.cache: dict = self._read(self.cache_file, {})
         self.warning: str | None = None
@@ -91,7 +96,7 @@ class Replay:
             return default
 
     def _save(self) -> None:
-        self.state_file.write_text(json.dumps({"pos": self.pos, "item_id": self.item_id}))
+        self.state_file.write_text(json.dumps({"pos": self.pos, "F": self.F, "item_id": self.item_id}))
 
     def _key(self, step: dict) -> str:
         return step["id"] + ":" + hashlib.sha1((step["text"] + llm.jev_model()).encode()).hexdigest()[:10]
@@ -168,13 +173,25 @@ class Replay:
             n = s["node"]
             nid = self.store.put_node(n, vector=vecs[vi], vector_model=model, created_by=n.get("owner") or "system")
             vi += 1
-            for src, dst, typ, reason in seed.EDGES:
+            for src, dst, typ, reason in seed.EDGES + seed.PART_EDGES:
                 if n["ref"] in (src, dst):
                     a, b = self.store.node_by_ref(src), self.store.node_by_ref(dst)
                     if a and b:
                         self.store.put_edge(a["id"], b["id"], typ, reason, 1.0, "seed")
             self.store.log(n.get("owner") or "system", "node.created", f"Added “{n['title']}” to the project",
                            payload={"node_id": nid, "source": "project setup", "added_by": n.get("owner") or "system"})
+
+    def ensure_setup_nodes(self) -> int:
+        """A project that was set up before the setup list grew is missing the newer nodes (e.g. building parts).
+        Add them in place, without rebuilding. Returns how many were added."""
+        with self.lock:
+            if self.pos < self.F:
+                return 0
+            missing = [s for s in self.setup if s["kind"] == "node" and not self.store.node_by_ref(s["node"]["ref"])]
+            if missing:
+                self._add_setup(missing, 1)
+                self._save()
+            return len(missing)
 
     # ---------------------------------------------------------------- story steps
     def _bring_in(self, step: dict) -> None:

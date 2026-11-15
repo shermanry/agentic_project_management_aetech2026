@@ -58,6 +58,7 @@ async def _startup() -> None:
     if store.empty() and replay.fresh:                     # first run: start with the project set up, as before
         await asyncio.to_thread(replay.goto, "setup")
         _seed_warning = replay.warning
+    await asyncio.to_thread(replay.ensure_setup_nodes)     # e.g. building parts added to the seed after this project was set up
     await asyncio.to_thread(store.sweep)
     await asyncio.to_thread(analysis.load_active, store)   # approved rules from earlier analysis runs
     if os.environ.get("FEEDS_ENABLED", "1").lower() not in ("0", "false", "no"):
@@ -68,6 +69,45 @@ async def _startup() -> None:
         if it["status"] in ("processing", "refining"):
             it.update(status="failed", error="interrupted by a restart; add it again")
             store.put_item(it)
+
+
+_RANK = {"blocked": 3, "at_risk": 3, "reopened": 2, "open": 1}
+
+
+def parts_rollup(nodes: list[dict], edges: list[dict]) -> list[dict]:
+    """Each building part with the state of everything linked to it. A part has no status of its own: it is red
+    when something about it is blocked or at risk, amber when a decision about it is re-opened or there is an
+    open finding or blocker about it. This is what lets a picture of the building light up from the graph."""
+    by_id = {n["id"]: n for n in nodes}
+    out = []
+    for p in nodes:
+        if "building-part" not in (p.get("tags") or []):
+            continue
+        linked, seen = [], set()
+        for e in edges:
+            other = e["src"] if e["dst"] == p["id"] else e["dst"] if e["src"] == p["id"] else None
+            n = by_id.get(other) if other else None
+            if not n or n["id"] in seen or e["type"] == "part_of":
+                continue
+            seen.add(n["id"])
+            status = n["status"]
+            open_finding = n["type"] in ("discovery", "blocker") and n.get("state") in ("new", "open", "waiting")
+            rank = _RANK.get(status, 0) or (1 if open_finding else 0)
+            linked.append({"id": n["id"], "title": n["title"], "type": n["type"], "status": status, "link": e["type"],
+                           "reason": e.get("reason") or "", "rank": rank})
+        own = _RANK.get(p["status"], 0)
+        worst = max([own] + [l["rank"] for l in linked])
+        linked.sort(key=lambda l: (-l["rank"], l["title"]))
+        out.append({"id": p["id"], "ref": p.get("ref"), "part": (p.get("data") or {}).get("part"), "title": p["title"],
+                    "summary": p["summary"], "level": "red" if worst >= 3 else "amber" if worst >= 1 else "none",
+                    "open": sum(1 for l in linked if l["rank"]), "linked": linked})
+    return out
+
+
+@app.get("/api/parts")
+def parts() -> dict:
+    """Building parts, each with a level (red / amber / none) rolled up from the nodes linked to it."""
+    return {"parts": parts_rollup(store.nodes(), store.edges())}
 
 
 def _public_item(it: dict) -> dict:
@@ -83,8 +123,9 @@ def _public_item(it: dict) -> dict:
 
 @app.get("/api/state")
 def state() -> dict:
+    nodes, edges = store.nodes(), store.edges()
     return {"project": seed.PROJECT, "people": seed.PEOPLE, "node_types": NODE_TYPES, "edge_types": EDGE_TYPES,
-            "nodes": store.nodes(), "edges": store.edges(), "items": [_public_item(i) for i in store.items()],
+            "nodes": nodes, "edges": edges, "parts": parts_rollup(nodes, edges), "items": [_public_item(i) for i in store.items()],
             "events": store.events(), "replay": replay.status(), "config": {**pipeline.available(), "seed_warning": _seed_warning},
             "feeds": feeds.snapshot() if feeds else None, "rules": store.rules(),
             "analysis": {"model": analysis.model(), "running": _analysis_running.is_set()}}

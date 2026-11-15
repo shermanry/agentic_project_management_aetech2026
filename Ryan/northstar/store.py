@@ -23,7 +23,7 @@ from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
 NODE_TYPES = ["decision", "discovery", "event", "data_feed", "deliverable", "blocker", "constraint", "document", "entity"]
-EDGE_TYPES = ["depends_on", "blocks", "about", "evidence_for", "supersedes", "derived_from", "similar_to"]
+EDGE_TYPES = ["depends_on", "blocks", "about", "evidence_for", "supersedes", "derived_from", "similar_to", "part_of"]
 IMPORTANCE = {"low": 0.25, "medium": 0.5, "high": 0.75, "critical": 1.0}
 _EDGE_ORIGIN = {"jev": "agent", "seed": "user", "user": "user"}
 _ATTENTION_TYPE = {"blocked": "blocker", "at_risk": "blocker", "reopened": "decision", "superseded": "decision"}
