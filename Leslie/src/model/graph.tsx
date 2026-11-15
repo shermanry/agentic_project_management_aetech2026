@@ -50,7 +50,7 @@ export interface GraphState {
   candidates: Candidate[]
   log: LogEntry[]
   selectedId?: string
-  /** Search text and category filter, shared by the PM canvas and the Pilot network. */
+  /** Search text and category filter, shared by the PM canvas and the Expert network. */
   query: string
   filter: Filter
   /** Organizer output per parked node id. */

@@ -8,7 +8,7 @@ One in-memory project graph (14 nodes, 12 relationships, 4 AI-suggested links aw
 | **Overview** | everyone | Project twin board: node status table, open questions & proposed links (accept/dismiss), building twin, component × category matrix, category coverage, sample survey window, activity log |
 | **Basic · Client** | client / proposal coordinator | Read-only 3D building explorer: 5 clickable components with concerns, verification and related nodes; **Generate design brief** (preview, copy, download `.md`) |
 | **Medium · PM** | project manager | 2D hybrid canvas: draggable cards, Canvas / Graph / Decisions layouts, 7-category filter, search, zoom/fit/auto-arrange, add note, drop files into the inbox, node inspector with AI suggestions |
-| **Advanced · Pilot** | pilot / technical expert | 3D knowledge network: orbit, zoom, click to inspect, labels, focus neighborhood, proposed links, reset view |
+| **Expert** | pilot / technical expert | 3D knowledge network: orbit, zoom, click to inspect, labels, focus neighborhood, proposed links, reset view |
 
 All data is **sample data**. No FAA, weather, BIM, scan, AI or email integration is live; those inputs are labelled as planned or simulated.
 Changes (accepted links, moved cards, added notes) live only in the browser tab.
@@ -18,16 +18,16 @@ Changes (accepted links, moved cards, added notes) live only in the browser tab.
 |---|---|---|
 | ![Overview](docs/overview.png) | ![Client](docs/client.png) | ![PM](docs/pm-tree.png) |
 
-| Pilot | Add drawer | Converter page |
+| Expert | Add drawer | Converter page |
 |---|---|---|
-| ![Pilot](docs/pilot.png) | ![Add drawer](docs/add-drawer.png) | ![Converter](docs/converter.png) |
+| ![Expert](docs/pilot.png) | ![Add drawer](docs/add-drawer.png) | ![Converter](docs/converter.png) |
 
 | Onboarding | Ask bar |
 |---|---|
 | ![Onboarding](docs/onboarding.png) | ![Ask bar](docs/ask.png) |
 
 ## Ask bar and onboarding
-- **Ask bar (PM and Pilot):** type a question in plain words ("What's blocking the flight?", "Who looks after safety?"). A short answer appears with "Go to" buttons for the matching nodes, and both views highlight them. The logic is in `src/features/ask.ts`: a local stand-in for an LLM, so no API key is needed. Replace `ask()` with a real model call that returns the same `AskResult` shape.
+- **Ask bar (PM and Expert):** type a question in plain words ("What's blocking the flight?", "Who looks after safety?"). A short answer appears with "Go to" buttons for the matching nodes, and both views highlight them. The logic is in `src/features/ask.ts`: a local stand-in for an LLM, so no API key is needed. Replace `ask()` with a real model call that returns the same `AskResult` shape.
 - **Onboarding (Overview):** first-time visitors answer three questions (role, first goal, familiarity) and get a suggested starting tab. Answers are stored in the browser only and can be retaken from the Overview.
 
 ## Adding files (drag and drop + converter)
@@ -45,7 +45,7 @@ The default PM layout reads left to right like a Grasshopper canvas: output port
 Logo files are in `src/assets/brand/` (full wordmark and YB monogram). The top bar uses the wordmark, switching to the monogram on narrow screens; the monogram is also the favicon. `src/components/Logo.tsx` holds inline copies so the logo follows the text colour.
 
 ## Design
-One shared style file, `src/design/ui.css`: white page, black type, large display headings, hairline rules, numbered sections, arrow links. Status is shown as a word, not a colour. Category colour appears on the PM and Pilot tabs only; those two tabs share one node search, category filter and selection. The building images in `src/assets/` are original renders of the illustrative model (regenerate with `?shot=north|east|roof|entrance|upper`).
+One shared style file, `src/design/ui.css`: white page, black type, large display headings, hairline rules, numbered sections, arrow links. Status is shown as a word, not a colour. Category colour appears on the PM and Expert tabs only; those two tabs share one node search, category filter and selection. The building images in `src/assets/` are original renders of the illustrative model (regenerate with `?shot=north|east|roof|entrance|upper`).
 
 ## Run
 ```bash

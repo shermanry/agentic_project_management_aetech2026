@@ -439,3 +439,13 @@ html, body { background: #ffffff; color: #0a0a0a; color-scheme: light; }
 @media (prefers-reduced-motion: reduce) { .intake { transition: none; } }
 
 .intake-drop .pk-note { flex: none; }
+
+
+/* ---------- Expert tab: same top row as PM, 3D scene below ---------- */
+.expert { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.expert > .pm-search { padding-bottom: 12px; border-bottom: 1px solid var(--hair); }
+.expert > .pm-add { border-bottom: 1px solid var(--hair); padding-bottom: 12px; }
+.expert > .twin { flex: 1; min-height: 0; }
+.light .add-btn, .light .add-btn .tab-count { color: #fff; }
+@media (max-width: 900px) { .expert > .twin { flex: none; } }
+.expert > .pm-search, .expert > .pm-add { padding-right: max(var(--gutter), env(safe-area-inset-right, 0px)); }

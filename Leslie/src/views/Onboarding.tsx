@@ -25,7 +25,7 @@ const STEPS = [
     options: [
       ['client', 'Client', 'I want to follow the project and see what I am getting'],
       ['pm', 'Project manager', 'I keep the pieces moving and decide what happens next'],
-      ['pilot', 'Pilot or specialist', 'I plan and carry out the technical work'],
+      ['pilot', 'Expert', 'I plan and carry out the technical work'],
       ['explore', 'Just looking', 'Show me around'],
     ],
   },

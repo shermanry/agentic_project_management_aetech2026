@@ -15,7 +15,7 @@ const VIEWS: { id: View; label: string; crumb: string; desc: string }[] = [
   { id: 'overview', label: 'Overview', crumb: 'Overview', desc: 'Project twin board: status of every node, open questions and proposed links.' },
   { id: 'client', label: 'Client', crumb: 'Building explorer', desc: 'Explore the building, see what is known about each part, and draft a design brief.' },
   { id: 'pm', label: 'PM', crumb: 'Knowledge canvas', desc: 'Arrange, filter and review project information by constraint category.' },
-  { id: 'pilot', label: 'Pilot', crumb: '3D network', desc: 'Every node and relationship in space, colour-matched to the PM categories.' },
+  { id: 'pilot', label: 'Expert', crumb: '3D network', desc: 'Every node and relationship in space, colour-matched to the PM categories.' },
 ]
 
 const readView = (): View => {
