@@ -578,6 +578,37 @@ def neighbours(node_id: str, direction: str = "any", depth: int = 2) -> dict:
     return {"node_id": node_id, "direction": direction, "depth": depth, "nodes": store.neighbours(node_id, direction, depth)}
 
 
+class NewProject(BaseModel):
+    name: str
+    by: str = "Sam"
+
+
+@app.post("/api/projects")
+async def project_add(n: NewProject) -> dict:
+    """A person adds a project from the project menu: an empty project with its own port and database, started
+    straight away. Returns its port, which the page then opens."""
+    try:
+        p = await asyncio.to_thread(projects.create, n.name, seed.PEOPLE)
+        out = await asyncio.to_thread(projects.start, p["id"])
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+    store.log(n.by, "project.added", f"{n.by} added a new project: {p['name']}", "", {"project": p["id"], "port": p["port"]})
+    return out
+
+
+@app.post("/api/projects/{project_id}/start")
+async def project_start(project_id: str) -> dict:
+    """Start a listed project that is not running (for example after this machine restarted)."""
+    try:
+        return await asyncio.to_thread(projects.start, project_id)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+
+
 @app.get("/api/projects")
 def project_list() -> dict:
     """The example projects (projects.json): which one this app is, and which others are running on their ports."""

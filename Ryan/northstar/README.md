@@ -98,7 +98,9 @@ Each example project runs as **its own copy of the app**, with its own port, dat
 - The first start of a project creates its database and loads its seed. Postgres from `docker-compose.yml` must be up.
 - The rooftop shell needs `Ecem/manufacturing-card/seed_manufacturing.py`, which arrives with PR #3. Until then it shows as "not installed".
 
-**Adding a project:** write a seed file with the same shape as `seed.py` (`PROJECT`, `PEOPLE`, `NODES`, `EDGES`; optionally `PARTS`, `PART_EDGES`, a replay `SCENARIO` and `STARTER_REFS`), then add a line to `projects.json` with an unused port and database name. Set `"feeds": false` unless the New York live feeds make sense for it.
+**Adding a project from the page:** the project menu ends with **+ Add new project…**. It asks for a name, creates an empty project (seed file under `data/projects/<id>/`, an entry in `data/projects.local.json`, its own database and the next free port from 8120), starts its copy of the app and opens it. A listed project that is stopped can be picked from the menu to start it. `POST /api/projects` `{name, by}` and `POST /api/projects/{id}/start` do the same. Through a shared tunnel link only the project the link points at is reachable, because each project is on its own port.
+
+**Adding an example project by hand:** write a seed file with the same shape as `seed.py` (`PROJECT`, `PEOPLE`, `NODES`, `EDGES`; optionally `PARTS`, `PART_EDGES`, a replay `SCENARIO` and `STARTER_REFS`), then add a line to `projects.json` with an unused port and database name. Set `"feeds": false` unless the New York live feeds make sense for it.
 
 How it works: `NORTHSTAR_PROJECT` picks the project; `seed.py` then loads that project's seed file in place of its own tables, so the rest of the app is unchanged. `GET /api/projects` returns the list for the menu.
 

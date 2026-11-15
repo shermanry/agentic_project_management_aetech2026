@@ -168,9 +168,31 @@ setInterval(() => { const c = $('#clock'); if (c) c.textContent = clock(); }, 20
 let P = [];
 async function loadProjects() { try { P = (await api('/api/projects')).projects || []; } catch { P = []; } }
 function projectMenu() {      // in the status area: the design hides the breadcrumb, so the menu sits beside "As"
-  if (P.length < 2) return '';
-  return `<label class="who">Project <select class="proj" data-change="project" aria-label="Switch project" title="Switch to another example project">${P.map(p =>
-    `<option value="${p.port}" ${p.current ? 'selected' : ''} ${p.current || p.running ? '' : 'disabled'}>${esc(p.name)}${p.current || p.running ? '' : p.available ? ' · not running' : ' · not installed'}</option>`).join('')}</select></label>`;
+  if (!P.length) return '';
+  return `<label class="who">Project <select class="proj" data-change="project" aria-label="Switch project" title="Switch to another project, or add a new one">${P.map(p =>
+    `<option value="${esc(p.id)}" ${p.current ? 'selected' : ''} ${p.current || p.running || p.available ? '' : 'disabled'}>${esc(p.name)}${p.current || p.running ? '' : p.available ? ' · stopped, pick to start' : ' · not installed'}</option>`).join('')}
+    <option value="__new">+ Add new project…</option></select></label>`;
+}
+/* Each project is its own copy of the app on its own port, so switching means opening that port. Through a shared
+   link (no port in the address) only the project the link points at can be reached. */
+const viaSharedLink = () => !location.port && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+function openProject(p) {
+  if (viaSharedLink()) { toast(`“${p.name}” is ready on the host computer at http://localhost:${p.port}/app/. This shared link only reaches the current project.`); return; }
+  location.href = `${location.protocol}//${location.hostname}:${p.port}/app/${location.search}${location.hash}`;
+}
+async function pickProject(sel) {
+  const v = sel.value, cur = P.find(p => p.current); sel.value = cur ? cur.id : '';        // the menu shows the current project until the switch happens
+  try {
+    if (v === '__new') {
+      const name = (prompt('Name of the new project', '') || '').trim(); if (!name) return;
+      toast(`Creating “${name}”…`);
+      const p = await post('/api/projects', {name, by: ui.who}); await loadProjects(); render(); openProject(p);
+    } else {
+      const p = P.find(x => x.id === v); if (!p || p.current) return;
+      if (!p.running) { toast(`Starting “${p.name}”…`); await post(`/api/projects/${p.id}/start`); await loadProjects(); }
+      openProject(p);
+    }
+  } catch (err) { toast(err.message); }
 }
 
 function presenterBar() {
@@ -806,7 +828,7 @@ document.addEventListener('input', e => {
 document.addEventListener('change', async e => {
   const t = e.target;
   if (t.closest('[data-feedform]') && ui.feed && t.name) { ui.feed[t.name] = t.value; if (t.name === 'kind') render(); }
-  else if (t.dataset.change === 'project') { location.href = `${location.protocol}//${location.hostname}:${t.value}/app/${location.search}${location.hash}`; }
+  else if (t.dataset.change === 'project') { pickProject(t); }
   else if (t.dataset.change === 'who') { ui.who = t.value; try { localStorage.setItem('yb.who', ui.who); } catch {} }
   else if (t.dataset.change === 'inject' && t.value) { try { await post('/api/feeds/inject/' + t.value); toast('Simulated: ' + t.value.replace(/_/g, ' ')); } catch (err) { toast(err.message); } await refresh(); render(); }
 });
