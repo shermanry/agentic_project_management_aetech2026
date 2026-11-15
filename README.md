@@ -2,7 +2,7 @@
 
 # YBuild: agentic project management for drone work
 
-A project system for drone flight work such as facade surveys. People add anything (files, notes, emails, a folder link), an AI proposes where it belongs in the project graph and what it affects, and a person approves. Every approved change is recorded with its source and reason, so the graph is also the project's decision history.
+A project system for complex project with many dependencies and risk factors such as drone flights, experimental fabrication and everything in-between. People add anything (files, notes, emails, a folder link), an AI proposes where it belongs in the project graph and what it affects, and a person approves. Every approved change is recorded with its source and reason, so the graph is also the project's decision history.
 
 Built at the AEC Tech NYC Hackathon, November 2026.
 
@@ -12,7 +12,7 @@ Built at the AEC Tech NYC Hackathon, November 2026.
 - **Propose, then approve.** The system suggests the node type, its links and what else would change. Nothing is placed until a person accepts it, one item at a time or in batches.
 - **Explain consequences.** Plain-code rules flag what a change puts at risk (a permit, a flight window, a dependent task). An analysis loop can suggest new rules when asked.
 - **Watch the outside world.** Live feeds for weather, airspace, city events, rule changes and space weather raise flags on the nodes that depend on them.
-- **Views by role.** Pilot, project manager and client each see the project at the level they decide on.
+- **Views by role.** Technical expert, project manager and client each see the project at the level they decide on.
 - **Several projects.** Each project runs as its own copy of the app with its own database; projects can be added and deleted from the page.
 
 ## Repository layout
