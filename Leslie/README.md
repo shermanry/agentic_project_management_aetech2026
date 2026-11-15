@@ -18,9 +18,9 @@ Changes (accepted links, moved cards, added notes) live only in the browser tab.
 |---|---|---|
 | ![Overview](docs/overview.png) | ![Client](docs/client.png) | ![PM](docs/pm-tree.png) |
 
-| Pilot | Parking lot |
-|---|---|
-| ![Pilot](docs/pilot.png) | ![Parking lot](docs/parking-lot.png) |
+| Pilot | Add drawer | Converter page |
+|---|---|---|
+| ![Pilot](docs/pilot.png) | ![Add drawer](docs/add-drawer.png) | ![Converter](docs/converter.png) |
 
 | Onboarding | Ask bar |
 |---|---|
@@ -30,8 +30,13 @@ Changes (accepted links, moved cards, added notes) live only in the browser tab.
 - **Ask bar (PM and Pilot):** type a question in plain words ("What's blocking the flight?", "Who looks after safety?"). A short answer appears with "Go to" buttons for the matching nodes, and both views highlight them. The logic is in `src/features/ask.ts`: a local stand-in for an LLM, so no API key is needed. Replace `ask()` with a real model call that returns the same `AskResult` shape.
 - **Onboarding (Overview):** first-time visitors answer three questions (role, first goal, familiarity) and get a suggested starting tab. Answers are stored in the browser only and can be retaken from the Overview.
 
-## Parking lot and organizer
-Everything imported (dropped files, pasted notes, nodes added on the PM tab) lands in the **Parking lot** tab as an unclassified item. **Organize** proposes a category and links for each one; nothing joins the graph until you accept. The organizer in `src/features/organize.ts` is a local keyword stand-in for an LLM so the demo runs with no API key: replace the body of `organize()` with a real model call that returns the same `Suggestion` shape.
+## Adding files (drag and drop + converter)
+Drag and drop works anywhere in the app. Dropped files are sent to the **converter** in [`../Minh/converter`](../Minh/converter), which turns each file into an embedding-ready package (text, images, audio, video chunks plus metadata). YBuild adds one node per package and shows it in the **+ Add** drawer under "Waiting to be placed", with a suggested category and link. Nothing joins the graph until you accept.
+
+- Start the converter first (from `Minh/`): `python -m converter serve` (port 8765). In development Vite proxies `/api` and `/files` to it; set `VITE_CONVERTER_URL` to use another address.
+- If the converter is not running, files are still added by name (plain-text files are read locally) and the drawer says "Converter offline".
+- The placement suggestions come from `src/features/organize.ts`, a local keyword stand-in for an LLM. The converter itself only converts; it does not decide where things belong.
+- The converter's own page (`Minh/converter/static/index.html`) uses the same YBuild look.
 
 ## PM tree layout
 The default PM layout reads left to right like a Grasshopper canvas: output port on the right of a card, input port on the left of the next, wires routed through their own lanes so they never run behind a card, and same-category neighbours wrapped in a tinted group. Wires are always drawn.

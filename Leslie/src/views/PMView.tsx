@@ -173,7 +173,6 @@ export default function PMView() {
   const [pan, setPan] = useState<P>({ x: 20, y: 10 })
   const [over, setOver] = useState<Record<Mode, Record<string, P>>>({ canvas: {}, graph: {}, decisions: {} })
   const [note, setNote] = useState<string>()
-  const [dropping, setDropping] = useState(false)
   const wrap = useRef<HTMLDivElement>(null)
 
   const nodeKey = state.nodes.map((n) => `${n.id}:${n.category}`).join()
@@ -355,17 +354,10 @@ export default function PMView() {
 
         <div
           ref={wrap}
-          className={`canvas-wrap ${dropping ? 'drop' : ''}`}
+          className="canvas-wrap"
           onPointerDown={(e) => {
             if (e.button !== 0) return
             drag.current = { sx: e.clientX, sy: e.clientY, ox: pan.x, oy: pan.y, moved: false }
-          }}
-          onDragOver={(e) => (e.preventDefault(), setDropping(true))}
-          onDragLeave={() => setDropping(false)}
-          onDrop={(e) => {
-            e.preventDefault()
-            setDropping(false)
-            Array.from(e.dataTransfer.files).forEach((f) => dispatch({ type: 'addNode', title: f.name, kind: 'file' }))
           }}
         >
           <div className="layer" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
