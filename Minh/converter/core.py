@@ -197,6 +197,9 @@ class Package:
                 "sha256": self.sha256,
                 "aliases": self.aliases,
                 "ingested_at": now_iso(),
+                # where the original lives (linked folders): a local/server path or a Drive link, its folder, its date
+                **{k: self.context[c] for k, c in (("uri", "source_uri"), ("folder", "folder"),
+                                                   ("modified_at", "modified_at")) if self.context.get(c)},
             },
             "modalities": self.modalities,
             "tags": {"values": sorted(self.tags), "suggested_by": "rules"},

@@ -182,6 +182,17 @@ kbd { font: 11px ui-monospace, Consolas, monospace; border: 1px solid var(--line
 .card .th.k-document { background: radial-gradient(circle at 30% 20%, #3a2e22, #18181b 70%); }
 .card .th.k-text, .card .th.k-data, .card .th.k-web { background: radial-gradient(circle at 30% 20%, #23302a, #18181b 70%); }
 .card .th.k-audio { background: radial-gradient(circle at 30% 20%, #33264a, #18181b 70%); }
+.card .th.k-folder { background: radial-gradient(circle at 30% 20%, #3a3220, #18181b 70%); }
+#linkPanel { width: min(1000px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; display: none; flex-direction: column; gap: 10px; }
+#linkPanel.open { display: flex; }
+#linkPanel .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+#linkPanel .grow { flex: 1; min-width: 220px; }
+#linkPanel label.opt { display: flex; gap: 6px; align-items: center; color: var(--soft); font-size: 13px; cursor: pointer; }
+.prog { height: 6px; border-radius: 6px; background: var(--panel2); overflow: hidden; margin: 10px 0 4px; }
+.prog > div { height: 100%; background: linear-gradient(90deg, var(--accent), #ffb37d); width: 0; transition: width .4s; }
+.linkrow { display: flex; gap: 8px; align-items: baseline; font-size: 13px; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+.linkrow .p { color: var(--muted); font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }
+.linkrow a { color: var(--soft); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card .th.k-archive, .card .th.k-spreadsheet, .card .th.k-presentation { background: radial-gradient(circle at 30% 20%, #2c2c33, #18181b 70%); }
 .card .over { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 12px 10px; background: linear-gradient(180deg, transparent, rgba(10,10,11,.92) 55%); }
 .card .t { font-weight: 600; font-size: 13.5px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -264,6 +275,7 @@ details pre { font: 11.5px ui-monospace, Consolas, monospace; white-space: pre-w
       <textarea id="prompt" rows="1" placeholder="Drop files, paste a conversation or a link, or ask the agent to look something up…" title="Drag & drop anywhere · Ctrl+V pastes screenshots · Ctrl+Enter sends"></textarea>
       <div class="bar">
         <button class="round" id="attach" title="Add files" aria-label="Add files"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button class="round" id="linkBtn" title="Link a folder (local path or Google Drive)" aria-label="Link a folder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M10 13.5h4M12 11.5v4"/></svg></button>
         <span class="grow"></span>
         <div class="mode">
           <button id="modeBtn" type="button" aria-haspopup="true"><b id="modeName">Agent</b><span class="lbl muted" id="modeSub">Sonnet 5.5</span>
@@ -277,6 +289,24 @@ details pre { font: 11.5px ui-monospace, Consolas, monospace; white-space: pre-w
         <button class="round" id="send" title="Add to knowledge tree (Ctrl+Enter)" aria-label="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
       </div>
       <input type="file" id="picker" multiple hidden>
+    </section>
+
+    <section id="linkPanel">
+      <div class="hd2" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>Link a project folder</b>
+        <span class="muted small">Every file becomes a node; every folder becomes a node that contains them.</span></div>
+      <div class="row">
+        <input id="linkSrc" class="field grow" placeholder="C:\\Projects\\Pier54   ·   \\\\server\\share\\Pier54   ·   https://drive.google.com/drive/folders/…">
+        <button class="btn primary" id="linkGo">Link folder</button>
+      </div>
+      <div class="row">
+        <label class="opt"><input type="checkbox" id="linkAI" checked> AI reading <span class="muted small">(summary, key points, transcripts, scans · about $0.01–0.02 per file)</span></label>
+        <label class="opt"><input type="checkbox" id="linkWatch"> Keep watching for new files</label>
+      </div>
+      <div class="row">
+        <input id="linkNote" class="field grow" placeholder="Optional note for every file, e.g. “Pier 54 project folder from the server”">
+        <input id="linkFwd" class="field grow" placeholder="Optional: also send each file to Ryan's graph intake, e.g. http://localhost:8000/api/intake">
+      </div>
+      <div class="muted small">Google Drive: the folder must be shared “anyone with the link”. Up to 50 files per folder without a GOOGLE_API_KEY in .env.</div>
     </section>
 
     <section id="manual">
@@ -395,7 +425,75 @@ document.addEventListener("drop", e => { e.preventDefault(); dragDepth = 0; comp
 $("#send").onclick = () => submit();
 promptEl.addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); } });
 document.querySelectorAll(".starter").forEach(b => b.onclick = () => { promptEl.value = b.dataset.p; grow(); promptEl.focus(); });
+// ---------- linked folders
+const FOLDER_RE = /^(?:[A-Za-z]:[\\/]|\\\\|\/|~\/)|drive\.google\.com\/(?:drive\/(?:u\/\d+\/)?folders\/|open\?id=)/;
+$("#linkBtn").onclick = () => { const p = $("#linkPanel"); p.classList.toggle("open"); if (p.classList.contains("open")) $("#linkSrc").focus(); };
+try { const s = store.get("uep_link", {}); if (s.fwd) $("#linkFwd").value = s.fwd; if (s.ai === false) $("#linkAI").checked = false; } catch {}
+$("#linkGo").onclick = () => startLink($("#linkSrc").value.trim());
+$("#linkSrc").addEventListener("keydown", e => { if (e.key === "Enter") startLink($("#linkSrc").value.trim()); });
+async function startLink(source) {
+  if (!source) { toast("Paste a folder path or a Google Drive folder link"); $("#linkSrc").focus(); return false; }
+  store.set("uep_link", { fwd: $("#linkFwd").value.trim(), ai: $("#linkAI").checked });
+  const fd = new FormData();
+  fd.append("source", source);
+  fd.append("mode", $("#linkAI").checked && agentOn ? "agent" : "local");
+  fd.append("watch", $("#linkWatch").checked ? "true" : "false");
+  fd.append("prompt", $("#linkNote").value.trim());
+  fd.append("forward_url", $("#linkFwd").value.trim());
+  const r = await fetch("/api/links", { method: "POST", body: fd });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { toast(j.detail || "Could not link that folder"); return false; }
+  $("#linkPanel").classList.remove("open"); $("#linkSrc").value = "";
+  trackLink(j);
+  return true;
+}
+function trackLink(job) {
+  const card = document.createElement("div");
+  card.className = "run"; card.dataset.link = job.id;
+  $("#feed").prepend(card);
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  let lastDone = -1;
+  const paint = j => {
+    const n = j.done + j.skipped + j.failed, pct = j.total ? Math.round(100 * n / j.total) : 0;
+    const live = ["listing", "running", "watching"].includes(j.status);
+    card.innerHTML = `<div class="you"><div class="av">⌂</div><div style="min-width:0"><div class="p">Linked folder: ${esc(j.root_name || j.source)}</div>
+      <div class="f">${esc(j.source)} · ${j.kind === "gdrive" ? "Google Drive" : "local"} · ${j.mode === "agent" ? "with AI reading" : "local extraction only"}${j.watch ? " · watching" : ""}${j.forward_url ? " · sending to graph" : ""}</div></div></div>
+      <div style="padding:14px 18px">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">${live && j.status !== "watching" ? '<div class="spin"></div>' : ""}
+          <b>${{ listing: "Reading the folder…", running: "Converting…", watching: "Up to date · watching for new files", done: "Done", stopped: "Stopped", error: "Error" }[j.status] || j.status}</b>
+          <span class="muted small">${n} / ${j.total} files · ${j.done} converted · ${j.skipped} already done · ${j.failed} failed${j.cost ? ` · $${j.cost.toFixed(3)}` : ""}</span>
+          <span class="grow" style="flex:1"></span>
+          ${j.root_id && j.status !== "listing" ? `<button class="btn" data-open="${j.root_id}">Open root folder</button>` : ""}
+          ${live ? `<button class="btn" data-stop="${j.id}">Stop</button>` : ""}</div>
+        <div class="prog"><div style="width:${pct}%"></div></div>
+        ${(j.recent || []).slice().reverse().slice(0, 8).map(x => `<div class="linkrow"><span class="chip">${esc(x.kind)}</span><a data-open="${x.id}">${esc(x.title)}</a><span class="p">${esc(x.rel)}</span></div>`).join("")}
+        ${(j.errors || []).length ? `<details style="margin-top:8px"><summary>${j.errors.length} problem(s)</summary><pre>${esc(j.errors.slice(-20).join("\n"))}</pre></details>` : ""}
+      </div>`;
+    card.querySelectorAll("[data-open]").forEach(b => b.onclick = e => { e.preventDefault(); openPkg(b.dataset.open); });
+    card.querySelectorAll("[data-stop]").forEach(b => b.onclick = async () => { await fetch(`/api/links/${b.dataset.stop}/stop`, { method: "POST" }); toast("Stopping after the current files"); });
+    if (j.done !== lastDone) { lastDone = j.done; refresh(); }
+    return live;
+  };
+  const poll = async () => {
+    const r = await fetch(`/api/links/${job.id}`);
+    if (!r.ok) return;
+    const j = await r.json();
+    if (paint(j)) setTimeout(poll, j.status === "watching" ? 5000 : 1500);
+    else refresh();
+  };
+  paint(job); setTimeout(poll, 800);
+}
+fetch("/api/links").then(r => r.json()).then(js => js.filter(j => ["listing", "running", "watching"].includes(j.status)).forEach(trackLink)).catch(() => {});
+
 function submit() {
+  const typed = promptEl.value.trim();
+  if (!tray.length && FOLDER_RE.test(typed) && !typed.includes(String.fromCharCode(10))) {
+    // a folder path or a Drive folder link on its own line: link it instead of reading it as a note
+    const drive = typed.match(/https?:\/\/drive\.google\.com\/\S+/);
+    promptEl.value = ""; grow();
+    startLink(drive ? drive[0] : typed.replace(/^"|"$/g, "")).then(ok => { if (!ok) { promptEl.value = typed; grow(); } });
+    return;
+  }
   if (mode === "local") {
     const files = takeTray();
     if (!files.length && promptEl.value.trim()) files.push(new File([promptEl.value.trim()], `note_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.md`, { type: "text/markdown" }));
@@ -560,7 +658,7 @@ function pump() {
 }
 
 // ---------- library
-const ICONS = {"email": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><rect x=\"3.5\" y=\"5.5\" width=\"17\" height=\"13\" rx=\"2\"/><path d=\"m4 7 8 6 8-6\"/></svg>", "image": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"m4 20 4-1 11-11-3-3L5 16z\"/></svg>", "text": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M5 6h14M5 10h14M5 14h9M5 18h6\"/></svg>", "all": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><rect x=\"4\" y=\"4\" width=\"6.5\" height=\"6.5\" rx=\"1.8\"/><rect x=\"13.5\" y=\"4\" width=\"6.5\" height=\"6.5\" rx=\"1.8\"/><rect x=\"4\" y=\"13.5\" width=\"6.5\" height=\"6.5\" rx=\"1.8\"/><rect x=\"13.5\" y=\"13.5\" width=\"6.5\" height=\"6.5\" rx=\"1.8\"/></svg>", "decision": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M12 3v5M12 8l-6 5v6M12 8l6 5v6\"/></svg>", "markup": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"m4 20 4-1 11-11-3-3L5 16z\"/></svg>", "document": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20z\"/><path d=\"M14 3.5V8h4M9.5 12.5h5M9.5 16h5\"/></svg>", "model": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M12 3 20 7.5v9L12 21l-8-4.5v-9z\"/><path d=\"M12 12 20 7.5M12 12 4 7.5M12 12v9\"/></svg>", "media": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2.5\"/><circle cx=\"9\" cy=\"10\" r=\"1.6\"/><path d=\"m4 17 5-4 4 3 3-2 4 3\"/></svg>", "suggested": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"m8.5 12 2.5 2.5 4.5-5\"/></svg>"};
+const ICONS = {"folder": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z\"/></svg>", "email": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><rect x=\"3.5\" y=\"5.5\" width=\"17\" height=\"13\" rx=\"2\"/><path d=\"m4 7 8 6 8-6\"/></svg>", "image": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"m4 20 4-1 11-11-3-3L5 16z\"/></svg>", "text": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M5 6h14M5 10h14M5 14h9M5 18h6\"/></svg>", "all": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><rect x=\"4\" y=\"4\" width=\"6.5\" height=\"6.5\" rx=\"1.8\"/><rect x=\"13.5\" y=\"4\" width=\"6.5\" height=\"6.5\" rx=\"1.8\"/><rect x=\"4\" y=\"13.5\" width=\"6.5\" height=\"6.5\" rx=\"1.8\"/><rect x=\"13.5\" y=\"13.5\" width=\"6.5\" height=\"6.5\" rx=\"1.8\"/></svg>", "decision": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M12 3v5M12 8l-6 5v6M12 8l6 5v6\"/></svg>", "markup": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"m4 20 4-1 11-11-3-3L5 16z\"/></svg>", "document": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20z\"/><path d=\"M14 3.5V8h4M9.5 12.5h5M9.5 16h5\"/></svg>", "model": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M12 3 20 7.5v9L12 21l-8-4.5v-9z\"/><path d=\"M12 12 20 7.5M12 12 4 7.5M12 12v9\"/></svg>", "media": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><rect x=\"3.5\" y=\"5\" width=\"17\" height=\"14\" rx=\"2.5\"/><circle cx=\"9\" cy=\"10\" r=\"1.6\"/><path d=\"m4 17 5-4 4 3 3-2 4 3\"/></svg>", "suggested": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"m8.5 12 2.5 2.5 4.5-5\"/></svg>"};
 const FILTERS = [
   ["all", "All", () => true],
   ["model", "Models", p => p.kind === "rhino_model"],
@@ -569,6 +667,7 @@ const FILTERS = [
   ["image", "Images & markups", p => ["image", "markup"].includes(p.kind)],
   ["media", "Video & audio", p => ["video", "audio"].includes(p.kind)],
   ["text", "Notes & web", p => ["text", "web", "data", "table", "archive"].includes(p.kind)],
+  ["folder", "Folders", p => p.kind === "folder"],
 ];
 let filter = "all";
 function refresh() {

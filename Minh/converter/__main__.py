@@ -41,7 +41,38 @@ def main(argv=None) -> int:
     s.add_argument("--port", type=int, default=8765)
     s.add_argument("-o", "--out", type=Path, default=DEFAULT_OUT)
     sub.add_parser("formats", help="list supported file extensions")
+    lk = sub.add_parser("link", help="link a root folder (local path or Google Drive folder link): every file and folder a node")
+    lk.add_argument("source")
+    lk.add_argument("-o", "--out", type=Path, default=DEFAULT_OUT)
+    lk.add_argument("--ai", action="store_true", help="also run the AI reading on every file (needs OPENROUTER_API_KEY)")
+    lk.add_argument("--watch", action="store_true", help="keep watching for new or changed files")
+    lk.add_argument("--interval", type=int, default=60, help="seconds between checks in watch mode")
+    lk.add_argument("--forward", default="", help="also POST each file to this intake URL (e.g. Ryan's /api/intake)")
+    lk.add_argument("--note", default="", help="a note attached to every file")
     a = ap.parse_args(argv)
+
+    if a.cmd == "link":
+        import time
+        from . import sources
+        job = sources.start(a.out, a.source, mode="agent" if a.ai else "local", watch=a.watch,
+                            forward_url=a.forward or None, prompt=a.note, interval=a.interval)
+        last = None
+        try:
+            while job.status in ("listing", "running", "watching"):
+                line = f"  {job.status:9} {job.done + job.skipped + job.failed}/{job.total}  converted {job.done}  " \
+                       f"already done {job.skipped}  failed {job.failed}  ${job.cost:.3f}"
+                if line != last:
+                    print(line, flush=True)
+                    last = line
+                time.sleep(1)
+        except KeyboardInterrupt:
+            sources.stop(job.id)
+            print("  stopping…")
+        for err in job.errors[-20:]:
+            print(f"  ! {err}")
+        print(f"{job.status}: {job.done} converted, {job.skipped} already done, {job.failed} failed -> {a.out.resolve()} "
+              f"(root folder node {job.root_id})")
+        return 0 if job.status in ("done", "stopped") else 1
 
     if a.cmd == "formats":
         by_kind: dict[str, list[str]] = {}

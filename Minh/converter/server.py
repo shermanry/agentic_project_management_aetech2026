@@ -103,6 +103,41 @@ def create_app(out_root: str | Path) -> FastAPI:
         except agent.AgentError as e:
             raise HTTPException(502, str(e))
 
+    # ---------------- linked folders: one root folder (local path or Google Drive link) -> every file a node
+    @app.post("/api/links")
+    def link_folder(source: str = Form(...), mode: str = Form("agent"), watch: bool = Form(False),
+                    forward_url: str = Form(""), prompt: str = Form("")):
+        from . import sources, agent
+        if mode == "agent" and not agent.available():
+            mode = "local"
+        try:
+            job = sources.start(out, source, mode=mode, watch=watch, forward_url=forward_url.strip() or None,
+                                prompt=prompt.strip())
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return job.public()
+
+    @app.get("/api/links")
+    def links():
+        from . import sources
+        return [j.public() for j in sources.JOBS.values()]
+
+    @app.get("/api/links/{job_id}")
+    def link_status(job_id: str):
+        from . import sources
+        job = sources.JOBS.get(job_id)
+        if not job:
+            raise HTTPException(404, "no such link")
+        return job.public()
+
+    @app.post("/api/links/{job_id}/stop")
+    def link_stop(job_id: str):
+        from . import sources
+        job = sources.stop(job_id)
+        if not job:
+            raise HTTPException(404, "no such link")
+        return job.public()
+
     @app.post("/api/packages/{pid}/agent/undo")
     def agent_undo(pid: str):
         """Remove the AI extraction from a package; the local extraction stays."""

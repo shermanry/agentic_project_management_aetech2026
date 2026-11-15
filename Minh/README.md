@@ -46,6 +46,22 @@ Measured: a pasted Teams thread took about 10 s / $0.01 and came out as 6 clean 
 API: `POST /api/ask` (form: `prompt`, optional `files[]`, optional `package_ids` to re-read existing nodes; prompt alone = text-only intake), `POST /api/packages/{id}/agent/undo`, `GET /api/agent`.
 Measured on the samples: about 10 s and $0.01 to $0.02 per file. A Teams markup came out as its summary, 5 key points, 2 cropped figures and the handwriting ("lighter canopy here?").
 
+## Linked folders (one root folder -> the first data tree)
+
+Real projects don't arrive one file at a time: point the converter at the **project's root folder** and it converts everything inside (`converter/sources.py`).
+
+- **Sources:** a local or network path (`C:\\Projects\\Pier54`, `\\\\server\\share\\Pier54`), or a **Google Drive folder link** shared "anyone with the link". With `GOOGLE_API_KEY` in `.env` it uses the Drive API (no limit; Google Docs/Sheets/Slides exported to docx/xlsx/pdf); without it, `gdown` (max 50 files per folder). Private Drive folders need a key / service account: not built.
+- **Every file -> one package** (local extraction, plus the AI reading and media pass when `mode="agent"`). `source.uri` = the original's path or Drive link, plus `source.folder` and `source.modified_at`. That is the "open the file" link and the dates a "latest file" question needs.
+- **Every folder -> one `folder` package** that `contains` its files and subfolders (they're `part_of` it). The folder tree is the first skeleton of the data tree. It's containment only: still no relevance judgement.
+- **Safe to re-run:** files whose content was already converted are skipped (same bytes = same package id). A file that's identical to one elsewhere gets a second `part_of` instead of a duplicate. Junk is skipped: `Thumbs.db`, `desktop.ini`, Office lock files `~$…`, dotfiles. Files above `CONVERTER_LINK_MAX_MB` (default 500) are skipped.
+- **Watch mode** polls for new or changed files (default every 60 s).
+- **Forward:** optionally POSTs each file to another intake, e.g. Ryan's north-star `http://<host>:<port>/api/intake`, so his graph fills up from the same root.
+- UI: the folder button next to ＋, or paste a folder path / Drive folder link alone in the prompt box. A live progress card shows converted / already done / failed / cost, with Stop and "Open root folder". The library has a **Folders** filter.
+- CLI: `python -m converter link <path-or-drive-link> [--ai] [--watch] [--forward URL] [--note "..."]`
+- API: `POST /api/links` (form: `source`, `mode` agent|local, `watch`, `forward_url`, `prompt`), `GET /api/links`, `GET /api/links/{id}`, `POST /api/links/{id}/stop`. Jobs live in memory; `converter_output/links.json` keeps a record.
+
+Measured: a 13-file test project (brief, drawings incl. a scan and a markup, Rhino model, email, RFI zip, photo, narrated video, voice note, spreadsheet, notes; 12 folders) took 4.5 s local-only. With AI reading it took about 15 s for the 7 files not yet read ($0.08); a re-run skipped all 13.
+
 ## Run / check
 
 From inside `Minh/` (Windows; on macOS/Linux use `.venv/bin/python`):
@@ -84,6 +100,7 @@ converter/
   markup.py      perceptual hash, find original (hash, then ORB features), diff / aligned-diff / colour detection,
                  region chunks, Rhino layer-under-mark mapping
   entities.py    regex entities (rfi, level, elevation, grid, sheet, date, person, regulation, element)
+  sources.py     linked folders: local / Google Drive walker, folder packages, jobs, watch, forward
   media_pass.py  AI media pass: audio/video/scanned pages -> transcript, clip_description, page_text
   tagging.py     keyword tag rules
   server.py      FastAPI: /api/convert (multipart + context form fields), /api/packages[/id|/zip], DELETE, /files static
@@ -134,7 +151,7 @@ Not tested on real data yet: real client markups, real Outlook `.msg` files, lar
 
 0. **Agent**: let it split long documents into several self-contained content packages; batch mode for watched folders. (Embedding and linking stay with the graph side.)
 1. **Tests**: turn the table above into pytest using `samples/make_samples.py` fixtures (markup region counts are the fragile part).
-2. **Watched folder**: drag emails from Outlook into a folder and they auto-convert. Outlook can't drop straight into the browser, so this would be the handiest workflow.
+2. **Linked folders, next**: private Google Drive / SharePoint via OAuth or a service account; persist jobs across server restarts (today they live in memory); batch approval on the graph side (Ryan) so a 500-file root isn't 500 single approvals.
 3. **`markup_text` / OCR**: read typed or handwritten notes on markups (local Tesseract, or a vision model if the team allows network).
 4. **Media**: an `.srt` telemetry sidecar parser for DJI video (GPS/altitude per second); optional local faster-whisper for offline transcripts. (AI-mode transcripts, video descriptions and scan reading are done via the media pass.)
 5. **More AEC formats**: IFC (ifcopenshell), DWG/DXF (ezdxf for DXF), E57/LAS point clouds, Revit via exported IFC, HEIC photos (pillow-heif).

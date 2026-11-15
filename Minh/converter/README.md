@@ -21,6 +21,7 @@ python -m venv .venv
 .venv/Scripts/python -m converter serve                               # http://127.0.0.1:8765 drag-and-drop UI
 .venv/Scripts/python -m converter convert path/to/files_or_folders    # command line, same output
 .venv/Scripts/python -m converter formats                             # list supported extensions
+.venv/Scripts/python -m converter link <folder-or-drive-link> --ai    # link a whole project folder (every file + folder a node)
 .venv/Scripts/python samples/make_samples.py                          # synthetic test files -> samples/generated/
 .venv/Scripts/python samples/make_samples.py --markups                # markup samples (convert a .3dm first)
 ```
