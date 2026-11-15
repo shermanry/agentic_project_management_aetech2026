@@ -7,7 +7,7 @@ come from Zhang et al., Nature 609 (2022).
 """
 from __future__ import annotations
 
-PROJECT = {"id": "rooftop-shell", "name": "Rooftop shell: aerial AM pilot"}
+PROJECT = {"id": "rooftop-shell", "name": "Aerial Additive Manufacturing Pilot"}
 PEOPLE = [{"name": "Ecem", "role": "design lead"}, {"name": "Jordan", "role": "project manager"},
           {"name": "Lee", "role": "site lead"}, {"name": "Client", "role": "client"}]
 
