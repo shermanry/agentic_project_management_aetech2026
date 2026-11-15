@@ -1,0 +1,27 @@
+{
+ "source": "Aerial AM pilot shell: 72 printed layers (parametric, matches the twin)",
+ "units": "m",
+ "scale": 7.447916666666666e-05,
+ "size": [
+  1.24,
+  1.24,
+  2.3666666666666667
+ ],
+ "groups": [
+  {
+   "name": "main",
+   "segments": 4608
+  },
+  {
+   "name": "context",
+   "segments": 1716
+  }
+ ],
+ "layers": {
+  "count": 72,
+  "ring": 64,
+  "dz": 0.03333333333333333,
+  "r0": 0.62,
+  "dr": 0.32
+ }
+}

@@ -1,7 +1,7 @@
 [
   {"id": "east-tower", "name": "East Tower facade survey", "kind": "Facade survey", "seed": "seed.py",
    "port": 8100, "database": "drone", "template": "starter", "feeds": true},
-  {"id": "rooftop-shell", "name": "Rooftop shell: aerial AM pilot", "kind": "Drone 3D printing",
+  {"id": "rooftop-shell", "name": "Aerial Additive Manufacturing Pilot", "kind": "Drone 3D printing",
    "seed": "../../Ecem/manufacturing-card/seed_manufacturing.py",
    "port": 8110, "database": "drone_rooftop_shell", "template": "full", "feeds": false}
 ]

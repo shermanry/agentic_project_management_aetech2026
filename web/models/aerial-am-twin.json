@@ -1,0 +1,677 @@
+{
+ "project": {
+  "name": "Aerial Additive Manufacturing Pilot",
+  "layers": 72
+ },
+ "steps": [
+  {
+   "k": "Design",
+   "t": "Design: 72 layers planned",
+   "printed": 0,
+   "current": null,
+   "trace": false,
+   "drones": false,
+   "client": "The design is ready. Nothing is printed yet.",
+   "pm": "Design freeze (G3) and crew booked for three build days.",
+   "expert": "Twin v4 sliced into 72 layers; each fits one 202 mL cartridge."
+  },
+  {
+   "k": "Dry run",
+   "t": "Dry run: drones fly the path with lights",
+   "printed": 0,
+   "current": null,
+   "trace": true,
+   "drones": true,
+   "client": "Test flight done. Printing can start.",
+   "pm": "Safety gate (G4) passed.",
+   "expert": "Tracking within tolerance; wind limit set to 6 m/s."
+  },
+  {
+   "k": "Day 1",
+   "t": "Build day 1: layers 1–15",
+   "printed": 15,
+   "current": 15,
+   "trace": false,
+   "drones": true,
+   "client": "15 of 72 layers done. On track.",
+   "pm": "Two drones alternating; refill after every layer.",
+   "expert": "Every layer scanned; deviations under 5 mm."
+  },
+  {
+   "k": "Drift",
+   "t": "Layers 16–18 drift 6–7 mm → twin v5",
+   "printed": 18,
+   "current": 18,
+   "trace": false,
+   "drones": true,
+   "client": "A shape issue was found and the design adjusted. Still on track.",
+   "pm": "Design change approved; no schedule impact.",
+   "expert": "Three layers out of tolerance; offsets didn't fix it. Layers 19–72 revised to v5, stability checked."
+  },
+  {
+   "k": "Wind hold",
+   "t": "Day 2: wind hold at layer 23",
+   "printed": 22,
+   "current": 23,
+   "trace": false,
+   "drones": true,
+   "hold": true,
+   "client": "Paused for wind. 22 of 72 layers done.",
+   "pm": "Hold passed the mix's open time: one cartridge discarded.",
+   "expert": "Gusts 6.9 m/s over the 6 m/s limit. Resumed after 50 min."
+  },
+  {
+   "k": "Robot fault",
+   "t": "Layer 31: BuilDrone 2 battery fault",
+   "printed": 31,
+   "current": 31,
+   "trace": false,
+   "drones": true,
+   "client": "One drone is out for the day. Work continues.",
+   "pm": "Slower: one drone, refilling between every layer.",
+   "expert": "Remaining layers reassigned to BuilDrone 1 within open time."
+  },
+  {
+   "k": "Cure wait",
+   "t": "Day 3: cold morning, cure wait at layer 41",
+   "printed": 40,
+   "current": 41,
+   "trace": false,
+   "drones": true,
+   "hold": true,
+   "client": "Short wait this morning for the material to set.",
+   "pm": "Backup refill technician called in; start 30 min late.",
+   "expert": "6 °C: layer 40 needs ~22 min before it can carry layer 41."
+  },
+  {
+   "k": "Done",
+   "t": "Complete: final scan and acceptance",
+   "printed": 72,
+   "current": null,
+   "trace": false,
+   "drones": false,
+   "client": "Finished and accepted, with notes on layers 16–18.",
+   "pm": "Acceptance gate (G5) passed; decision log archived.",
+   "expert": "Laser scan median 2.6 mm; local exceedance at 16–18 absorbed by v5."
+  }
+ ],
+ "layers": [
+  {
+   "n": 1,
+   "dev": 1.6,
+   "ok": true,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 2,
+   "dev": 2.0,
+   "ok": true,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 2"
+  },
+  {
+   "n": 3,
+   "dev": 0.2,
+   "ok": true,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 4,
+   "dev": 3.3,
+   "ok": true,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 2"
+  },
+  {
+   "n": 5,
+   "dev": 2.1,
+   "ok": true,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 6,
+   "dev": 1.9,
+   "ok": true,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 2"
+  },
+  {
+   "n": 7,
+   "dev": 2.8,
+   "ok": true,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 8,
+   "dev": 0.8,
+   "ok": true,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 2"
+  },
+  {
+   "n": 9,
+   "dev": 1.3,
+   "ok": true,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 10,
+   "dev": 3.1,
+   "ok": true,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 2"
+  },
+  {
+   "n": 11,
+   "dev": 1.6,
+   "ok": true,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 12,
+   "dev": 2.7,
+   "ok": true,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 2"
+  },
+  {
+   "n": 13,
+   "dev": 0.7,
+   "ok": true,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 14,
+   "dev": 2.2,
+   "ok": true,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 2"
+  },
+  {
+   "n": 15,
+   "dev": 0.6,
+   "ok": true,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 16,
+   "dev": 6.7,
+   "ok": false,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 2"
+  },
+  {
+   "n": 17,
+   "dev": 6.5,
+   "ok": false,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 18,
+   "dev": 6.2,
+   "ok": false,
+   "day": 1,
+   "v": "v4",
+   "drone": "BuilDrone 2"
+  },
+  {
+   "n": 19,
+   "dev": 3.7,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 20,
+   "dev": 3.8,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 2"
+  },
+  {
+   "n": 21,
+   "dev": 4.0,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 22,
+   "dev": 2.1,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 2"
+  },
+  {
+   "n": 23,
+   "dev": 2.9,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 24,
+   "dev": 3.4,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 2"
+  },
+  {
+   "n": 25,
+   "dev": 2.7,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 26,
+   "dev": 1.4,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 2"
+  },
+  {
+   "n": 27,
+   "dev": 0.6,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 28,
+   "dev": 2.1,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 2"
+  },
+  {
+   "n": 29,
+   "dev": 0.4,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 30,
+   "dev": 2.0,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 2"
+  },
+  {
+   "n": 31,
+   "dev": 1.9,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 32,
+   "dev": 0.2,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 33,
+   "dev": 1.7,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 34,
+   "dev": 3.0,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 35,
+   "dev": 1.5,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 36,
+   "dev": 0.5,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 37,
+   "dev": 1.5,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 38,
+   "dev": 2.3,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 39,
+   "dev": 2.2,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 40,
+   "dev": 1.7,
+   "ok": true,
+   "day": 2,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 41,
+   "dev": 3.1,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 42,
+   "dev": 2.3,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 43,
+   "dev": 2.4,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 44,
+   "dev": 1.5,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 45,
+   "dev": 2.2,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 46,
+   "dev": 2.5,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 47,
+   "dev": 2.3,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 48,
+   "dev": 1.0,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 49,
+   "dev": 1.8,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 50,
+   "dev": 1.1,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 51,
+   "dev": 4.1,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 52,
+   "dev": 1.2,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 53,
+   "dev": 1.8,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 54,
+   "dev": 2.2,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 55,
+   "dev": 0.6,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 56,
+   "dev": 4.1,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 57,
+   "dev": 2.6,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 58,
+   "dev": 0.4,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 59,
+   "dev": 0.9,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 60,
+   "dev": 0.9,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 61,
+   "dev": 1.7,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 62,
+   "dev": 3.2,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 63,
+   "dev": 1.8,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 64,
+   "dev": 3.3,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 65,
+   "dev": 3.2,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 66,
+   "dev": 3.1,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 67,
+   "dev": 1.4,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 68,
+   "dev": 1.6,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 69,
+   "dev": 0.8,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 70,
+   "dev": 1.9,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 71,
+   "dev": 1.6,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  },
+  {
+   "n": 72,
+   "dev": 2.6,
+   "ok": true,
+   "day": 3,
+   "v": "v5",
+   "drone": "BuilDrone 1"
+  }
+ ],
+ "source": "Placeholder build data for the aerial AM pilot; process figures after Zhang et al., Nature 2022."
+}
