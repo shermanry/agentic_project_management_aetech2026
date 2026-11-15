@@ -158,7 +158,6 @@ function render() {
   ${PRESENTER ? presenterBar() : ''}
   ${page}
   ${intakeDrawer()}
-  ${reviewHere()}
   ${UIX.modal()}
   </div>`;
   if (tab === 'pm') mountCanvas(); else window.scrollTo(0, y);
@@ -433,9 +432,13 @@ async function addFeed() {
 /* ------------------------------------------------------------------ + Add drawer (was the Parking lot tab)
    Files can be dropped anywhere on the page. Everything goes through POST /api/intake, which uses the converter
    (Minh/converter) to read the file, then waits here until someone accepts where it belongs. */
-/* On the PM tab, adding something does not leave the canvas: what is being read shows in a small panel over the
-   corner of the canvas, and once the suggested effects are ready it is accepted or dismissed right there. */
+/* On the PM tab, adding something does not leave the page: what was sent shows right under the note field, first as
+   being read, then with its suggested effects, and it is accepted or dismissed there. */
 const inPlace = () => ui.tab === 'pm';
+function reviewHere() {
+  if (!D.open.length) return '';
+  return `<div class="review-here" aria-label="Waiting for your review">${batchBar()}<ul class="ed-rows">${D.open.map(i => itemRow(i, true)).join('')}</ul></div>`;
+}
 /* Items with no connections (a project loaded all at once, or approved before the rest existed): say so on the
    canvas and offer to find them. Jev takes the items oldest first and links each to what came before it. */
 function linkUp() {
@@ -443,14 +446,6 @@ function linkUp() {
   const n = D.loose.length;
   if (!n || S.nodes.length < 2) return '';
   return `<span class="link-up"><b>${n}</b> ${n === 1 ? 'item has' : 'items have'} no connections <button class="ed-link plain" data-act="relink">Find connections</button></span>`;
-}
-function reviewHere() {
-  if (!inPlace() || ui.intake || !D.open.length) return '';
-  const ready = D.open.filter(i => i.proposal && !['processing', 'refining'].includes(i.status)).length;
-  return `<aside class="review-here ${ui.revMin ? 'min' : ''}" aria-label="Waiting for your review">
-    <header><span class="ed-meta">${ready ? `Ready to approve · ${ready}` : 'Reading'}${D.open.length - ready ? ` · ${D.open.length - ready} being read` : ''}</span>
-      <span><button class="ed-link dim" data-act="intake">Open full page</button> <button class="ed-link dim" data-act="revmin" aria-expanded="${ui.revMin ? 'false' : 'true'}">${ui.revMin ? 'Show' : 'Hide'}</button></span></header>
-    ${ui.revMin ? '' : `${batchBar()}<ul class="ed-rows">${D.open.map(i => itemRow(i, true)).join('')}</ul>`}</aside>`;
 }
 function intakeDrawer() {
   return `${ui.intake ? '<div class="intake-scrim" data-act="intake"></div>' : ''}
@@ -587,6 +582,7 @@ function pm() {
     <div class="pm-search pm-add" style="padding-top:18px">${UIX.askBar('pm')}
       <button class="ed-cta" data-act="adding">${ui.adding ? 'Close' : '+ Add to record'}</button></div>
     ${ui.adding ? `<form class="pm-add" data-note="1"><input name="text" placeholder="Type a note, a finding or a change. It is read and proposed, not added directly." autocomplete="off" autofocus><button class="ed-link plain">Send for review</button></form>` : ''}
+    ${reviewHere()}
     <div class="pm-toolbar"><div class="seg sm">${[['tree', 'Tree'], ['free', 'Freeform'], ['dec', 'Decisions']].map(([m, l]) => `<button class="${ui.mode === m ? 'on' : ''}" data-act="mode" data-id="${m}">${l}</button>`).join('')}</div><span class="mode-info dim">${modeInfo}</span>${linkUp()}</div>
     <div class="chips">${CAT_ORDER.map(c => `<button class="fchip ${ui.off.has(c) ? '' : 'on'}" style="--c:${CATS[c].c}" data-act="cat" data-id="${c}"><i style="width:8px;height:8px;border-radius:50%;background:${CATS[c].c};display:inline-block"></i>${CATS[c].label} <span>${S.nodes.filter(n => D.cat[n.id] === c).length}</span></button>`).join('')}</div>
     <div class="canvas-wrap" id="wrap"><div class="layer" id="layer">
@@ -778,7 +774,7 @@ async function addFolder(all, extraNote, quiet) {
   if (files.length > max && !confirm(`${name} has ${files.length} files. Add the first ${max}? Each one is read and proposed separately.`)) return;
   files = files.slice(0, max);
   const job = {id: 'up_' + Date.now(), local: true, root_name: name, kind: 'upload', status: 'running', total: files.length, done: 0, failed: 0, errors: []};
-  ui.jobs.push(job); if (!quiet && !inPlace()) ui.intake = true; if (inPlace()) ui.revMin = false; render();
+  ui.jobs.push(job); if (!quiet && !inPlace()) ui.intake = true; render();
   let i = 0;
   const worker = async () => { while (i < files.length && job.status === 'running') { const f = files[i++], dir = folderOf(f);
     const fd = new FormData(); fd.append('author', ui.who); fd.append('files', f, f.name); fd.append('modified', f.lastModified || '');   // the file's own date: a batch is added oldest first
@@ -819,14 +815,14 @@ async function intake(text, files, quiet, onTitle) {      // quiet: stay in the 
   const fd = new FormData(); fd.append('text', text || ''); fd.append('author', ui.who);
   for (const f of files || []) fd.append('files', f);
   fd.append('modified', [...(files || [])].map(f => f.lastModified || '').join(','));   // each file's own date: a batch is added oldest first
-  try { await api('/api/intake', {method: 'POST', body: fd}); toast(quiet ? `Reading it now${onTitle ? `, in relation to ${onTitle}` : ''}. Open + Add to place it.` : inPlace() ? 'Reading it now. It will appear here to approve.' : 'Reading it now. It will appear under Waiting to be placed.'); ui.adding = false; if (!quiet && !inPlace()) ui.intake = true; if (inPlace()) ui.revMin = false; await refresh(); render(); }
+  try { await api('/api/intake', {method: 'POST', body: fd}); toast(quiet ? `Reading it now${onTitle ? `, in relation to ${onTitle}` : ''}. Open + Add to place it.` : inPlace() ? 'Reading it now. It appears under the note field to approve.' : 'Reading it now. It will appear under Waiting to be placed.'); ui.adding = inPlace() && ui.adding; if (!quiet && !inPlace()) ui.intake = true; await refresh(); render(); }
   catch (e) { toast(e.message); }
 }
 async function accept(id) {
   const it = S.items.find(i => i.id === id); if (!it || !it.proposal) return;
   const r = document.querySelector(`[data-reason="${id}"]`), p = it.proposal;
   try { const out = await post(`/api/items/${id}/approve`, {type: p.type, title: p.title, links: p.links || [], by: ui.who, reason: r ? r.value.trim() : ''});
-    const n = effectsOf(out).length; toast(`Added to the record${n ? `. ${n} thing${n > 1 ? 's' : ''} flagged for another look.` : '.'}`); dirty = false; await refresh(); render(); }
+    const n = effectsOf(out).length; toast(`Added to the record${n ? `. ${n} thing${n > 1 ? 's' : ''} flagged for another look.` : '.'}`); dirty = false; if (inPlace()) ui.view = null; await refresh(); render(); }
   catch (e) { toast(e.message); }
 }
 async function ask(key, q) {
@@ -859,7 +855,6 @@ document.addEventListener('click', async e => {
   else if (act === 'mode') { ui.mode = id; ui.view = null; render(); }
   else if (act === 'cat') { ui.off.has(id) ? ui.off.delete(id) : ui.off.add(id); ui.view = null; render(); }
   else if (act === 'intake') { ui.intake = !ui.intake; render(); }
-  else if (act === 'revmin') { ui.revMin = !ui.revMin; render(); }
   else if (act === 'adding') { ui.adding = !ui.adding; ui.view = null; render(); }
   else if (act === 'zoom') { const w = $('#wrap');
     if (id === 'fit') fit(); else if (id === 'arrange') { delete ui.pos[ui.mode]; ui.view = null; render(); } else zoomAt(id === 'in' ? 1.2 : 1 / 1.2, w.clientWidth / 2, w.clientHeight / 2); }

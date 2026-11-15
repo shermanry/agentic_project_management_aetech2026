@@ -194,15 +194,11 @@
 #root { position: relative; z-index: 1; }
 .app.light.tab-client, .app.light.tab-client .ed-page { background: transparent; }
 
-/* ---------- PM tab: review what was just added without leaving the canvas ---------- */
-.review-here { position: fixed; left: var(--gutter, 24px); bottom: 68px; z-index: 55; width: min(460px, calc(100vw - 48px)); max-height: 56vh; display: flex; flex-direction: column; background: #fff; border: 1px solid var(--ink); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); }
-.review-here > header { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--hair); }
-.review-here.min > header { border-bottom: 0; }
-.review-here .ed-rows { overflow: auto; padding: 0 16px; margin: 0; }
+/* ---------- PM tab: what was just added is reviewed right under the note field ---------- */
+.review-here { max-height: 46vh; overflow: auto; margin: 8px 0 0; padding: 0 var(--gutter, 26px); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--hair); }
+.review-here .ed-rows { margin: 0; }
 .review-here .pk-row { grid-template-columns: 1fr; }
 .review-here .pk-row .side { justify-content: flex-start; flex-wrap: wrap; }
-.review-here > header > span:last-child { display: flex; gap: 16px; white-space: nowrap; }
-
 /* canvas toolbar: items with no connections, and the control that finds them */
 .link-up{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted,#6b7280)}
 .link-up b{font-weight:600;color:inherit}
@@ -214,4 +210,3 @@
 .pk-pick input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); cursor: pointer; flex: none; }
 .batch-bar { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--hair); font-size: 13px; }
 .batch-bar .pk-pick { margin-right: 4px; color: var(--ink-2); }
-.review-here .batch-bar { padding: 10px 16px; }
