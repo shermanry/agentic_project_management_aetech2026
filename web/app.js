@@ -93,7 +93,7 @@ function derive() {
   }
   const flagged = S.nodes.filter(n => FLAG[n.status]);
   const open = S.items.filter(i => ['processing', 'refining', 'ready', 'failed'].includes(i.status));
-  D = {byId, cat, deg, flow, cause, hist, flagged, open, ready: open.filter(i => i.status === 'ready'), events};
+  D = {byId, cat, deg, flow, cause, hist, flagged, open, loose: S.nodes.filter(n => !deg[n.id]), ready: open.filter(i => i.status === 'ready'), events};
 }
 const effectsOf = p => !p ? [] : Array.isArray(p.effects) ? p.effects : (p.effects && Array.isArray(p.effects.effects) ? p.effects.effects : []);
 const tone = n => n.status === 'blocked' ? 'bad' : FLAG[n.status] || ['waiting', 'changed'].includes(n.status) ? 'warn'
@@ -436,6 +436,14 @@ async function addFeed() {
 /* On the PM tab, adding something does not leave the canvas: what is being read shows in a small panel over the
    corner of the canvas, and once the suggested effects are ready it is accepted or dismissed right there. */
 const inPlace = () => ui.tab === 'pm';
+/* Items with no connections (a project loaded all at once, or approved before the rest existed): say so on the
+   canvas and offer to find them. Jev takes the items oldest first and links each to what came before it. */
+function linkUp() {
+  if (S.linking) return '<span class="link-up busy" role="status"><i></i>Finding connections\u2026 links appear as they are found</span>';
+  const n = D.loose.length;
+  if (!n || S.nodes.length < 2) return '';
+  return `<span class="link-up"><b>${n}</b> ${n === 1 ? 'item has' : 'items have'} no connections <button class="ed-link plain" data-act="relink">Find connections</button></span>`;
+}
 function reviewHere() {
   if (!inPlace() || ui.intake || !D.open.length) return '';
   const ready = D.open.filter(i => i.proposal && !['processing', 'refining'].includes(i.status)).length;
@@ -579,7 +587,7 @@ function pm() {
     <div class="pm-search pm-add" style="padding-top:18px">${UIX.askBar('pm')}
       <button class="ed-cta" data-act="adding">${ui.adding ? 'Close' : '+ Add to record'}</button></div>
     ${ui.adding ? `<form class="pm-add" data-note="1"><input name="text" placeholder="Type a note, a finding or a change. It is read and proposed, not added directly." autocomplete="off" autofocus><button class="ed-link plain">Send for review</button></form>` : ''}
-    <div class="pm-toolbar"><div class="seg sm">${[['tree', 'Tree'], ['free', 'Freeform'], ['dec', 'Decisions']].map(([m, l]) => `<button class="${ui.mode === m ? 'on' : ''}" data-act="mode" data-id="${m}">${l}</button>`).join('')}</div><span class="mode-info dim">${modeInfo}</span></div>
+    <div class="pm-toolbar"><div class="seg sm">${[['tree', 'Tree'], ['free', 'Freeform'], ['dec', 'Decisions']].map(([m, l]) => `<button class="${ui.mode === m ? 'on' : ''}" data-act="mode" data-id="${m}">${l}</button>`).join('')}</div><span class="mode-info dim">${modeInfo}</span>${linkUp()}</div>
     <div class="chips">${CAT_ORDER.map(c => `<button class="fchip ${ui.off.has(c) ? '' : 'on'}" style="--c:${CATS[c].c}" data-act="cat" data-id="${c}"><i style="width:8px;height:8px;border-radius:50%;background:${CATS[c].c};display:inline-block"></i>${CATS[c].label} <span>${S.nodes.filter(n => D.cat[n.id] === c).length}</span></button>`).join('')}</div>
     <div class="canvas-wrap" id="wrap"><div class="layer" id="layer">
       ${L.groups.map(g => `<div class="gh-group ${g.dashed ? 'dashed' : ''}" style="left:${g.x}px;top:${g.y}px;width:${g.w}px;height:${g.h}px;--c:${g.c}"><span>${esc(g.label)}</span></div>`).join('')}
@@ -840,6 +848,9 @@ document.addEventListener('click', async e => {
   else if (act === 'drive') { ui.intake = true; render(); const d = $('#drive-src'); if (d) d.focus(); else toast('Folder links need the converter installed on the server.'); }
   else if (act === 'jobstop') { const j = ui.jobs.find(x => x.id === id); if (j) { if (j.local) j.status = 'stopped'; else { try { Object.assign(j, await post(`/api/intake/folder/${id}/stop`)); } catch (err) { toast(err.message); } } render(); } }
   else if (act === 'jobclear') { ui.jobs = ui.jobs.filter(x => x.id !== id); render(); }
+  else if (act === 'relink') {
+    try { await post('/api/relink', {by: 'Jev'}); S.linking = true; render(); toast('Jev is reading the items in order and linking each to what came before.'); }
+    catch (err) { toast(/404|Not Found/i.test(String(err && err.message)) ? 'This project is running an older copy of the app. Restart it, then try again.' : (err && err.message) || 'Could not start'); refresh(); } }
   else if (act === 'tab') { location.hash = id; }
   else if (act === 'sel') { ui.sel = id; ui.link = null; if (UIX.inNet()) render(); else if (ui.tab !== 'pm') location.hash = 'pm'; else render(); loadDetail(id); }
   else if (act === 'unlink') { ui.link = null; render(); }
@@ -954,7 +965,8 @@ window.addEventListener('resize', () => { if (ui.tab === 'pm' && S) fit(); });
 const es = new EventSource(BASE + '/api/events');
 const setLive = v => { live = v; const l = $('#live'); if (l) { l.classList.toggle('off', !v); l.lastChild.textContent = v ? 'Live' : 'Offline'; } };
 es.onopen = () => setLive(true); es.onerror = () => setLive(false);
-let deb; es.onmessage = () => { clearTimeout(deb); deb = setTimeout(refresh, 150); };
+let deb; es.onmessage = e => {
+  try { const m = JSON.parse(e.data); if (m.type === 'relinked') toast(m.failed ? 'Could not finish finding connections.' : m.links ? `Found ${m.links} connection${m.links === 1 ? '' : 's'}.` : 'Looked again; no further connections found.'); } catch (_) {} clearTimeout(deb); deb = setTimeout(refresh, 150); };
 setInterval(refresh, 20000);
 const UIX = window.makeUIX({ui, esc, $, api, post, render, toast, inspector, loadDetail, CATS, CAT_ORDER, UNCL, PRESENTER});   // the UI/UX design's additions (uix.js)
 route(); loadProjects().then(() => { if (S) render(); }); refresh();

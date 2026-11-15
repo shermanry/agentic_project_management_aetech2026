@@ -16,7 +16,7 @@ import time
 import traceback
 
 
-def run(store, by: str = "Jev", notify=None, dry: bool = False) -> dict:
+def run(store, by: str = "Jev", notify=None, dry: bool = False, seen: dict | None = None) -> dict:
     import links as links_mod
     import ordered
     import pipeline
@@ -38,6 +38,9 @@ def run(store, by: str = "Jev", notify=None, dry: bool = False) -> dict:
         if n["id"] in has_out:
             out["skipped"] += 1
             continue
+        if seen is not None and seen.get(n["id"]) == k:   # already compared with these same earlier nodes
+            out["skipped"] += 1
+            continue
         try:
             earlier = {x["id"] for x in seq[:k]}
             detail = store.node_detail(n["id"], limit=6) or {}
@@ -57,6 +60,8 @@ def run(store, by: str = "Jev", notify=None, dry: bool = False) -> dict:
             prop, _info = pipeline._propose(material, "Already in the project. Say how it connects to the earlier items listed.",
                                             n.get("owner") or by, cands[:12])
             out["looked_at"] += 1
+            if seen is not None:
+                seen[n["id"]] = k
             for l in prop["links"]:
                 if l["target"] not in earlier:
                     continue

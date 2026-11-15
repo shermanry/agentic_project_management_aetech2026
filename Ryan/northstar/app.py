@@ -148,7 +148,8 @@ def state() -> dict:
             "events": store.events(), "replay": replay.status(),
             "config": {**pipeline.available(), "seed_warning": _seed_warning, "mode": MODE, "folders": folders.available(), "folder_max": folders.max_files(), "demo_url": DEMO_URL if MODE != "demo" else None},
             "feeds": feeds.snapshot() if feeds else None, "rules": store.rules(),
-            "analysis": {"model": analysis.model(), "running": _analysis_running.is_set()}}
+            "analysis": {"model": analysis.model(), "running": _analysis_running.is_set()},
+            "linking": _relinking.is_set()}
 
 
 # ---------------------------------------------------------------- analysis loop: only when a person asks
@@ -468,6 +469,43 @@ def answer_item(item_id: str, a: AnswerIn) -> dict:
 # One lane for incoming files: a single file waits for review; a batch is added in order of creation (ordered.py).
 lane = ordered.Lane(store, lambda item_id: pipeline.process(item_id, store, PACKAGES, notify), _approve, _start_processing, notify)
 _relinking = threading.Event()
+_link_seen: dict[str, int] = {}          # node id -> how many earlier nodes it was last compared with
+_link_timer: threading.Timer | None = None
+
+
+def _find_connections(by: str = "Jev") -> bool:
+    """Link the loose nodes, oldest first, in the background. False when a pass is already running."""
+    if _relinking.is_set():
+        return False
+
+    def work() -> None:
+        try:
+            notify({"type": "linking"})
+            out = relink.run(store, by or "Jev", notify, seen=_link_seen)
+            notify({"type": "relinked", "links": out["links"], "looked_at": out["looked_at"]})
+        except Exception:
+            notify({"type": "relinked", "links": 0, "looked_at": 0, "failed": True})
+            raise
+        finally:
+            _relinking.clear()
+    _relinking.set()
+    threading.Thread(target=work, daemon=True).start()
+    return True
+
+
+def _find_connections_soon(by: str = "Jev", delay: float = 3.0) -> None:
+    """After something is approved without any links (its proposal was written before the rest of the graph
+    existed): wait for a pause in the approvals, then look for its connections once."""
+    global _link_timer
+    if _link_timer:
+        _link_timer.cancel()
+
+    def go() -> None:
+        if not _find_connections(by):
+            _find_connections_soon(by, 5.0)             # a pass is running; go again after it
+    _link_timer = threading.Timer(delay, go)
+    _link_timer.daemon = True
+    _link_timer.start()
 
 
 class RelinkIn(BaseModel):
@@ -478,17 +516,9 @@ class RelinkIn(BaseModel):
 def relink_now(d: RelinkIn) -> dict:
     """Link the nodes already in the project, oldest first, with Jev at each step (relink.py). Runs in the
     background; the graph updates as links are added."""
-    if _relinking.is_set():
+    _link_seen.clear()                                  # asked for by hand: look at every loose node again
+    if not _find_connections(d.by):
         raise HTTPException(409, "Already linking")
-
-    def work() -> None:
-        try:
-            out = relink.run(store, d.by or "Jev", notify)
-            notify({"type": "relinked", "links": out["links"], "looked_at": out["looked_at"]})
-        finally:
-            _relinking.clear()
-    _relinking.set()
-    threading.Thread(target=work, daemon=True).start()
     return {"started": True, "nodes": len(store.nodes())}
 
 
@@ -499,6 +529,8 @@ def approve(item_id: str, p: Placement) -> dict:
         raise HTTPException(409, "Still being read; approve when it's ready")
     title, links = p.title or it["proposal"]["title"], _checked(p)
     out = _approve(it, p.type, title, links, p.by, p.reason)
+    if not links and len(store.nodes()) > 1:  # went in loose: find its connections against the graph as it is now
+        _find_connections_soon()
     if replay.item_id == item_id:            # approved by hand during a replay: that counts as the Forward press
         replay.approved_by_hand(it, p.type, title, links)
     return out

@@ -279,3 +279,11 @@ In `/app`, **+ Add** is a menu: Files, A folder, Google Drive folder, A note, an
   The Drive folder must be shared "Anyone with the link". Without `GOOGLE_API_KEY` in `.env`, 50 files per folder at most.
 - Limits: `FOLDER_MAX_FILES` (default 40 per folder, one Jev call each), `INTAKE_PARALLEL` (default 4 files read at once).
 - Needs `gdown` (in `Minh/converter/requirements.txt`).
+
+## Items with no connections
+
+Anything that goes in without links gets a second look. When a proposal is approved with no links and the
+project has other nodes (its proposal was written before the rest of the graph existed), the app waits for a
+pause in the approvals and then has Jev link the loose nodes, oldest first, each against what came before it.
+The canvas in `/app` also shows "N items have no connections · Find connections", which runs the same pass on
+demand (`POST /api/relink`). `/api/state` reports `linking: true` while a pass is running.
