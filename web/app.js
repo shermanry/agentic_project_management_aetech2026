@@ -158,6 +158,7 @@ function render() {
   ${PRESENTER ? presenterBar() : ''}
   ${page}
   ${intakeDrawer()}
+  ${reviewHere()}
   ${UIX.modal()}
   </div>`;
   if (tab === 'pm') mountCanvas(); else window.scrollTo(0, y);
@@ -395,6 +396,17 @@ async function addFeed() {
 /* ------------------------------------------------------------------ + Add drawer (was the Parking lot tab)
    Files can be dropped anywhere on the page. Everything goes through POST /api/intake, which uses the converter
    (Minh/converter) to read the file, then waits here until someone accepts where it belongs. */
+/* On the PM tab, adding something does not leave the canvas: what is being read shows in a small panel over the
+   corner of the canvas, and once the suggested effects are ready it is accepted or dismissed right there. */
+const inPlace = () => ui.tab === 'pm';
+function reviewHere() {
+  if (!inPlace() || ui.intake || !D.open.length) return '';
+  const ready = D.open.filter(i => i.proposal && !['processing', 'refining'].includes(i.status)).length;
+  return `<aside class="review-here ${ui.revMin ? 'min' : ''}" aria-label="Waiting for your review">
+    <header><span class="ed-meta">${ready ? `Ready to approve · ${ready}` : 'Reading'}${D.open.length - ready ? ` · ${D.open.length - ready} being read` : ''}</span>
+      <span><button class="ed-link dim" data-act="intake">Open full page</button> <button class="ed-link dim" data-act="revmin" aria-expanded="${ui.revMin ? 'false' : 'true'}">${ui.revMin ? 'Show' : 'Hide'}</button></span></header>
+    ${ui.revMin ? '' : `<ul class="ed-rows">${D.open.map(i => itemRow(i, true)).join('')}</ul>`}</aside>`;
+}
 function intakeDrawer() {
   return `${ui.intake ? '<div class="intake-scrim" data-act="intake"></div>' : ''}
   <aside class="intake ${ui.intake ? 'open' : ''}" aria-label="Add to project" ${ui.intake ? '' : 'aria-hidden="true"'}>
@@ -721,7 +733,7 @@ async function addFolder(all, extraNote, quiet) {
   if (files.length > max && !confirm(`${name} has ${files.length} files. Add the first ${max}? Each one is read and proposed separately.`)) return;
   files = files.slice(0, max);
   const job = {id: 'up_' + Date.now(), local: true, root_name: name, kind: 'upload', status: 'running', total: files.length, done: 0, failed: 0, errors: []};
-  ui.jobs.push(job); if (!quiet) ui.intake = true; render();
+  ui.jobs.push(job); if (!quiet && !inPlace()) ui.intake = true; if (inPlace()) ui.revMin = false; render();
   let i = 0;
   const worker = async () => { while (i < files.length && job.status === 'running') { const f = files[i++], dir = folderOf(f);
     const fd = new FormData(); fd.append('author', ui.who); fd.append('files', f, f.name); fd.append('modified', f.lastModified || '');   // the file's own date: a batch is added oldest first
@@ -762,7 +774,7 @@ async function intake(text, files, quiet, onTitle) {      // quiet: stay in the 
   const fd = new FormData(); fd.append('text', text || ''); fd.append('author', ui.who);
   for (const f of files || []) fd.append('files', f);
   fd.append('modified', [...(files || [])].map(f => f.lastModified || '').join(','));   // each file's own date: a batch is added oldest first
-  try { await api('/api/intake', {method: 'POST', body: fd}); toast(quiet ? `Reading it now${onTitle ? `, in relation to ${onTitle}` : ''}. Open + Add to place it.` : 'Reading it now. It will appear under Waiting to be placed.'); ui.adding = false; if (!quiet) ui.intake = true; await refresh(); render(); }
+  try { await api('/api/intake', {method: 'POST', body: fd}); toast(quiet ? `Reading it now${onTitle ? `, in relation to ${onTitle}` : ''}. Open + Add to place it.` : inPlace() ? 'Reading it now. It will appear here to approve.' : 'Reading it now. It will appear under Waiting to be placed.'); ui.adding = false; if (!quiet && !inPlace()) ui.intake = true; if (inPlace()) ui.revMin = false; await refresh(); render(); }
   catch (e) { toast(e.message); }
 }
 async function accept(id) {
@@ -799,6 +811,7 @@ document.addEventListener('click', async e => {
   else if (act === 'mode') { ui.mode = id; ui.view = null; render(); }
   else if (act === 'cat') { ui.off.has(id) ? ui.off.delete(id) : ui.off.add(id); ui.view = null; render(); }
   else if (act === 'intake') { ui.intake = !ui.intake; render(); }
+  else if (act === 'revmin') { ui.revMin = !ui.revMin; render(); }
   else if (act === 'adding') { ui.adding = !ui.adding; ui.view = null; render(); }
   else if (act === 'zoom') { const w = $('#wrap');
     if (id === 'fit') fit(); else if (id === 'arrange') { delete ui.pos[ui.mode]; ui.view = null; render(); } else zoomAt(id === 'in' ? 1.2 : 1 / 1.2, w.clientWidth / 2, w.clientHeight / 2); }
