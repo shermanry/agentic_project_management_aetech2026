@@ -43,6 +43,13 @@ def hamming(a: str, b: str) -> int:
     return bin(int(a, 16) ^ int(b, 16)).count("1")
 
 
+def _is_markup_package(d: Path) -> bool:
+    try:
+        return json.loads((d / "manifest.json").read_text(encoding="utf-8")).get("kind") == "markup"
+    except (OSError, ValueError):
+        return False
+
+
 def find_original_by_features(pkg: Package, img: Image.Image) -> dict | None:
     """Fallback for screenshots (Teams/Slack UI around the picture, cropped, rescaled) where
     the hash can't match: try feature alignment against our own model views only."""
@@ -86,8 +93,8 @@ def find_original(pkg: Package, h: str, img: Image.Image | None = None) -> dict 
     """Nearest image chunk in *other* packages of the library (excluding exact copies)."""
     candidates = []
     for chunks in pkg.out_root.glob("uep_*/chunks.jsonl"):
-        if chunks.parent.name == pkg.id:
-            continue
+        if chunks.parent.name == pkg.id or _is_markup_package(chunks.parent):
+            continue  # an original is never itself a markup (that gave titles like "Markup on Markup on …")
         try:
             lines = chunks.read_text(encoding="utf-8").splitlines()
         except OSError:
@@ -96,8 +103,8 @@ def find_original(pkg: Package, h: str, img: Image.Image | None = None) -> dict 
             if '"modality": "image"' not in line:
                 continue
             c = json.loads(line)
-            if c["role"] in ("markup", "markup_region") or not c.get("asset"):
-                continue
+            if c["role"] in ("markup", "markup_region") or not c.get("asset") or c["meta"].get("suggested_by"):
+                continue  # only original content: no markups, no crops/figures the AI added
             ch = c["meta"].get("dhash")
             if not ch:  # packages converted before hashes existed
                 try:
