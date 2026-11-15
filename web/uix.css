@@ -153,6 +153,7 @@
 .drop-bar.on { background: #0a0a0a; color: #fff; }
 .drop-bar b { font-weight: 500; }
 #net3d-labels .node-chip.drop-on { background: #0a0a0a; color: #fff; outline: 3px solid #0a0a0a; outline-offset: 4px; opacity: 1; z-index: 2; }
+.ed-figure svg g.drop-on > path { fill: #0a0a0a; }   /* Client tab: the part of the building a dragged file would attach to */
 
 /* ---------- onboarding: adding material is the first thing offered ---------- */
 .ob-drop { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 28px; padding: 20px 0; border-bottom: 1px solid var(--hair); }

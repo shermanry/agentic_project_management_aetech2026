@@ -734,18 +734,29 @@ function netTarget(e) {
     const d = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2 + 14)); if (d < 90 && (!best || d < best.d)) best = {id: el.dataset.id, d, el}; });
   return best;
 }
-function clearDropOn() { document.querySelectorAll('.node-chip.drop-on').forEach(el => el.classList.remove('drop-on')); dropOn = null; }
+function bldTarget(e) {                                    // Client tab: the part of the building under (or nearest to) the pointer
+  const hit = e.target && e.target.closest && e.target.closest('.ed-figure svg g[data-id]');
+  if (hit) return {id: hit.dataset.id, el: hit};
+  let best = null;
+  document.querySelectorAll('.ed-figure svg g[data-id]').forEach(el => { const r = el.getBoundingClientRect();
+    const d = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2)); if (d < 110 && (!best || d < best.d)) best = {id: el.dataset.id, d, el}; });
+  return best;
+}
+/* where a dragged file can be dropped onto one thing: a node in the 3D network, or a part of the building on the Client tab */
+const dropSpot = () => UIX.inNet() ? 'net' : ui.tab === 'client' && !ui.intake && document.querySelector('.ed-figure svg g[data-id]') ? 'bld' : null;
+function clearDropOn() { document.querySelectorAll('.drop-on').forEach(el => el.classList.remove('drop-on')); dropOn = null; }
 const NET_HINT = 'Drop on a node to attach it there, or anywhere to add it';
-document.addEventListener('dragenter', e => { if (!hasFiles(e)) return; dragDepth++; if (UIX.inNet()) dropBar(NET_HINT, false); else veil(true); });
+const BLD_HINT = 'Drop on a part of the building to attach it there, or anywhere to add it';
+document.addEventListener('dragenter', e => { if (!hasFiles(e)) return; dragDepth++; const spot = dropSpot(); if (spot) dropBar(spot === 'net' ? NET_HINT : BLD_HINT, false); else veil(true); });
 document.addEventListener('dragover', e => { if (!hasFiles(e)) return; e.preventDefault();
-  if (!UIX.inNet()) return;
-  const t = netTarget(e), id = t ? t.id : null;
+  const spot = dropSpot(); if (!spot) return;
+  const t = spot === 'net' ? netTarget(e) : bldTarget(e), id = t ? t.id : null;
   if (id !== dropOn) { clearDropOn(); dropOn = id; if (t) t.el.classList.add('drop-on');
-    dropBar(t && D.byId[id] ? `Drop to attach to <b>${esc(D.byId[id].title)}</b>` : NET_HINT, !!t); } });
+    dropBar(t && D.byId[id] ? `Drop to attach to <b>${esc(D.byId[id].title)}</b>` : spot === 'net' ? NET_HINT : BLD_HINT, !!t); } });
 document.addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) { veil(false); dropBar(null); clearDropOn(); } });
 document.addEventListener('drop', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth = 0; veil(false); dropBar(null);
-  const on = dropOn && D.byId[dropOn], inNet = UIX.inNet(); clearDropOn();
-  if (e.dataTransfer.files.length) intake(on ? `Dropped onto "${on.title}" in the knowledge network. It relates to that node.` : '', [...e.dataTransfer.files], inNet, on ? on.title : ''); });
+  const on = dropOn && D.byId[dropOn], spot = dropSpot(); clearDropOn();
+  if (e.dataTransfer.files.length) intake(on ? (spot === 'bld' ? `Dropped onto "${on.title}" on the building. It relates to that part.` : `Dropped onto "${on.title}" in the knowledge network. It relates to that node.`) : '', [...e.dataTransfer.files], !!spot, on ? on.title : ''); });
 
 function route() { const h = location.hash.replace('#', ''); if (h === 'data') ui.intake = true;   // old Parking lot links open the drawer
   ui.tab = TABS.some(t => t[0] === h) ? h : 'overview'; ui.view = null; if (S) { render(); if (ui.tab !== 'pm') window.scrollTo(0, 0); } }
