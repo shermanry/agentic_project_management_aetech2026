@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YBuild · Aerial AM case study</title>
+<link rel="stylesheet" href="aero.css">
+<style>
+/* Case-study page for the manufacturing card. Uses the YBuild editorial classes from aero.css;
+   additions here are only for the 3D twin, the step bar and the question lists. */
+html,body{color-scheme:light;background:#fff}
+.cs-twin{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
+.cs-stage{position:relative;background:var(--tile);height:clamp(380px,48vw,620px)}
+.cs-stage canvas{display:block;width:100%;height:100%}
+.cs-key{position:absolute;left:14px;bottom:12px;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--ink-2);background:#ffffffd9;padding:6px 10px}
+.cs-key i{display:inline-block;width:16px;height:3px;vertical-align:middle;margin-right:6px}
+.cs-hint{position:absolute;right:12px;top:10px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.cs-nogl{position:absolute;inset:0;display:none;place-items:center;padding:24px;text-align:center;color:var(--ink-2)}
+.cs-read{display:flex;flex-direction:column;gap:14px}
+.cs-read h3{font-size:clamp(22px,2vw,30px);line-height:1.1;letter-spacing:-.03em;font-weight:400}
+.cs-role{border-top:1px solid var(--ink);padding-top:12px;display:flex;flex-direction:column;gap:8px}
+.cs-role p{margin:0;font-size:17px;line-height:1.4;letter-spacing:-.01em}
+.cs-steps{display:flex;flex-wrap:wrap;gap:0;margin-top:18px;border-top:1px solid var(--hair)}
+.cs-steps button{flex:1 1 110px;border:0;border-bottom:1px solid var(--hair);background:none;text-align:left;padding:10px 12px 10px 0;cursor:pointer;font:inherit;color:var(--ink-3);min-height:52px}
+.cs-steps button b{display:block;font-weight:400;font-size:11px;letter-spacing:.08em}
+.cs-steps button[aria-current="step"]{color:var(--ink);box-shadow:inset 0 -2px 0 var(--ink)}
+.cs-steps button:hover{color:var(--ink)}
+.cs-nav{display:flex;gap:22px;margin-top:14px}
+.cs-q{list-style:none;margin:8px 0 4px;padding:0;counter-reset:q}
+.cs-q li{counter-increment:q;display:grid;grid-template-columns:28px minmax(0,1fr);gap:6px;padding:6px 0;font-size:15px;line-height:1.4;border-top:1px solid var(--hair)}
+.cs-q li:before{content:counter(q,decimal-leading-zero);font-size:11px;letter-spacing:.06em;color:var(--ink-3);padding-top:3px}
+.cs-gate{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#b4541a}
+.cs-own{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.cs-ans{grid-column:1/-1;font-size:15px;line-height:1.45;color:var(--ink);max-width:80ch;margin:6px 0 0}
+.cs-rule{grid-column:1/-1;font-size:14px;line-height:1.45;color:var(--ink-2);max-width:80ch;margin:2px 0 0;padding-left:12px;border-left:1px solid var(--ink)}
+.cs-basis{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.cs-urg{font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.cs-urg.critical{color:#c8452f}.cs-urg.attention{color:#b4541a}.cs-urg.gate{color:var(--ink-2)}
+.cs-filter{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:8px}
+.cs-filter button{border:0;background:none;padding:5px 0;font:inherit;font-size:14px;color:var(--ink-3);cursor:pointer}
+.cs-filter button.on{color:var(--ink);box-shadow:inset 0 -1px 0 var(--ink)}
+.cs-back{font-size:15px}
+a.ed-link{color:var(--ink);text-decoration:none}
+@media(max-width:900px){.cs-twin{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app light">
+  <header class="topbar">
+    <div class="brand"><span class="brand-name">YBuild</span></div>
+    <nav class="seg views" aria-label="Views">
+      <a class="ed-link plain cs-back" href="./">← Back to the project</a>
+    </nav>
+  </header>
+
+  <main class="ed-page">
+    <section class="ov-hero">
+      <span class="ed-meta" id="kicker">Aerial AM · case study</span>
+      <h1 class="ed-display md" id="name">Rooftop shell</h1>
+      <div class="ov-hero-foot">
+        <p class="ed-lede">A shell printed in place by a team of drones. The decisions never stop, so everyone needs to read the same project at their own level.</p>
+        <a class="ed-link" href="#twin">See the build</a>
+      </div>
+      <div class="ed-nums" id="nums"></div>
+    </section>
+
+    <section class="ed-section" id="twin">
+      <div class="ed-label"><span class="ed-meta">01</span><h2>The twin</h2><span class="ed-meta">Each layer is coloured by what the record says about it</span></div>
+      <div class="ed-body">
+        <div class="cs-twin">
+          <div class="cs-stage">
+            <canvas id="c" aria-label="3D model of the shell, layer by layer"></canvas>
+            <span class="cs-hint">Drag to orbit · scroll to zoom</span>
+            <div class="cs-key">
+              <span><i style="background:#8a8a86"></i>Printed</span>
+              <span><i style="background:#c8452f"></i>Out of tolerance</span>
+              <span><i style="background:#b4541a"></i>Current layer</span>
+              <span><i style="background:#cfcfcb"></i>Planned</span>
+            </div>
+            <div class="cs-nogl" id="nogl">The 3D view needs WebGL. The story and readings still work.</div>
+          </div>
+          <div class="cs-read">
+            <span class="ed-meta" id="stepNo"></span>
+            <h3 id="stepTitle"></h3>
+            <nav class="seg" aria-label="Read as" id="roles">
+              <button type="button" data-r="client" class="on">Client</button>
+              <button type="button" data-r="pm">PM</button>
+              <button type="button" data-r="expert">Expert</button>
+            </nav>
+            <div class="cs-role"><span class="ed-meta" id="roleName"></span><p id="roleText"></p></div>
+            <div class="cs-role"><span class="ed-meta">The other two read</span><p id="otherText" style="font-size:14px;color:var(--ink-2)"></p></div>
+          </div>
+        </div>
+        <div class="cs-steps" id="steps"></div>
+        <div class="cs-nav"><button type="button" class="ed-link plain" id="back">← Back</button><button type="button" class="ed-link" id="fwd">Next</button></div>
+      </div>
+    </section>
+
+    <section class="ed-section" id="process">
+      <div class="ed-label"><span class="ed-meta">02</span><h2>Process and questions</h2><span class="ed-meta" id="qCount"></span></div>
+      <div class="ed-body"><div class="ed-cols" id="phases" style="grid-template-columns:repeat(5,minmax(0,1fr))"></div>
+        <div id="stage" style="margin-top:28px"></div></div>
+    </section>
+
+    <section class="ed-section" id="decisions">
+      <div class="ed-label"><span class="ed-meta">03</span><h2>Decisions and answers</h2><span class="ed-meta">What to decide, the answer for this case, and the rule</span></div>
+      <div class="ed-body"><div class="cs-filter" id="dFilter"></div><ul class="ed-rows" id="dList"></ul></div>
+    </section>
+
+    <section class="ed-section" id="log">
+      <div class="ed-label"><span class="ed-meta">04</span><h2>Build log</h2><span class="ed-meta">The decisions that needed a person, in order</span></div>
+      <div class="ed-body"><ul class="ed-rows" id="logList"></ul></div>
+    </section>
+
+    <section class="ed-section" id="record">
+      <div class="ed-label"><span class="ed-meta">05</span><h2>In the record</h2><span class="ed-meta">Live from this app</span></div>
+      <div class="ed-body"><ul class="ed-rows" id="recList"><li class="ed-empty">Reading the record…</li></ul></div>
+    </section>
+
+    <footer class="ed-foot"><span class="ed-meta" id="src"></span><a class="ed-link plain" href="./">Back to the project</a></footer>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(async function(){
+  const $=id=>document.getElementById(id);
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  let D;
+  try{ D=await fetch('case-study-data.json',{cache:'no-store'}).then(r=>r.json()); }
+  catch(e){ document.querySelector('main').insertAdjacentHTML('afterbegin','<p class="ed-empty">Could not load case-study-data.json.</p>'); return; }
+
+  // hero
+  $('kicker').textContent=D.project.kicker; $('name').textContent=D.project.name;
+  $('nums').innerHTML=[[D.project.layers,'Layers'],[D.project.days,'Build days'],[D.project.decisions,'Decisions'],[D.project.attention+D.project.gates,'Needed a person']]
+    .map(([n,l])=>`<div><span class="ed-num">${n}</span><span class="ed-meta">${l}</span></div>`).join('');
+  $('src').textContent='Placeholder project. Process figures: '+D.sources[0]+'.';
+
+  // ---------- twin ----------
+  const ROLES={client:'Client · what is happening',pm:'PM · what it costs and who acts',expert:'Expert · the evidence'};
+  let step=0, role='client';
+  function renderStep(){
+    const S=D.steps[step];
+    $('stepNo').textContent=`Step ${step+1} of ${D.steps.length}`;
+    $('stepTitle').textContent=S.t;
+    $('roleName').textContent=ROLES[role];
+    $('roleText').textContent=S[role];
+    $('otherText').innerHTML=Object.keys(ROLES).filter(r=>r!==role).map(r=>`<b style="font-weight:500">${r==='pm'?'PM':r[0].toUpperCase()+r.slice(1)}:</b> ${esc(S[r])}`).join('<br>');
+    $('steps').innerHTML=D.steps.map((s,i)=>`<button type="button" data-i="${i}" ${i===step?'aria-current="step"':''}><b>${String(i+1).padStart(2,'0')}</b>${esc(s.k)}</button>`).join('');
+    $('steps').querySelectorAll('button').forEach(b=>b.onclick=()=>{step=+b.dataset.i;renderStep();});
+    $('back').disabled=step===0; $('fwd').disabled=step===D.steps.length-1;
+    build3D();
+  }
+  $('back').onclick=()=>{if(step>0){step--;renderStep();}};
+  $('fwd').onclick=()=>{if(step<D.steps.length-1){step++;renderStep();}};
+  $('roles').querySelectorAll('button').forEach(b=>b.onclick=()=>{role=b.dataset.r;$('roles').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));renderStep();});
+
+  let renderer,scene,camera,controls,group,movers=[],gl=false,t=0;
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  try{
+    if(!window.THREE) throw 0;
+    const cv=$('c'); renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+    scene=new THREE.Scene(); camera=new THREE.PerspectiveCamera(32,1,.01,100);
+    controls=new THREE.OrbitControls(camera,cv); controls.enableDamping=true; controls.target.set(0,1.1,0);
+    camera.position.set(3.6,2.6,4.2);
+    scene.add(new THREE.AmbientLight(0xffffff,.8)); const dl=new THREE.DirectionalLight(0xffffff,.5); dl.position.set(3,6,4); scene.add(dl);
+    gl=true;
+  }catch(e){ $('nogl').style.display='grid'; }
+  const N=72,H=2.4,DZ=H/N;
+  const radius=(i,v5)=>{const tt=i/(N-1);let r=.62-.32*Math.pow(tt,1.6); if(v5&&i>=18) r-=.008*(i-18)/54; return r;};
+  function ring(i,col,opts){
+    const pts=[]; const v5=opts.v5, r=radius(i,v5), z=i*DZ+DZ/2, drift=opts.drift||0;
+    for(let s=0;s<=96;s++){const a=s/96*Math.PI*2; const b=drift*Math.pow(Math.max(0,Math.sin(a)),2); pts.push(new THREE.Vector3((r+b)*Math.cos(a),z,(r+b)*Math.sin(a)));}
+    const g=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts,true),96,opts.tube||.007,5,true);
+    const m=new THREE.MeshStandardMaterial({color:col,roughness:.7,transparent:!!opts.ghost,opacity:opts.ghost?.28:1,emissive:opts.glow?col:0,emissiveIntensity:opts.glow?.5:0});
+    return new THREE.Mesh(g,m);
+  }
+  function drone(col){const d=new THREE.Group();d.add(new THREE.Mesh(new THREE.BoxGeometry(.12,.035,.12),new THREE.MeshStandardMaterial({color:col})));
+    [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([a,b])=>{const p=new THREE.Mesh(new THREE.CylinderGeometry(.045,.045,.005,16),new THREE.MeshStandardMaterial({color:0x9b9b98}));p.position.set(a*.09,.022,b*.09);d.add(p);});return d;}
+  function build3D(){
+    if(!gl) return; if(group) scene.remove(group); group=new THREE.Group(); scene.add(group); movers=[];
+    const S=D.steps[step], v5=step>=3;
+    const base=new THREE.Mesh(new THREE.CircleGeometry(1.5,64),new THREE.MeshBasicMaterial({color:0xe2e2df})); base.rotation.x=-Math.PI/2; group.add(base);
+    for(let i=0;i<N;i++){
+      const L=i+1, lay=D.layers[i], cur=S.current===L;
+      if(S.trace&&L<=6){ group.add(ring(i,0x2e7d4f,{glow:true,tube:.005})); continue; }
+      if(L<=S.printed||(cur&&S.hold&&L<=S.printed)){
+        const bad=lay&&!lay.ok;
+        group.add(ring(i,bad?0xc8452f:0x8a8a86,{v5:v5&&L>18,drift:bad?lay.dev/1000*4:0,tube:bad?.009:.007}));
+      } else if(cur){ group.add(ring(i,0xb4541a,{v5,tube:.011,glow:true})); }
+      else { group.add(ring(i,0xb8b8b4,{v5,ghost:true,tube:.005})); }
+    }
+    if(S.drones){
+      const L=S.current||Math.max(S.printed,6), z=(L-1)*DZ+.3, r=radius(L-1,v5)+.35;
+      const b1=drone(0x0a0a0a); group.add(b1); movers.push({o:b1,r,y:z,sp:S.hold?0:.8,ph:0});
+      if(step<5||step>6){const b2=drone(0x6b6b6b); group.add(b2); movers.push({o:b2,r:r+.05,y:z+.15,sp:S.hold?0:.8,ph:Math.PI});}
+      const sc=drone(0x2e7d4f); group.add(sc); movers.push({o:sc,r:r+.25,y:z+.35,sp:-.4,ph:1});
+    }
+    resize();
+  }
+  function resize(){ if(!gl) return; const cv=$('c'); const w=cv.clientWidth,h=cv.clientHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+  addEventListener('resize',resize);
+  (function loop(){ requestAnimationFrame(loop); if(!gl) return; if(!reduce){t+=.016; movers.forEach(m=>{const a=m.ph+t*m.sp; m.o.position.set(Math.cos(a)*m.r,m.y,Math.sin(a)*m.r);});} controls.update(); renderer.render(scene,camera); })();
+  renderStep();
+
+  // ---------- process and questions ----------
+  const nQ=D.stages.reduce((a,s)=>a+s.questions.length,0);
+  $('qCount').textContent=`${D.stages.length} steps · ${nQ} questions · steps 10–15 repeat every layer`;
+  let sel=D.stages[0].id;
+  function renderProcess(){
+    $('phases').innerHTML=D.phases.map(p=>`<div class="ed-col"><span class="ed-meta">${esc(p.id)} · ${esc(p.name)}</span>${
+      D.stages.filter(s=>s.phase===p.id).map(s=>`<button type="button" class="ed-item" data-s="${s.id}" ${s.id===sel?'style="box-shadow:inset 2px 0 0 var(--ink);padding-left:8px"':''}><span class="t">${esc(s.id)} ${esc(s.title)}</span><span class="ed-meta">${s.gate?esc(s.gate):s.questions.length+' questions'}</span></button>`).join('')}</div>`).join('');
+    $('phases').querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{sel=b.dataset.s;renderProcess();});
+    const s=D.stages.find(x=>x.id===sel);
+    $('stage').innerHTML=`<span class="ed-meta">Step ${esc(s.id)}${s.loop?' · repeats every layer':''}</span>
+      <h3 style="font-size:clamp(24px,2.4vw,34px);font-weight:400;letter-spacing:-.03em;margin:6px 0">${esc(s.title)}</h3>
+      <p style="margin:0 0 8px;color:var(--ink-2)">${esc(s.what)}</p>
+      <div style="display:flex;gap:18px;flex-wrap:wrap"><span class="cs-own">Decides: ${s.owners.map(o=>o==='pm'?'PM':o==='site'?'Site lead':'Designer').join(', ')}</span>${s.gate?`<span class="cs-gate">${esc(s.gate)}</span>`:''}</div>
+      <ol class="cs-q">${s.questions.map(q=>`<li>${esc(q)}</li>`).join('')}</ol>`;
+  }
+  renderProcess();
+
+  // ---------- decisions ----------
+  const PH={all:'All',design:'Design phase',production:'Production',project_management:'Project manager'};
+  let ph='all';
+  function renderDecisions(){
+    $('dFilter').innerHTML=Object.entries(PH).map(([k,v])=>`<button type="button" data-p="${k}" class="${k===ph?'on':''}">${v} <span class="ed-meta">${k==='all'?D.decisions.length:D.decisions.filter(d=>d.phase===k).length}</span></button>`).join('');
+    $('dFilter').querySelectorAll('button').forEach(b=>b.onclick=()=>{ph=b.dataset.p;renderDecisions();});
+    $('dList').innerHTML=D.decisions.filter(d=>ph==='all'||d.phase===ph).map(d=>`<li class="ed-row">
+      <span class="t">${esc(d.question)}</span><span class="side"><span class="cs-basis">${esc(d.title)} · from ${esc(d.basis.replace(/\+/g,' + '))}</span></span>
+      <p class="cs-ans">${esc(d.answer)}</p><p class="cs-rule">${esc(d.rule)}</p></li>`).join('');
+  }
+  renderDecisions();
+
+  // ---------- build log ----------
+  const fmt=s=>{const d=new Date(s);return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false});};
+  $('logList').innerHTML=D.log.map(l=>`<li class="ed-row"><span class="t">${esc(l.title)}<span class="sub">${esc(l.question)}</span></span>
+    <span class="side"><span class="cs-urg ${l.urgency}">${l.urgency}</span><span class="ed-meta">${l.role.toUpperCase()} · ${fmt(l.at)}</span></span>
+    <p class="cs-ans"><b style="font-weight:500">${esc(l.outcome)}.</b> ${esc(l.reason)}</p></li>`).join('');
+
+  // ---------- live record ----------
+  try{
+    const s=await fetch('../api/state',{cache:'no-store'}).then(r=>r.json());
+    const hit=x=>/aerial am|case study|layer \d|buildrone|bd2|twin v5|cartridge|anemometer|refill tech|laser scan/i.test(x||'');
+    const nodes=(s.nodes||[]).filter(n=>hit(n.title)||hit(n.summary));
+    const items=(s.items||[]).filter(i=>hit(i.label)&&i.status!=='dismissed');
+    const rows=[...nodes.map(n=>({t:n.title,k:(n.type||'').replace('_',' '),st:'In the record'})),
+                ...items.map(i=>({t:(i.proposal&&i.proposal.title)||i.label,k:(i.proposal&&i.proposal.type)||'',st:i.status==='ready'?'Waiting in Review':i.status}))];
+    $('recList').innerHTML=rows.length?rows.map(r=>`<li class="ed-row"><span class="t">${esc(r.t)}</span><span class="side"><span class="ed-meta">${esc(r.k)}</span><span class="ed-meta">${esc(r.st)}</span></span></li>`).join('')
+      :'<li class="ed-empty">Nothing from this case study is in the record yet. Add field messages with + Add on the project page.</li>';
+  }catch(e){ $('recList').innerHTML='<li class="ed-empty">The live record is not reachable from here.</li>'; }
+})();
+</script>
+</body>
+</html>
