@@ -87,8 +87,12 @@ def classify(source: str) -> str | None:
         return None
 
 
+SKIP_SUFFIXES = (".3dmbak", ".bak", ".tmp", ".temp", ".rhl", ".swp", ".crdownload", ".part", "~")  # backups / temp copies
+
+
 def _skip(name: str) -> bool:
-    return name.lower() in SKIP_NAMES or name.startswith(SKIP_PREFIXES)
+    low = name.lower()
+    return low in SKIP_NAMES or name.startswith(SKIP_PREFIXES) or low.endswith(SKIP_SUFFIXES)
 
 
 def list_local(root: Path) -> list[Entry]:

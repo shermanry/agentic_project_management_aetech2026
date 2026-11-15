@@ -523,7 +523,7 @@ function addToTray(files) {
   drawTray(); promptEl.focus();
 }
 function drawTray() {
-  const SHOW = 12;
+  const SHOW = 4;
   $("#tray").innerHTML = tray.slice(0, SHOW).map((t, i) => `<div class="att">${t.url ? `<img src="${t.url}" alt="">` :
     `<span class="ext">${esc((t.f.name.split(".").pop() || "").toUpperCase().slice(0, 4))}</span>`}
     <span class="nm" title="${esc(t.f._rel || t.f.name)}">${esc(t.f.name)}</span><button data-rm="${i}" aria-label="Remove">✕</button></div>`).join("")
@@ -532,7 +532,8 @@ function drawTray() {
   document.querySelectorAll("[data-clear]").forEach(b => b.onclick = () => { takeTray(); });
 }
 // A dropped FOLDER arrives as an unreadable placeholder; open it and collect every file inside (keeping paths).
-const JUNK = /^(\.|~\$|thumbs\.db$|desktop\.ini$)/i;
+// system files, Office lock files, and backup / temp copies (Rhino .3dmbak, .bak, .tmp…): they'd only duplicate nodes
+const JUNK = /^(\.|~\$|thumbs\.db$|desktop\.ini$)|\.(3dmbak|bak|tmp|temp|rhl|swp|crdownload|part)$|~$/i;
 async function filesFromDrop(dt) {
   const entries = [...(dt.items || [])].filter(i => i.kind === "file").map(i => i.webkitGetAsEntry?.()).filter(Boolean);
   if (!entries.length || !entries.some(e => e.isDirectory)) return [...(dt.files || [])];
