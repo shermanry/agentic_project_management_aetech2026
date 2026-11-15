@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Project Skyline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0e16; --panel:#111925; --panel2:#18243a; --ink:#e9eef6; --muted:#8d9ab0;
+  --line:#2a3a54; --amber:#ffb547; --cyan:#5ad1e6; --pink:#ff6b8b; --green:#6ee7a8;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+
+/* ---------- canvas ---------- */
+#stage{position:fixed;inset:0;overflow:hidden;cursor:grab;touch-action:none;
+  background-image:radial-gradient(circle,#1c2940 1.3px,transparent 1.4px);background-size:44px 44px}
+#stage.dragging{cursor:grabbing}
+#stage::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.55) 100%)}
+#world{position:absolute;left:0;top:0;transform-origin:0 0}
+#links{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible;pointer-events:none}
+#links path{fill:none;stroke:#30476b;stroke-width:6;stroke-dasharray:4 22;stroke-linecap:round}
+#links circle{fill:var(--amber)}
+
+/* ---------- nodes ---------- */
+.node{position:absolute;border-radius:30px;padding:64px 72px;overflow:hidden;cursor:pointer;
+  background:linear-gradient(160deg,var(--panel2),var(--panel));border:2px solid var(--line);
+  box-shadow:0 40px 120px rgba(0,0,0,.5);transition:border-color .6s,box-shadow .6s,opacity .6s}
+.node.dim{opacity:.55}
+.node.active{border-color:var(--amber);box-shadow:0 0 0 8px rgba(255,181,71,.12),0 40px 120px rgba(0,0,0,.55)}
+.node.child{border-radius:14px;padding:22px 24px;border-width:1.5px;background:#0f1622;box-shadow:0 12px 30px rgba(0,0,0,.4)}
+.node.child.active{box-shadow:0 0 0 3px rgba(255,181,71,.25)}
+.node:hover:not(.active){border-color:#45618c}
+
+h1,h2,h3,h4{font-family:"Space Grotesk",sans-serif;font-weight:700;letter-spacing:-.02em;line-height:1.02}
+.kicker{font:500 26px/1 "Space Grotesk";letter-spacing:.18em;text-transform:uppercase;color:var(--amber);margin-bottom:28px}
+h2{font-size:84px;margin-bottom:24px}
+.lede{font-size:30px;line-height:1.45;color:var(--muted);max-width:720px}
+ul.pts{list-style:none;margin-top:36px}
+ul.pts li{font-size:26px;line-height:1.4;padding-left:40px;position:relative;margin-bottom:18px;color:#c9d3e3}
+ul.pts li::before{content:"";position:absolute;left:0;top:13px;width:18px;height:4px;border-radius:2px;background:var(--cyan)}
+.abs{position:absolute}
+.img{position:absolute;border-radius:18px;overflow:hidden;background:#1a2638}
+.img img,.cover{width:100%;height:100%;object-fit:cover;display:block}
+.tag{display:inline-block;font:600 12px/1 Inter;letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--cyan);padding:6px 9px;border-radius:6px;margin-bottom:12px}
+
+/* title */
+#title{padding:0}
+#title .bg{position:absolute;inset:0}
+#title .bg::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,rgba(10,14,22,.96) 30%,rgba(10,14,22,.55) 70%,rgba(10,14,22,.2))}
+#title .wrap{position:absolute;left:110px;top:200px;width:900px}
+#title h1{font-size:180px;margin-bottom:36px}
+#title h1 span{color:var(--amber)}
+#title .meta{margin-top:56px;font:500 24px/1 "Space Grotesk";color:var(--muted);display:flex;gap:28px}
+#title .meta b{color:var(--ink);font-weight:500}
+
+/* child cards */
+.child h4{font-size:22px;margin-bottom:8px}
+.child p{font-size:14px;line-height:1.5;color:var(--muted)}
+.big{font:700 72px/1 "Space Grotesk";color:var(--amber);margin:6px 0 8px}
+.step .num{font:700 15px/1 "Space Grotesk";color:var(--amber);letter-spacing:.14em;margin-bottom:10px}
+.step .img{position:relative;height:190px;margin:-22px -24px 18px;border-radius:0}
+.step h4{font-size:30px;margin-bottom:10px}
+.step p{font-size:16px}
+.step .chips{margin-top:16px;display:flex;flex-wrap:wrap;gap:6px}
+.step .chips span{font-size:12px;padding:5px 8px;border-radius:999px;border:1px solid var(--line);color:#b8c4d6}
+
+/* results */
+.stat{position:absolute;background:#0f1622;border:1.5px solid var(--line);border-radius:18px;padding:28px 32px}
+.stat .v{font:700 76px/1 "Space Grotesk"}
+.stat .l{font-size:20px;color:var(--muted);margin-top:10px}
+.bars{display:flex;align-items:flex-end;gap:14px;height:150px;margin-top:14px}
+.bars div{flex:1;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,var(--cyan),#2b7c8d);position:relative}
+.bars div span{position:absolute;bottom:-22px;left:0;right:0;text-align:center;font-size:11px;color:var(--muted)}
+.bars div.hl{background:linear-gradient(180deg,var(--amber),#a8691a)}
+
+/* thanks */
+#thanks{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+#thanks h2{font-size:150px}
+#thanks h2 span{color:var(--amber)}
+
+/* ---------- HUD ---------- */
+#progress{position:fixed;left:0;top:0;height:3px;background:var(--amber);width:0;transition:width .6s ease;z-index:5}
+#hud{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;z-index:5;
+  background:rgba(17,25,37,.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid var(--line);border-radius:999px;padding:6px;max-width:calc(100vw - 32px)}
+#hud button{all:unset;cursor:pointer;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:var(--ink);font-size:18px}
+#hud button:hover{background:#22314a}
+#hud button:focus-visible{outline:2px solid var(--amber)}
+#label{font:500 14px/1 "Space Grotesk";padding:0 10px;min-width:150px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#label small{color:var(--muted);margin-right:8px;font-weight:400}
+#hint{position:fixed;right:18px;bottom:30px;font-size:12px;color:var(--muted);z-index:5}
+#hint kbd{font-family:inherit;border:1px solid var(--line);border-radius:4px;padding:1px 5px;margin:0 1px}
+@media (max-width:1100px){#hint{display:none}}
+@media (max-width:760px){#label{min-width:0}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="stage">
+  <div id="world">
+    <svg id="links"></svg>
+
+    <!-- TITLE -->
+    <div class="node" id="title" data-x="0" data-y="0" data-w="1600" data-h="900" data-r="0" data-label="Title">
+      <div class="bg"><img class="cover" src="https://picsum.photos/seed/skyline-hero/1600/900" alt=""></div>
+      <div class="wrap">
+        <div class="kicker">AEC Tech Hackathon · 2026</div>
+        <h1>Project <span>Skyline</span></h1>
+        <p class="lede">A sample zooming presentation — every slide is a node on one big canvas, and the story is the path between them.</p>
+        <div class="meta"><span><b>Team</b> Placeholder</span><span><b>Date</b> Nov 14, 2026</span></div>
+      </div>
+    </div>
+
+    <!-- PROBLEM -->
+    <div class="node" id="problem" data-x="-2500" data-y="-1500" data-w="1400" data-h="800" data-r="0" data-label="The Problem">
+      <div class="kicker">01 — Context</div>
+      <h2>The problem</h2>
+      <p class="lede" style="max-width:600px">Lorem ipsum dolor sit amet: site data is scattered, slow to collect and hard to act on.</p>
+      <ul class="pts" style="max-width:600px">
+        <li>Placeholder pain point number one</li>
+        <li>Another sample issue that teams face</li>
+        <li>A third dummy bullet for rhythm</li>
+      </ul>
+      <div class="img" style="left:740px;top:64px;width:588px;height:380px"><img src="https://picsum.photos/seed/site-survey/900/580" alt=""></div>
+      <div class="node child" id="problem-a" data-x="740" data-y="476" data-w="282" data-h="250" data-label="Stat · Time lost">
+        <span class="tag">Sample stat</span>
+        <div class="big">73%</div>
+        <p>of survey hours go to manual re-checks. (Dummy number.)</p>
+      </div>
+      <div class="node child" id="problem-b" data-x="1046" data-y="476" data-w="282" data-h="250" data-label="Stat · Cost">
+        <span class="tag" style="background:var(--pink)">Sample stat</span>
+        <div class="big" style="color:var(--pink)">$1.2M</div>
+        <p>average rework cost per project. (Also dummy.)</p>
+      </div>
+    </div>
+
+    <!-- APPROACH -->
+    <div class="node" id="approach" data-x="2400" data-y="-1650" data-w="1400" data-h="800" data-r="0" data-label="Our Approach">
+      <div class="kicker">02 — Approach</div>
+      <h2>Three moves</h2>
+      <div class="node child step" id="step1" data-x="72" data-y="290" data-w="402" data-h="450" data-label="Step 1 · Capture">
+        <div class="img"><img src="https://picsum.photos/seed/drone-capture/800/380" alt=""></div>
+        <div class="num">STEP 01</div><h4>Capture</h4>
+        <p>Sample copy describing how data gets collected from the field, quickly and repeatably.</p>
+        <div class="chips"><span>Sensors</span><span>Imagery</span><span>Scans</span></div>
+      </div>
+      <div class="node child step" id="step2" data-x="499" data-y="290" data-w="402" data-h="450" data-label="Step 2 · Analyze">
+        <div class="img"><img src="https://picsum.photos/seed/data-analyze/800/380" alt=""></div>
+        <div class="num">STEP 02</div><h4>Analyze</h4>
+        <p>Placeholder text about models, scoring and turning raw inputs into signals.</p>
+        <div class="chips"><span>Models</span><span>Scoring</span><span>Rules</span></div>
+      </div>
+      <div class="node child step" id="step3" data-x="926" data-y="290" data-w="402" data-h="450" data-label="Step 3 · Decide">
+        <div class="img"><img src="https://picsum.photos/seed/team-decide/800/380" alt=""></div>
+        <div class="num">STEP 03</div><h4>Decide</h4>
+        <p>Dummy description of the dashboard where people review results and act.</p>
+        <div class="chips"><span>Dashboard</span><span>Alerts</span><span>Reports</span></div>
+      </div>
+    </div>
+
+    <!-- GALLERY -->
+    <div class="node" id="gallery" data-x="3000" data-y="1100" data-w="1500" data-h="850" data-r="0" data-label="Gallery">
+      <div class="kicker">03 — Prototype</div>
+      <h2 style="font-size:72px">What it looks like</h2>
+      <div class="node child" id="gallery-hero" data-x="72" data-y="210" data-w="760" data-h="580" data-label="Gallery · Hero shot" style="padding:0">
+        <img class="cover" src="https://picsum.photos/seed/aerial-city/1200/900" alt="">
+        <div class="abs" style="left:0;right:0;bottom:0;padding:22px 26px;background:linear-gradient(transparent,rgba(0,0,0,.85))">
+          <span class="tag">Fig. 1</span>
+          <h4 style="font-size:26px">Sample hero image with a caption</h4>
+        </div>
+      </div>
+      <div class="img" style="left:856px;top:210px;width:278px;height:278px"><img src="https://picsum.photos/seed/facade/500/500" alt=""></div>
+      <div class="img" style="left:1150px;top:210px;width:278px;height:278px"><img src="https://picsum.photos/seed/roof/500/500" alt=""></div>
+      <div class="img" style="left:856px;top:512px;width:278px;height:278px"><img src="https://picsum.photos/seed/street/500/500" alt=""></div>
+      <div class="img" style="left:1150px;top:512px;width:278px;height:278px"><img src="https://picsum.photos/seed/bridge/500/500" alt=""></div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="node" id="results" data-x="-500" data-y="2500" data-w="1400" data-h="800" data-r="0" data-label="Results">
+      <div class="kicker">04 — Results</div>
+      <h2>Early results</h2>
+      <div class="stat" style="left:72px;top:250px;width:390px"><div class="v" style="color:var(--green)">−42%</div><div class="l">time on site (dummy)</div></div>
+      <div class="stat" style="left:505px;top:250px;width:390px"><div class="v" style="color:var(--cyan)">3.5×</div><div class="l">faster reviews (dummy)</div></div>
+      <div class="stat" style="left:938px;top:250px;width:390px"><div class="v" style="color:var(--amber)">18</div><div class="l">pilot sites (dummy)</div></div>
+      <div class="node child" id="results-chart" data-x="72" data-y="470" data-w="1256" data-h="270" data-label="Results · Chart">
+        <h4>Weekly throughput <span style="font-weight:400;color:var(--muted);font-size:15px">— sample data</span></h4>
+        <div class="bars">
+          <div style="height:30%"><span>W1</span></div><div style="height:38%"><span>W2</span></div>
+          <div style="height:35%"><span>W3</span></div><div style="height:52%"><span>W4</span></div>
+          <div style="height:58%"><span>W5</span></div><div style="height:64%"><span>W6</span></div>
+          <div style="height:71%"><span>W7</span></div><div style="height:69%"><span>W8</span></div>
+          <div style="height:83%"><span>W9</span></div><div class="hl" style="height:100%"><span>W10</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- THANKS -->
+    <div class="node" id="thanks" data-x="-3200" data-y="1000" data-w="1200" data-h="675" data-r="0" data-label="Thank you">
+      <div class="kicker">05 — Fin</div>
+      <h2>Thank <span>you</span></h2>
+      <p class="lede" style="text-align:center">Questions? · team@example.com</p>
+    </div>
+  </div>
+</div>
+
+<div id="hud">
+  <button id="prev" aria-label="Previous slide">←</button>
+  <div id="label"></div>
+  <button id="next" aria-label="Next slide">→</button>
+  <button id="ov" aria-label="Overview" title="Overview (O)">◎</button>
+</div>
+<div id="hint"><kbd>←</kbd><kbd>→</kbd> navigate · <kbd>O</kbd> overview · <kbd>F</kbd> fullscreen · drag / scroll to explore</div>
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const world = document.getElementById('world');
+  const links = document.getElementById('links');
+  const rad = d => d * Math.PI / 180;
+
+  // ---------- offline fallback for sample images: a generated "skyline" SVG ----------
+  function placeholder(seed) {
+    let h = 0; for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const rnd = () => (h = (h * 1664525 + 1013904223) >>> 0) / 4294967296;
+    const hue = Math.floor(rnd() * 360), hue2 = (hue + 40) % 360;
+    let bldg = '', x = 0;
+    while (x < 800) { const w = 40 + rnd() * 70, ht = 120 + rnd() * 300;
+      bldg += `<rect x="${x}" y="${600 - ht}" width="${w}" height="${ht}" fill="hsl(${hue},35%,${10 + rnd()*10}%)"/>`; x += w + 4; }
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="hsl(${hue},55%,30%)"/>
+      <stop offset="1" stop-color="hsl(${hue2},70%,62%)"/></linearGradient></defs>
+      <rect width="800" height="600" fill="url(#g)"/><circle cx="${200 + rnd()*400}" cy="${150 + rnd()*120}" r="60" fill="hsl(40,100%,75%)" opacity=".7"/>${bldg}</svg>`;
+    return 'data:image/svg+xml,' + encodeURIComponent(svg);
+  }
+  document.querySelectorAll('img').forEach(img => {
+    const fb = () => { if (!img.dataset.fb) { img.dataset.fb = 1; img.src = placeholder(img.src); } };
+    img.addEventListener('error', fb);
+    if (img.complete && img.naturalWidth === 0) fb();
+  });
+  const rot = (x, y, deg) => { const c = Math.cos(rad(deg)), s = Math.sin(rad(deg)); return [x*c - y*s, x*s + y*c]; };
+
+  // ---------- build frames from DOM ----------
+  const frames = {};
+  document.querySelectorAll('.node').forEach(el => {
+    const d = el.dataset, w = +d.w, h = +d.h;
+    el.style.width = w + 'px'; el.style.height = h + 'px';
+    const parentEl = el.parentElement.closest('.node');
+    if (!parentEl) {
+      const x = +d.x, y = +d.y, r = +d.r || 0;
+      el.style.left = (x - w/2) + 'px'; el.style.top = (y - h/2) + 'px';
+      el.style.transform = `rotate(${r}deg)`;
+      frames[el.id] = { x, y, w, h, r, el, label: d.label, top: true };
+    } else {
+      el.style.left = d.x + 'px'; el.style.top = d.y + 'px';
+      const p = frames[parentEl.id];
+      const [ox, oy] = rot(+d.x + w/2 - p.w/2, +d.y + h/2 - p.h/2, p.r);
+      frames[el.id] = { x: p.x + ox, y: p.y + oy, w, h, r: p.r, el, label: d.label, parent: parentEl.id };
+    }
+  });
+
+  // overview = bounding box of all top-level nodes
+  (() => {
+    let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+    Object.values(frames).filter(f => f.top).forEach(f => {
+      const R = Math.hypot(f.w, f.h) / 2 * 0.92;
+      x0=Math.min(x0,f.x-R); y0=Math.min(y0,f.y-R); x1=Math.max(x1,f.x+R); y1=Math.max(y1,f.y+R);
+    });
+    frames.overview = { x:(x0+x1)/2, y:(y0+y1)/2, w:x1-x0, h:y1-y0, r:0, label:'Overview' };
+  })();
+
+  // ---------- connector lines ----------
+  const chain = ['title','problem','approach','gallery','results','thanks'];
+  let svg = '';
+  for (let i = 0; i < chain.length - 1; i++) {
+    const a = frames[chain[i]], b = frames[chain[i+1]];
+    const mx = (a.x + b.x)/2, my = (a.y + b.y)/2, dx = b.x - a.x, dy = b.y - a.y;
+    const cx = mx - dy * 0.18, cy = my + dx * 0.18;
+    svg += `<path d="M${a.x},${a.y} Q${cx},${cy} ${b.x},${b.y}"/>`;
+  }
+  chain.forEach(id => svg += `<circle cx="${frames[id].x}" cy="${frames[id].y}" r="14"/>`);
+  links.innerHTML = svg;
+
+  // ---------- the presentation path ----------
+  const path = ['title','overview','problem','problem-a','problem-b','approach','step1','step2','step3',
+                'gallery','gallery-hero','results','results-chart','thanks','overview'];
+
+  // ---------- camera ----------
+  let vw = innerWidth, vh = innerHeight;
+  const cam = { x: 0, y: 0, s: 1, r: 0 };
+  const PAD = 1.12;
+  const fitScale = f => Math.min(vw / (f.w * PAD), vh / (f.h * PAD));
+
+  function apply() {
+    world.style.transform =
+      `translate(${vw/2}px,${vh/2}px) rotate(${-cam.r}deg) scale(${cam.s}) translate(${-cam.x}px,${-cam.y}px)`;
+    // subtle parallax on the dot grid
+    const g = 44 * Math.max(0.6, Math.min(1.6, Math.pow(cam.s, 0.25)));
+    stage.style.backgroundSize = `${g}px ${g}px`;
+    stage.style.backgroundPosition = `${(-cam.x * cam.s * 0.25) % g}px ${(-cam.y * cam.s * 0.25) % g}px`;
+  }
+
+  // van Wijk & Nuij "smooth and efficient zooming and panning" (same math as d3.interpolateZoom)
+  function zoomPath(p0, p1) {
+    const rho = 1.35, rho2 = rho*rho, rho4 = rho2*rho2;
+    const [ux0, uy0, w0] = p0, [ux1, uy1, w1] = p1;
+    const dx = ux1 - ux0, dy = uy1 - uy0, d2 = dx*dx + dy*dy;
+    if (d2 < 1e-6) {
+      const S = Math.log(w1 / w0) / rho;
+      return { S: Math.abs(S), at: t => [ux0 + t*dx, uy0 + t*dy, w0 * Math.exp(rho * t * S)] };
+    }
+    const d1 = Math.sqrt(d2);
+    const b0 = (w1*w1 - w0*w0 + rho4*d2) / (2*w0*rho2*d1);
+    const b1 = (w1*w1 - w0*w0 - rho4*d2) / (2*w1*rho2*d1);
+    const r0 = Math.log(Math.sqrt(b0*b0 + 1) - b0), r1 = Math.log(Math.sqrt(b1*b1 + 1) - b1);
+    const S = (r1 - r0) / rho, ch0 = Math.cosh(r0), sh0 = Math.sinh(r0);
+    return { S, at: t => {
+      const s = t * S, u = w0 / (rho2 * d1) * (ch0 * Math.tanh(rho*s + r0) - sh0);
+      return [ux0 + u*dx, uy0 + u*dy, w0 * ch0 / Math.cosh(rho*s + r0)];
+    }};
+  }
+  const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+
+  let anim = null;
+  function flyTo(f, instant) {
+    if (anim) cancelAnimationFrame(anim);
+    const ts = fitScale(f);
+    if (instant) { Object.assign(cam, { x: f.x, y: f.y, s: ts, r: f.r }); apply(); return; }
+    const zp = zoomPath([cam.x, cam.y, vw / cam.s], [f.x, f.y, vw / ts]);
+    const r0 = cam.r, dr = ((f.r - r0 + 540) % 360) - 180;
+    const dur = Math.max(900, Math.min(2600, zp.S * 750));
+    const t0 = performance.now();
+    const step = now => {
+      const t = Math.min(1, (now - t0) / dur), e = ease(t);
+      const [x, y, w] = zp.at(e);
+      cam.x = x; cam.y = y; cam.s = vw / w; cam.r = r0 + dr * e;
+      apply();
+      anim = t < 1 ? requestAnimationFrame(step) : null;
+    };
+    anim = requestAnimationFrame(step);
+  }
+
+  // ---------- navigation ----------
+  let idx = 0;
+  const labelEl = document.getElementById('label'), prog = document.getElementById('progress');
+  function go(i, instant) {
+    idx = Math.max(0, Math.min(path.length - 1, i));
+    const id = path[idx], f = frames[id];
+    flyTo(f, instant);
+    markActive(id);
+    labelEl.innerHTML = `<small>${idx + 1} / ${path.length}</small>${f.label}`;
+    prog.style.width = (idx / (path.length - 1) * 100) + '%';
+  }
+  function markActive(id) {
+    const f = frames[id] || {};
+    const topId = f.parent || id;
+    Object.entries(frames).forEach(([k, g]) => {
+      if (!g.el) return;
+      g.el.classList.toggle('active', k === id);
+      if (g.top) g.el.classList.toggle('dim', id !== 'overview' && k !== topId);
+    });
+  }
+  function overview() { flyTo(frames.overview); markActive('overview');
+    labelEl.innerHTML = `<small>—</small>Overview`; }
+
+  document.getElementById('next').onclick = () => go(idx + 1);
+  document.getElementById('prev').onclick = () => go(idx - 1);
+  document.getElementById('ov').onclick = overview;
+
+  addEventListener('keydown', e => {
+    if (['ArrowRight','ArrowDown',' ','PageDown','Enter'].includes(e.key)) { e.preventDefault(); go(idx + 1); }
+    else if (['ArrowLeft','ArrowUp','PageUp','Backspace'].includes(e.key)) { e.preventDefault(); go(idx - 1); }
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(path.length - 1);
+    else if (e.key === 'o' || e.key === 'O' || e.key === 'Escape') overview();
+    else if (e.key === 'f' || e.key === 'F') {
+      document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.();
+    }
+  });
+
+  // ---------- free exploration: drag to pan, wheel to zoom ----------
+  const toWorld = (sx, sy) => { const [x, y] = rot(sx - vw/2, sy - vh/2, cam.r); return [cam.x + x / cam.s, cam.y + y / cam.s]; };
+  let drag = null;
+  stage.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    drag = { x: e.clientX, y: e.clientY, moved: false };
+    stage.setPointerCapture(e.pointerId);
+  });
+  stage.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+    if (!drag.moved) { drag.moved = true; stage.classList.add('dragging'); if (anim) cancelAnimationFrame(anim), anim = null; }
+    const [wx, wy] = rot(dx, dy, cam.r);
+    cam.x -= wx / cam.s; cam.y -= wy / cam.s;
+    drag.x = e.clientX; drag.y = e.clientY; apply();
+  });
+  stage.addEventListener('pointerup', e => {
+    const wasDrag = drag && drag.moved; drag = null; stage.classList.remove('dragging');
+    if (wasDrag) return;
+    // click: jump to the innermost node under the pointer
+    stage.releasePointerCapture?.(e.pointerId);
+    const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest('.node');
+    if (!hit) return;
+    const i = path.indexOf(hit.id);
+    if (i >= 0 && i !== idx) go(i);
+    else if (i === idx && frames[hit.id].parent) go(path.indexOf(frames[hit.id].parent));  // click active child → zoom back out
+  });
+  stage.addEventListener('wheel', e => {
+    e.preventDefault();
+    if (anim) cancelAnimationFrame(anim), anim = null;
+    const [wx, wy] = toWorld(e.clientX, e.clientY);
+    const k = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015));
+    cam.s = Math.max(0.02, Math.min(20, cam.s * k));
+    const [ox, oy] = rot(e.clientX - vw/2, e.clientY - vh/2, cam.r);
+    cam.x = wx - ox / cam.s; cam.y = wy - oy / cam.s;
+    apply();
+  }, { passive: false });
+
+  addEventListener('resize', () => { vw = innerWidth; vh = innerHeight; flyTo(frames[path[idx]], true); });
+
+  // intro: start far out, glide into the title (all nodes are kept straight: data-r="0")
+  const ov = frames.overview;
+  Object.assign(cam, { x: ov.x, y: ov.y, s: fitScale(ov) * 0.5, r: 0 }); apply();
+  setTimeout(() => go(0), 250);
+})();
+</script>
+</body>
+</html>
