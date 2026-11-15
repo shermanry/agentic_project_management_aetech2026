@@ -162,11 +162,11 @@ window.makeUIX = ({ui, esc, $, api, post, render, toast, inspector, loadDetail, 
 
   /* ------------------------------------------------------------ 4 Pilot: 3D knowledge network */
   let pilotMode = 'net';     // 'net' (the design's Pilot tab) or 'brief' (the go / no-go flight brief)
-  const opt = {labels: true, focus: false, proposed: true, orbit: false};
+  const opt = {labels: true, hover: false, focus: false, proposed: true, orbit: false};
   const neighbours = id => { const s = new Set([id]); for (const e of S.edges) { if (e.src === id) s.add(e.dst); if (e.dst === id) s.add(e.src); } return s; };
   function network() {
     const sel = ui.sel && D.byId[ui.sel] ? ui.sel : null;
-    const toggles = [['labels', 'Labels'], ['focus', 'Focus neighborhood'], ['proposed', 'Proposed links'], ['orbit', 'Auto-orbit']];
+    const toggles = [['labels', 'Labels'], ['hover', 'Names on hover only'], ['focus', 'Focus neighborhood'], ['proposed', 'Proposed links'], ['orbit', 'Auto-orbit']];
     return `<div class="expert">
       <div class="pm-search pm-add" style="padding-top:18px">${askBar('pilot')}
         <button class="ed-cta" data-act="adding">${ui.adding ? 'Close' : '+ Add to record'}</button></div>
@@ -221,10 +221,11 @@ window.makeUIX = ({ui, esc, $, api, post, render, toast, inspector, loadDetail, 
       net.reset();
       const el = net.renderer.domElement; let drag = null;
       el.addEventListener('pointerdown', e => { drag = {x: e.clientX, y: e.clientY, moved: false}; el.setPointerCapture(e.pointerId); });
-      el.addEventListener('pointermove', e => { if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      el.addEventListener('pointermove', e => { if (!drag) { net.over(e); return; } const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
         if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true; drag.x = e.clientX; drag.y = e.clientY;
         net.cam.theta -= dx * .006; net.cam.phi = Math.max(.15, Math.min(Math.PI - .15, net.cam.phi - dy * .006)); });
       el.addEventListener('pointerup', e => { const d = drag; drag = null; if (d && !d.moved) net.pick(e); });
+      el.addEventListener('pointerleave', e => { const to = e.relatedTarget; if (!(to && to.closest && to.closest('.node-chip'))) net.setHover(null); });   // moving onto the name itself keeps it
       el.addEventListener('wheel', e => { e.preventDefault(); net.cam.r = Math.max(120, Math.min(1200, net.cam.r * (e.deltaY > 0 ? 1.1 : 1 / 1.1))); }, {passive: false});
       new ResizeObserver(() => net.size()).observe(net.root);
     },
@@ -257,7 +258,7 @@ window.makeUIX = ({ui, esc, $, api, post, render, toast, inspector, loadDetail, 
         m.position.set(...pos[n.id]); m.userData = {id: n.id, r}; g.add(m); net.meshes[n.id] = m;
         const glow = new T.Mesh(new T.SphereGeometry(r * 2.1, 16, 16), new T.MeshBasicMaterial({color: col, transparent: true, opacity: .14, depthWrite: false})); m.add(glow); m.userData.glow = glow;
         const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'node-chip' + (D.cat[n.id] ? '' : ' uncl'); chip.dataset.id = n.id; chip.textContent = n.title;
-        chip.onclick = ev => { ev.stopPropagation(); net.select(n.id); }; net.labels.appendChild(chip); net.chips[n.id] = {el: chip, p: m.position, dy: r + 8}; }
+        chip.onclick = ev => { ev.stopPropagation(); net.select(n.id); }; chip.onpointerleave = ev => { if (ev.relatedTarget !== net.renderer.domElement) net.setHover(null); }; net.labels.appendChild(chip); net.chips[n.id] = {el: chip, p: m.position, dy: r + 8}; }
       net.ghosts = [];      // proposals waiting for review: a hollow node with dashed links to what it would touch
       for (const it of D.ready) { const links = ((it.proposal && it.proposal.links) || []).filter(l => pos[l.target]); if (!links.length) continue;
         const c = links.reduce((a, l) => a.map((v, i) => v + pos[l.target][i] / links.length), [0, 0, 0]), p = new T.Vector3(c[0] + 26, c[1] + 34, c[2] + 18);
@@ -276,7 +277,7 @@ window.makeUIX = ({ui, esc, $, api, post, render, toast, inspector, loadDetail, 
       const dim = id => id !== sel && (ui.off.has(D.cat[id] || 'none') || (h && !h.has(id)) || (q && !lowerHit(D.byId[id], q)) || (opt.focus && sel && !near.has(id)));
       for (const id in net.meshes) { const m = net.meshes[id], off = dim(id), on = id === sel;
         m.material.opacity = off ? .18 : 1; m.userData.glow.material.opacity = off ? .02 : on ? .22 : .14; m.scale.setScalar(on ? 1.35 : 1);
-        const c = net.chips[id].el; c.classList.toggle('on', on); c.classList.toggle('dim', !!off); c.style.display = opt.labels ? '' : 'none'; }
+        const c = net.chips[id].el; c.classList.toggle('on', on); c.classList.toggle('dim', !!off); c.style.display = net.named(id) ? '' : 'none'; }
       for (const l of net.lines) { const e = l.userData, hot = sel && (e.src === sel || e.dst === sel), off = (opt.focus && sel && !hot) || dim(e.src) && dim(e.dst) || (h && !(h.has(e.src) && h.has(e.dst)));
         l.material.color.set(hot ? 0x0a0a0a : 0x8c8c88); l.material.opacity = off ? .08 : hot ? .95 : .6; }
       if (net.ring) { net.group.remove(net.ring); net.ring = null; }
@@ -285,6 +286,15 @@ window.makeUIX = ({ui, esc, $, api, post, render, toast, inspector, loadDetail, 
       for (const gh of net.ghosts || []) { gh.objs.forEach(o => o.visible = opt.proposed); gh.lab.el.style.display = opt.proposed && opt.labels ? '' : 'none'; }
       net.tags.forEach(t => { if (!t.el.classList.contains('ghost')) t.el.style.display = opt.labels ? '' : 'none'; });
     },
+    /* "Names on hover only": node names are hidden except for the node under the pointer. Cluster names stay. */
+    named: id => opt.labels && (!opt.hover || id === net.hover),
+    hit(e) { const T = net.T, b = net.renderer.domElement.getBoundingClientRect();
+      net.ray.setFromCamera(new T.Vector2((e.clientX - b.left) / b.width * 2 - 1, -((e.clientY - b.top) / b.height) * 2 + 1), net.camera);
+      const h = net.ray.intersectObjects(Object.values(net.meshes), false)[0]; return h ? h.object.userData.id : null; },
+    over(e) { net.setHover(net.hit(e)); },
+    setHover(id) { if (id === net.hover) return; const was = net.hover; net.hover = id;
+      net.renderer.domElement.style.cursor = id ? 'pointer' : '';
+      for (const k of [was, id]) if (k && net.chips[k]) net.chips[k].el.style.display = net.named(k) ? '' : 'none'; },
     pick(e) { const T = net.T, b = net.renderer.domElement.getBoundingClientRect();
       net.ray.setFromCamera(new T.Vector2((e.clientX - b.left) / b.width * 2 - 1, -((e.clientY - b.top) / b.height) * 2 + 1), net.camera);
       const hit = net.ray.intersectObjects(Object.values(net.meshes), false)[0]; net.select(hit ? hit.object.userData.id : null); },
