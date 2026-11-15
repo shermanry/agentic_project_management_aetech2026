@@ -197,7 +197,9 @@ Settings (environment or `.env`): `DATABASE_URL`, `FEEDS_ENABLED`, `MONITOR_SITE
 | POST | `/api/items/{id}/dismiss` | Record a dismissal with a reason |
 | GET | `/api/feeds` | Live data monitors: site, last and next run, errors, demo scenarios |
 | POST | `/api/feeds/run?only=` | Run monitors now (all, or a comma-separated list) |
-| POST | `/api/feeds/inject/{scenario}` | Demo: push a canned feed change through the real path |
+| POST | `/api/feeds/inject/{scenario}?feed=` | Demo: push a canned feed change through the real path (`feed` = the ref of a feed a person added) |
+| POST | `/api/feeds` | A person adds a live feed. Body: `kind` (weather, airspace, city, rules, space), `title`, `address` (NYC; empty = project site), `window` `{start,end}`, `limits` (e.g. `max_wind_mph`), `depends` (node ids), `by`. Creates the feed node with these settings, links what depends on it, starts its monitors and takes a first reading. In the front end: Live feeds, "+ Add live feed" |
+| POST | `/api/feeds/{node_id}/remove` | Remove a feed a person added (built-in feeds stay); its links and open flags go, the history stays |
 | GET | `/api/parts` | Building parts with a red / amber / none level rolled up from linked nodes |
 | GET | `/api/search` | Hybrid search with filters; no model call. See "Querying the graph" |
 | GET | `/api/nodes/{id}` | Node detail: text, source, passages, links, flags, history |

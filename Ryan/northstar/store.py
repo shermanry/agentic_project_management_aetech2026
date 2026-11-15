@@ -472,6 +472,21 @@ class Store:
                    ON CONFLICT (node_id) DO UPDATE SET connector = EXCLUDED.connector, config = EXCLUDED.config, cron = EXCLUDED.cron""",
                 (int(node_id), connector, Jsonb(config), cron))
 
+    def remove_feed(self, node_id: str, by: str, reason: str = "") -> int:
+        """A person removes a live feed they added: the node and its links leave the graph, the flags it raised close.
+        The event log keeps the history."""
+        n = self.node(node_id)
+        with self.pool.connection() as c, c.transaction():
+            c.execute("""UPDATE attention_items SET state = 'done' WHERE state = 'open' AND event_id IN
+                         (SELECT id FROM events WHERE object_type = 'node' AND object_id = %s)""", (int(node_id),))
+            c.execute("UPDATE edges SET status = 'rejected' WHERE from_node = %s OR to_node = %s", (int(node_id), int(node_id)))
+            c.execute("UPDATE sources SET refresh_policy = 'static', cron = NULL WHERE node_id = %s", (int(node_id),))   # readings stay
+            c.execute("UPDATE nodes SET status = 'dismissed' WHERE id = %s", (int(node_id),))
+            return c.execute("""INSERT INTO events (project_id, actor_id, verb, object_type, object_id, payload)
+                                VALUES (%s, %s, 'feed.removed', 'node', %s, %s) RETURNING id""",
+                             (self.project["id"], self.user(by), int(node_id),
+                              Jsonb({"title": f"Removed live feed “{n['title']}”", "reason": reason, "node_id": str(node_id)}))).fetchone()["id"]
+
     def feed_event(self, feed_id: str, verb: str, payload: dict, fx: dict | None, dedupe_key: str) -> int:
         """A monitor reported a change: reading + event, and (for bad news) attention flags on what it puts at risk.
         Any earlier open flags for the same real-world thing (dedupe_key) are closed first, so updates replace."""

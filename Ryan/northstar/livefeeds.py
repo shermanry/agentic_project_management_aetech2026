@@ -11,6 +11,9 @@ Decision A4: only live feeds update the graph without asking. So:
              -> submitted through normal intake as text, so Jev proposes a placement and a person approves.
   anything else is recorded in the event log only (with a reading on the feed's source).
 
+People can add their own feeds ("Add live feed"): a data_feed node whose `data` holds the kind, the place and window
+it watches, and its limits. Each one gets its own monitors and snapshots, and its changes ripple from its own node.
+
 Settings: FEEDS_ENABLED (default 1), MONITOR_SITE (default monitors/site.json, else site.example.json).
 """
 from __future__ import annotations
@@ -20,6 +23,8 @@ import sys
 import threading
 import time
 import traceback
+import uuid
+from dataclasses import asdict, replace
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Callable
@@ -59,6 +64,24 @@ FEEDS = {
 MONITOR_TO_FEED = {m: ref for ref, f in FEEDS.items() for m in f["monitors"]}
 MAX_INTAKES_PER_RUN = 3
 
+# What a person can add. `limits` lists the Limits fields that matter for that kind (the form shows only those).
+KINDS = {
+    "weather": dict(label="Weather", ref="weather", limits=["max_wind_mph", "max_gust_mph", "max_precip_prob", "flight_altitude_m"],
+                    needs="place and flight window", depends_reason="Can't fly outside the wind, gust and rain limits"),
+    "airspace": dict(label="Airspace (TFRs, LAANC ceiling)", ref="feed_airspace", limits=[], needs="place",
+                     depends_reason="Can't fly inside a TFR or above the LAANC ceiling"),
+    "city": dict(label="NYC permitted events", ref="feed_city", limits=[], needs="place and flight window",
+                 depends_reason="Street closures and crowds near the site"),
+    "rules": dict(label="Rule changes (Federal Register)", ref="feed_rules", limits=[], needs="nothing",
+                  depends_reason="New rules may change what this needs"),
+    "space": dict(label="GPS / space weather", ref="feed_space", limits=[], needs="nothing",
+                  depends_reason="Needs reliable GPS"),
+}
+for _k in KINDS.values():
+    _k.update(monitors=FEEDS[_k["ref"]]["monitors"], connector=FEEDS[_k["ref"]]["connector"])
+LIMIT_FIELDS = {"max_wind_mph": float, "max_gust_mph": float, "max_precip_prob": float, "min_visibility_m": float,
+                "flight_altitude_m": int}
+
 
 def classify(ev: mon_base.Event) -> str:
     """'bad' (ripple + flags), 'good' (close flags), 'discovery' (intake), or 'log'."""
@@ -95,6 +118,8 @@ class LiveFeeds:
                               "error": None, "events": 0} for name in self.monitors}
         self._lock = threading.Lock()
         self._stop = threading.Event()
+        self._state_dir = state_dir
+        self.custom: dict[str, dict] = {}     # ref -> {"node_id", "title", "kind", "site", "keys"}: feeds people added
 
     # ------------------------------------------------------------ graph setup
     gate: Callable[[], bool] | None = None      # set by the app: False while the replay is still setting the project up
@@ -129,16 +154,20 @@ class LiveFeeds:
         return ids
 
     # ------------------------------------------------------------ applying events
-    def apply(self, ev: mon_base.Event) -> dict:
-        ids = self.ensure_nodes()
-        if not ids:                                  # project not set up yet (replay is before the feeds step)
-            return {"skipped": "project is still being set up", "effects": []}
-        feed_ref = MONITOR_TO_FEED.get(ev.source, "weather")
-        feed_id = ids[feed_ref]
+    def apply(self, ev: mon_base.Event, feed_ref: str | None = None) -> dict:
+        if feed_ref in self.custom:                  # a feed a person added: its own node, its own flags
+            feed_id, feed_title = self.custom[feed_ref]["node_id"], self.custom[feed_ref]["title"]
+            dedupe = f"{feed_ref}:{ev.dedupe_key}"
+        else:
+            ids = self.ensure_nodes()
+            if not ids:                              # project not set up yet (replay is before the feeds step)
+                return {"skipped": "project is still being set up", "effects": []}
+            feed_ref = MONITOR_TO_FEED.get(ev.source, "weather")
+            feed_id, feed_title, dedupe = ids[feed_ref], FEEDS[feed_ref]["title"].split(" (")[0], ev.dedupe_key
         how = classify(ev)
-        payload = {"title": f"{FEEDS[feed_ref]['title'].split(' (')[0]}: {ev.title}", "reason": ev.summary,
+        payload = {"title": f"{feed_title}: {ev.title}", "reason": ev.summary,
                    "monitor": ev.source, "kind": ev.kind, "severity_hint": ev.severity_hint, "url": ev.url,
-                   "dedupe_key": ev.dedupe_key, "valid_from": ev.valid_from, "valid_to": ev.valid_to,
+                   "dedupe_key": dedupe, "valid_from": ev.valid_from, "valid_to": ev.valid_to,
                    "handled_as": how, "data": ev.data}
         fx = None
         if how == "bad":
@@ -146,7 +175,7 @@ class LiveFeeds:
                                  self.store.nodes(), self.store.edges())
             payload["effects"] = [{"node_id": e["node_id"], "title": e["title"], "change": e["change"], "why": e["why"]}
                                   for e in fx["effects"]]
-        seq = self.store.feed_event(feed_id, f"feed.{ev.kind}", payload, fx, ev.dedupe_key)
+        seq = self.store.feed_event(feed_id, f"feed.{ev.kind}", payload, fx, dedupe)
         item_id = None
         if how == "discovery":
             text = f"{ev.title}\n\n{ev.summary}\n\nSource: {ev.url or ev.source}"
@@ -161,6 +190,8 @@ class LiveFeeds:
         with self._lock:
             intakes = 0
             for name in names or list(self.monitors):
+                if name not in self.monitors:        # a feed removed while this run was queued
+                    continue
                 m, st = self.monitors[name], self.status[name]
                 t = time.time()
                 try:
@@ -172,7 +203,7 @@ class LiveFeeds:
                                 ev.severity_hint = "low"   # still logged, not proposed
                             else:
                                 intakes += 1
-                        applied.append(self.apply(ev))
+                        applied.append(self.apply(ev, st["feed"]))
                     st.update(ok=True, error=None, events=st["events"] + len(evs))
                     out[name] = {"ok": True, "events": len(evs), "applied": applied}
                 except Exception as e:   # one broken feed must not stop the others
@@ -194,23 +225,149 @@ class LiveFeeds:
         except Exception:
             traceback.print_exc()
         while not self._stop.is_set():
-            due = [n for n, s in self.status.items() if time.time() >= s["next_run"]]
+            try:
+                self.sync_custom()
+            except Exception:
+                traceback.print_exc()
+            due = [n for n, s in list(self.status.items()) if time.time() >= s["next_run"]]
             if due:
                 self.run(due)
-            nxt = min(s["next_run"] for s in self.status.values())
+            nxt = min(s["next_run"] for s in list(self.status.values()))
             self._stop.wait(max(5.0, min(60.0, nxt - time.time())))
 
     def snapshot(self) -> dict:
         return {"site": {"id": self.site.id, "name": self.site.name, "lat": self.site.lat, "lon": self.site.lon,
                          "flight_window": self.site.flight_window},
-                "monitors": self.status, "feeds": {r: f["title"] for r, f in FEEDS.items()},
+                "monitors": self.status,
+                "feeds": {**{r: f["title"] for r, f in FEEDS.items()}, **{r: c["title"] for r, c in self.custom.items()}},
+                "custom": [{"ref": r, "node_id": c["node_id"], "title": c["title"], "kind": c["kind"],
+                            "place": c["site"].address or c["site"].name, "flight_window": c["site"].flight_window,
+                            "limits": {k: getattr(c["site"].limits, k) for k in KINDS[c["kind"]]["limits"]}}
+                           for r, c in self.custom.items()],
+                "kinds": [{"id": k, "label": v["label"], "needs": v["needs"], "limits": v["limits"],
+                           "monitors": v["monitors"]} for k, v in KINDS.items()],
+                "defaults": {"limits": asdict(self.site.limits), "place": self.site.address or self.site.name},
                 "scenarios": sorted(SCENARIOS)}
 
     # ------------------------------------------------------------ demo injection
-    def inject(self, scenario: str) -> dict:
+    def inject(self, scenario: str, feed: str | None = None) -> dict:
+        """`feed` = the ref of a feed a person added: the canned change is raised by that feed instead of the built-in one."""
         if scenario not in SCENARIOS:
             raise ValueError(f"unknown scenario; choose one of {sorted(SCENARIOS)}")
-        return self.apply(SCENARIOS[scenario](self.site))
+        if feed and feed not in self.custom:
+            raise ValueError(f"no added feed {feed!r}")
+        return self.apply(SCENARIOS[scenario](self.custom[feed]["site"] if feed else self.site), feed)
+
+    # ------------------------------------------------------------ feeds people add
+    def sync_custom(self) -> None:
+        """Match the running monitors to the added feeds in the database (after a restart, an add, a removal, a reset)."""
+        found = {n["ref"]: n for n in self.store.nodes()
+                 if n["type"] == "data_feed" and n.get("ref") and (n.get("data") or {}).get("custom")}
+        for ref in [r for r in self.custom if r not in found]:
+            for key in self.custom.pop(ref)["keys"]:
+                self.monitors.pop(key, None)
+                self.status.pop(key, None)
+        for ref, n in found.items():
+            if ref in self.custom:
+                continue
+            d = n["data"]
+            kind = d.get("kind") if d.get("kind") in KINDS else "weather"
+            sd = dict(d.get("site") or {})
+            limits = replace(self.site.limits, **{k: LIMIT_FIELDS[k](v) for k, v in (d.get("limits") or {}).items()
+                                                 if k in LIMIT_FIELDS and v is not None})
+            site = replace(self.site, id=ref, limits=limits,
+                           **{k: sd[k] for k in ("name", "lat", "lon", "address", "bin", "borough", "police_precinct",
+                                                 "flight_window", "radius_nm") if sd.get(k) not in (None, "")})
+            keys = []
+            for cls in mon_feeds.ALL:
+                if cls.name not in KINDS[kind]["monitors"]:
+                    continue
+                key, m = f"{ref}:{cls.name}", cls(site)
+                m.state_path = self._state_dir / f"{ref}.{cls.name}.json"
+                self.monitors[key] = m
+                self.status[key] = {"feed": ref, "last_run": None, "next_run": 0.0, "ok": None, "error": None, "events": 0}
+                keys.append(key)
+            self.custom[ref] = {"node_id": n["id"], "title": n["title"], "kind": kind, "site": site, "keys": keys}
+
+    def add_feed(self, kind: str, by: str, title: str = "", address: str = "", window: dict | None = None,
+                 limits: dict | None = None, depends: list[str] | None = None) -> dict:
+        """Create a live feed node from what a person entered, link what depends on it, start its monitors and
+        take the first reading (the baseline: later readings raise changes against it)."""
+        if kind not in KINDS:
+            raise ValueError(f"unknown kind; choose one of {sorted(KINDS)}")
+        k = KINDS[kind]
+        site = {"name": self.site.name, "address": self.site.address, "lat": self.site.lat, "lon": self.site.lon,
+                "bin": self.site.bin, "borough": self.site.borough, "police_precinct": self.site.police_precinct,
+                "flight_window": dict(self.site.flight_window)}
+        address = (address or "").strip()
+        if address:                                  # another place: look it up (NYC addresses; free, no key)
+            ctx = mon_feeds.site_context(address)
+            site.update(name=ctx["label"] or address, address=ctx["label"] or address, lat=ctx["lat"], lon=ctx["lon"],
+                        bin=ctx.get("bin") or "", borough=ctx.get("borough") or "",
+                        police_precinct="")          # unknown for a new address: city events fall back to street name
+        w = {x: (window or {}).get(x) for x in ("start", "end") if (window or {}).get(x)}
+        if w:
+            for v in w.values():
+                date.fromisoformat(v)                # raises ValueError on a bad date
+            w.setdefault("end", w.get("start"))
+            w.setdefault("start", w["end"])
+            if w["end"] < w["start"]:
+                raise ValueError("the window ends before it starts")
+            site["flight_window"] = w
+        clean = {}
+        for name, v in (limits or {}).items():
+            if name in k["limits"] and v not in (None, ""):
+                clean[name] = LIMIT_FIELDS[name](v)
+                if clean[name] <= 0:
+                    raise ValueError(f"{name} must be above zero")
+        nodes = {n["id"]: n for n in self.store.nodes()}
+        depends = [str(d) for d in (depends or [])]
+        missing = [d for d in depends if d not in nodes]
+        if missing:
+            raise ValueError(f"no such node {missing}")
+        place = site["address"] or site["name"]
+        title = (title or "").strip()[:120] or f"{k['label'].split(' (')[0]} feed: {place.split(',')[0]}"
+        fw = site["flight_window"]
+        summary = (f"{FEEDS[k['ref']]['summary']} Watching {place}"
+                   + (f", {fw.get('start')} to {fw.get('end')}" if fw and "window" in k["needs"] else "")
+                   + (". Limits: " + ", ".join(f"{n.replace('_', ' ')} {v:g}" for n, v in
+                                                {**{f: getattr(self.site.limits, f) for f in k["limits"]}, **clean}.items())
+                      if k["limits"] else "") + ". Added by " + by + ".")
+        ref = "feed_u_" + uuid.uuid4().hex[:6]
+        with self._lock:
+            nid = self.store.put_node({"ref": ref, "type": "data_feed", "title": title, "summary": summary,
+                                       "tags": ["live-data", "feed", kind], "owner": by, "state": "healthy",
+                                       "data": {"custom": True, "kind": kind, "monitors": k["monitors"], "site": site,
+                                                "limits": clean}}, created_by=by)
+            for d in depends:
+                self.store.put_edge(d, nid, "depends_on", k["depends_reason"], 1.0, "user")
+            self.sync_custom()
+            cad = min(self.monitors[key].cadence() for key in self.custom[ref]["keys"])
+            self.store.register_source(nid, k["connector"], {"monitors": k["monitors"], "site": site, "limits": clean},
+                                       f"every {cad // 60} min")
+            seq = self.store.log(by, "feed.added", f"{by} added a live feed: {title}", summary,
+                                 {"node_id": nid, "kind": kind, "links": [{"target": nid, "source": d, "type": "depends_on"}
+                                                                          for d in depends]})
+        self.notify({"type": "graph", "seq": seq, "node_id": nid})
+        first = self.run(self.custom[ref]["keys"])   # baseline now, so the person sees whether the source answers
+        return {"node_id": nid, "ref": ref, "title": title, "revision": seq, "site": site,
+                "depends": [nodes[d]["title"] for d in depends],
+                "first_reading": {key.split(":", 1)[1]: {"ok": r["ok"], "error": r.get("error")} for key, r in first.items()}}
+
+    def remove_feed(self, node_id: str, by: str, reason: str = "") -> dict:
+        ref = next((r for r, c in self.custom.items() if c["node_id"] == str(node_id)), None)
+        if ref is None:
+            self.sync_custom()
+            ref = next((r for r, c in self.custom.items() if c["node_id"] == str(node_id)), None)
+        if ref is None:
+            raise ValueError("only feeds a person added can be removed")
+        with self._lock:
+            seq = self.store.remove_feed(str(node_id), by, reason)
+            for key in self.custom[ref]["keys"]:
+                (self._state_dir / (key.replace(":", ".") + ".json")).unlink(missing_ok=True)
+            self.sync_custom()
+        self.notify({"type": "graph", "seq": seq})
+        return {"revision": seq, "removed": ref}
 
 
 def _next_weekday(wd: int) -> date:   # 0 = Monday ... 3 = Thursday
