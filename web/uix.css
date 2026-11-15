@@ -130,3 +130,32 @@
 .tab-pilot .expert { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .tab-pilot .expert > .pm-search { padding-left: max(var(--gutter), env(safe-area-inset-left, 0px)); padding-right: max(var(--gutter), env(safe-area-inset-right, 0px)); padding-bottom: 12px; border-bottom: 1px solid var(--hair); align-items: flex-start; }
 .tab-pilot .expert > form.pm-add { padding-right: max(var(--gutter), env(safe-area-inset-right, 0px)); padding-bottom: 12px; border-bottom: 1px solid var(--hair); }
+
+
+/* ---------- layering: pages and modals always sit above the 3D scene and its labels ---------- */
+.twin-canvas, #net3d-root { isolation: isolate; }
+.light .modal-back, .modal-back { z-index: 1000; }
+.drop-veil { z-index: 1200; }
+.toast { z-index: 1300; }
+
+/* ---------- Add page: full screen, blocks everything behind it ---------- */
+.intake-scrim { z-index: 1000; background: #fff; }
+.intake { z-index: 1001; inset: 0; width: 100%; border-left: 0; padding: 28px max(var(--gutter), 24px) 40px; transform: none; opacity: 0; transition: opacity 0.18s ease, visibility 0.18s; }
+.intake.open { opacity: 1; }
+.intake > * { width: 100%; max-width: 980px; margin-left: auto; margin-right: auto; }
+.light .intake h2 { font-size: clamp(40px, 6vw, 88px); letter-spacing: -0.05em; }
+.intake .icon-btn { font-size: 34px; min-width: 44px; min-height: 44px; }
+.intake-drop { padding: clamp(24px, 5vw, 56px); flex-direction: row; flex-wrap: wrap; align-items: center; gap: 18px 32px; }
+.intake-drop .pk-note { flex: 1 1 300px; }
+
+/* ---------- dropping into the 3D network: a slim bar, the scene stays visible ---------- */
+.drop-bar { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 900; max-width: calc(100vw - 32px); padding: 14px 22px; background: #fff; border: 1px solid #0a0a0a; color: #0a0a0a; font: 16px "Helvetica Neue", Helvetica, Inter, Arial, sans-serif; letter-spacing: -0.01em; pointer-events: none; text-align: center; }
+.drop-bar.on { background: #0a0a0a; color: #fff; }
+.drop-bar b { font-weight: 500; }
+#net3d-labels .node-chip.drop-on { background: #0a0a0a; color: #fff; outline: 3px solid #0a0a0a; outline-offset: 4px; opacity: 1; z-index: 2; }
+
+/* ---------- onboarding: adding material is the first thing offered ---------- */
+.ob-drop { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 28px; padding: 20px 0; border-bottom: 1px solid var(--hair); }
+.ob-drop p { margin: 0; flex: 1 1 320px; max-width: 62ch; font-size: 16px; line-height: 1.4; color: var(--ink-2); }
+.ob-drop b { font-weight: 500; color: var(--ink); }
+.light .ob-drop .ed-cta { color: #fff; }

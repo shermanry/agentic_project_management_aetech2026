@@ -603,10 +603,10 @@ function linkPanel() {
 }
 
 /* ------------------------------------------------------------------ actions */
-async function intake(text, files) {
+async function intake(text, files, quiet, onTitle) {      // quiet: stay in the 3D view; the item shows up under + Add
   const fd = new FormData(); fd.append('text', text || ''); fd.append('author', ui.who);
   for (const f of files || []) fd.append('files', f);
-  try { await api('/api/intake', {method: 'POST', body: fd}); toast('Reading it now. It will appear under Waiting to be placed.'); ui.adding = false; ui.intake = true; await refresh(); render(); }
+  try { await api('/api/intake', {method: 'POST', body: fd}); toast(quiet ? `Reading it now${onTitle ? `, in relation to ${onTitle}` : ''}. Open + Add to place it.` : 'Reading it now. It will appear under Waiting to be placed.'); ui.adding = false; if (!quiet) ui.intake = true; await refresh(); render(); }
   catch (e) { toast(e.message); }
 }
 async function accept(id) {
@@ -669,18 +669,40 @@ document.addEventListener('change', async e => {
   else if (t.dataset.change === 'who') { ui.who = t.value; try { localStorage.setItem('yb.who', ui.who); } catch {} }
   else if (t.dataset.change === 'inject' && t.value) { try { await post('/api/feeds/inject/' + t.value); toast('Simulated: ' + t.value.replace(/_/g, ' ')); } catch (err) { toast(err.message); } await refresh(); render(); }
 });
-/* Drag and drop is native to the whole page: a file dropped on any tab is sent to intake. */
-let dragDepth = 0;
+/* Drag and drop is native to the whole page: a file dropped on any tab is sent to intake.
+   In the 3D knowledge network the scene stays visible: the nearest node becomes the drop target and the
+   file is sent with that node named, so the proposal is made in relation to it. */
+let dragDepth = 0, dropOn = null;
 const hasFiles = e => [...((e.dataTransfer && e.dataTransfer.types) || [])].includes('Files');
 function veil(on) {
   let v = $('#veil');
   if (on && !v) { v = document.createElement('div'); v.id = 'veil'; v.className = 'drop-veil'; v.innerHTML = '<span class="ed-meta">Add to project</span><span class="big">Drop to add to the project</span>'; document.body.appendChild(v); }
   else if (!on && v) v.remove();
 }
-document.addEventListener('dragenter', e => { if (!hasFiles(e)) return; dragDepth++; veil(true); });
-document.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
-document.addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) veil(false); });
-document.addEventListener('drop', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth = 0; veil(false); if (e.dataTransfer.files.length) intake('', [...e.dataTransfer.files]); });
+function dropBar(html, on) {
+  let v = $('#dropbar');
+  if (html == null) { if (v) v.remove(); return; }
+  if (!v) { v = document.createElement('div'); v.id = 'dropbar'; document.body.appendChild(v); }
+  v.className = 'drop-bar' + (on ? ' on' : ''); v.innerHTML = html;
+}
+function netTarget(e) {
+  let best = null;
+  document.querySelectorAll('#net3d-labels .node-chip[data-id]').forEach(el => { const r = el.getBoundingClientRect();
+    const d = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2 + 14)); if (d < 90 && (!best || d < best.d)) best = {id: el.dataset.id, d, el}; });
+  return best;
+}
+function clearDropOn() { document.querySelectorAll('.node-chip.drop-on').forEach(el => el.classList.remove('drop-on')); dropOn = null; }
+const NET_HINT = 'Drop on a node to attach it there, or anywhere to add it';
+document.addEventListener('dragenter', e => { if (!hasFiles(e)) return; dragDepth++; if (UIX.inNet()) dropBar(NET_HINT, false); else veil(true); });
+document.addEventListener('dragover', e => { if (!hasFiles(e)) return; e.preventDefault();
+  if (!UIX.inNet()) return;
+  const t = netTarget(e), id = t ? t.id : null;
+  if (id !== dropOn) { clearDropOn(); dropOn = id; if (t) t.el.classList.add('drop-on');
+    dropBar(t && D.byId[id] ? `Drop to attach to <b>${esc(D.byId[id].title)}</b>` : NET_HINT, !!t); } });
+document.addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) { veil(false); dropBar(null); clearDropOn(); } });
+document.addEventListener('drop', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth = 0; veil(false); dropBar(null);
+  const on = dropOn && D.byId[dropOn], inNet = UIX.inNet(); clearDropOn();
+  if (e.dataTransfer.files.length) intake(on ? `Dropped onto "${on.title}" in the knowledge network. It relates to that node.` : '', [...e.dataTransfer.files], inNet, on ? on.title : ''); });
 
 function route() { const h = location.hash.replace('#', ''); if (h === 'data') ui.intake = true;   // old Parking lot links open the drawer
   ui.tab = TABS.some(t => t[0] === h) ? h : 'overview'; ui.view = null; if (S) { render(); if (ui.tab !== 'pm') window.scrollTo(0, 0); } }

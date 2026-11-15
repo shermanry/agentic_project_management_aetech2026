@@ -44,6 +44,8 @@ window.makeUIX = ({ui, esc, $, api, post, render, toast, inspector, loadDetail, 
       <header class="ob-top"><span class="ed-meta">${esc(S.project.name)} — ${done ? 'Ready' : `Question ${ob.step + 1} of ${STEPS.length}`}</span>
         <span class="ob-bar" aria-hidden="true">${STEPS.map((_, i) => `<i class="${i < ob.step ? 'on' : ''}"></i>`).join('')}</span>
         <button class="ed-link dim" data-uix="ob-skip">Skip</button></header>
+      <div class="ob-drop"><button class="ed-cta" data-act="intake">+ Add files</button>
+        <p><b>Have material already?</b> Drag files anywhere onto this page, at any time: emails, drawings, photos, notes. They are read and you choose where they go.</p></div>
       ${!done ? `<section class="ob-step"><h1 class="ed-display md">${esc(st.q)}</h1>
           <ul class="ed-rows ob-options">${st.options.map(([v, label, hint]) => `<li><button class="ed-row" data-uix="ob-pick" data-v="${v}"><span class="t">${esc(label)}${hint ? `<span class="ob-hint">${esc(hint)}</span>` : ''}</span><span class="side"><span class="go" aria-hidden="true">→</span></span></button></li>`).join('')}</ul>
           ${ob.step > 0 ? '<button class="ed-link dim" data-uix="ob-back">Back</button>' : ''}</section>`
@@ -163,7 +165,7 @@ window.makeUIX = ({ui, esc, $, api, post, render, toast, inspector, loadDetail, 
       <div class="hud">
         <div class="hud-col left">
           <section class="glass"><div class="eyebrow">Expert</div><h1 class="site-name">Knowledge network</h1>
-            <p class="body dim">Grouped by category. Drag to orbit, scroll to zoom, click a node.</p>
+            <p class="body dim">Grouped by category. Drag to orbit, scroll to zoom, click a node. Drop a file on a node to attach it there.</p>
             <div class="netstats"><div><b class="mono">${S.nodes.length}</b><span>nodes</span></div><div><b class="mono">${S.edges.length}</b><span>relationships</span></div><div><b class="mono">${D.ready.length}</b><span>proposed</span></div></div></section>
           <section class="glass"><div class="glass-h"><h2>Categories</h2></div>
             <div class="chips">${CAT_ORDER.map(c => `<button class="fchip ${ui.off.has(c) ? '' : 'on'}" style="--c:${CATS[c].c}" data-act="cat" data-id="${c}"><i style="width:8px;height:8px;border-radius:50%;background:${CATS[c].c};display:inline-block"></i>${CATS[c].label} <span class="dim">${S.nodes.filter(n => D.cat[n.id] === c).length}</span></button>`).join('')}</div></section>
