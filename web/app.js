@@ -42,7 +42,7 @@ let S = null;            // last /api/state
 let D = null;            // derived from S
 let live = false, dirty = false;
 const ui = {tab: 'overview', sel: null, mode: 'tree', off: new Set(), q: '', view: null, pos: {}, ask: {}, who: 'Mary', adding: false,
-            search: null, link: null, detail: {}, busy: false, intake: false, feed: null, addMenu: false, jobs: []};
+            search: null, link: null, detail: {}, busy: false, intake: false, feed: null, picked: new Set(), batch: null, batchErr: {}, addMenu: false, jobs: []};
 try { ui.who = localStorage.getItem('yb.who') || 'Mary'; } catch {}
 
 /* ------------------------------------------------------------------ data */
@@ -268,7 +268,8 @@ function itemRow(it, full) {
       : `<span class="reading">Reading and placing</span>`}</span></li>`;
   const links = (p.links || []).map(l => `${(VERB[l.type] || [l.type])[0]} “${D.byId[l.target] ? D.byId[l.target].title : l.target}”`);
   const fx = effectsOf(p);
-  return `<li class="ed-row pk-row"><span class="t">${esc(p.title)}</span>
+  return `<li class="ed-row pk-row"><span class="t"><label class="pk-pick"><input type="checkbox" data-pick="${it.id}" ${ui.picked.has(it.id) ? 'checked' : ''} ${ui.batch ? 'disabled' : ''} aria-label="Select ${esc(p.title)}"></label>${esc(p.title)}</span>
+    ${ui.batchErr[it.id] ? `<span class="sub"><span class="flag bad">Not placed: ${esc(ui.batchErr[it.id])}</span></span>` : ''}
     <span class="side"><span class="pk-sg"><span class="ed-meta">→</span><b>${esc(TYPE_LABEL[p.type] || p.type)}</b><span class="ed-meta">${Math.round((p.confidence || 0) * 100)}%</span>
       <span class="ed-meta links">${esc(links.join(' · ') || 'no links proposed')}</span></span>
       <button class="ed-link plain" data-act="accept" data-id="${it.id}">Accept</button><button class="ed-link dim" data-act="dismiss" data-id="${it.id}">Dismiss</button></span>
@@ -279,6 +280,42 @@ function itemRow(it, full) {
     ${fx.length ? `<span class="sub ed-meta" style="margin-top:6px">If accepted, this would change</span>${fxList(fx, full ? 8 : 3)}` : full ? `<span class="sub">Accepting this changes nothing else.</span>` : ''}
     ${full ? `<span class="sub"><input data-reason="${it.id}" placeholder="Reason for accepting (kept in the record)" style="border:0;border-bottom:1px solid var(--hair);background:none;padding:6px 0;width:min(100%,520px);font-size:14px"></span>` : ''}
   </li>`;
+}
+/* Batch accept: a folder can leave dozens of items waiting. Tick some, or take all of them (or only the ones the
+   agent is confident about), and they are approved one after another with each item's own proposal. */
+const CONFIDENT = 0.7;
+const readyItems = () => D.open.filter(i => i.proposal && !['processing', 'refining', 'failed'].includes(i.status));
+function batchBar() {
+  const b = ui.batch, ready = readyItems();
+  if (b) return `<div class="batch-bar" data-batchbar="1" role="status"><span class="reading">${b.kind === 'accept' ? 'Placing' : 'Dismissing'} ${Math.min(b.done + 1, b.total)} / ${b.total}…</span>${b.failed ? `<span class="flag bad">${b.failed} failed</span>` : ''}</div>`;
+  if (ready.length < 2) return '<div data-batchbar="1" hidden></div>';
+  const picked = ready.filter(i => ui.picked.has(i.id)).length, conf = ready.filter(i => (i.proposal.confidence || 0) >= CONFIDENT).length;
+  return `<div class="batch-bar" data-batchbar="1"><label class="pk-pick"><input type="checkbox" data-pickall="1" ${picked === ready.length ? 'checked' : ''}>Select all</label>
+    ${picked ? `<button class="ed-link plain" data-act="batch" data-id="accept" data-what="picked">Accept selected · ${picked}</button><button class="ed-link dim" data-act="batch" data-id="dismiss" data-what="picked">Dismiss selected</button>`
+      : `<button class="ed-link plain" data-act="batch" data-id="accept" data-what="all">Accept all · ${ready.length}</button>${conf && conf < ready.length ? `<button class="ed-link plain" data-act="batch" data-id="accept" data-what="conf" title="Proposals the agent is at least ${CONFIDENT * 100}% sure of">Accept confident · ${conf}</button>` : ''}`}</div>`;
+}
+const paintBatch = () => document.querySelectorAll('[data-batchbar]').forEach(el => { el.outerHTML = batchBar(); });   // in place: a full render would lose the list's scroll position
+async function batchRun(kind, what) {
+  if (ui.batch) return;
+  const ready = readyItems();
+  const items = what === 'picked' ? ready.filter(i => ui.picked.has(i.id)) : what === 'conf' ? ready.filter(i => (i.proposal.confidence || 0) >= CONFIDENT) : ready;
+  if (!items.length) return;
+  if (kind === 'accept' && items.length > 20 && !confirm(`Accept ${items.length} items? Each is added to the record where the agent proposed, with the changes it listed.`)) return;
+  if (kind === 'dismiss' && items.length > 5 && !confirm(`Dismiss ${items.length} items? They are removed from the list and not added to the record.`)) return;
+  const jobs = items.map(it => { const r = document.querySelector(`[data-reason="${it.id}"]`), p = it.proposal;          // same payload as accept(), taken before anything re-renders
+    return {id: it.id, path: `/api/items/${it.id}/${kind === 'accept' ? 'approve' : 'dismiss'}`,
+            body: kind === 'accept' ? {type: p.type, title: p.title, links: p.links || [], by: ui.who, reason: r ? r.value.trim() : ''} : {by: ui.who, reason: ''}}; });
+  const b = ui.batch = {kind, done: 0, total: jobs.length, failed: 0}; ui.batchErr = {};
+  document.querySelectorAll('[data-pick]').forEach(c => { c.disabled = true; }); paintBatch();
+  for (const j of jobs) {                    // one at a time, in list order (oldest first), so the record reads in order
+    try { await post(j.path, j.body); }
+    catch (e) { b.failed++; ui.batchErr[j.id] = e.message || 'failed'; }
+    b.done++; paintBatch();
+  }
+  ui.batch = null; ui.picked.clear(); dirty = false;
+  await refresh(); render();                 // once, at the end
+  const ok = b.total - b.failed;
+  toast(`${kind === 'accept' ? 'Placed' : 'Dismissed'} ${ok}${b.failed ? `, ${b.failed} failed` : ''}.${b.failed ? ' The failed ones are still in the list with the reason.' : ''}`);
 }
 function flaggedRow(n) {
   const c = D.cause[n.id];
@@ -330,7 +367,7 @@ function overview() {
     <div><span class="ed-num">${D.open.length}</span><span class="ed-meta">To review</span></div>
     <div><span class="ed-num">${D.flagged.length}</span><span class="ed-meta">Need another look</span></div>
   </section>
-  ${section('01', 'Review', D.open.length ? `<ul class="ed-rows">${D.open.map(i => itemRow(i, false)).join('')}</ul>` : `<p class="ed-empty">Nothing is waiting. Drop a file anywhere, or press + Add, and it will be read, placed and shown here before anything changes.</p>`, 'New information, placed by the agent. Nothing joins the record until someone accepts it.')}
+  ${section('01', 'Review', D.open.length ? `${batchBar()}<ul class="ed-rows">${D.open.map(i => itemRow(i, false)).join('')}</ul>` : `<p class="ed-empty">Nothing is waiting. Drop a file anywhere, or press + Add, and it will be read, placed and shown here before anything changes.</p>`, 'New information, placed by the agent. Nothing joins the record until someone accepts it.')}
   ${section('02', 'Another look', D.flagged.length ? `<div class="ed-rows">${D.flagged.map(flaggedRow).join('')}</div>` : `<p class="ed-empty">No decision, deliverable or event is at risk.</p>`, 'What a change put at risk, blocked or re-opened, and why.')}
   ${section('03', 'Building', partTiles(), 'Each part lights up from what is open on the things linked to it.')}
   ${section('03', 'What changed', recent.length ? `<ul class="ed-rows">${recent.map(e => eventRow(e)).join('')}</ul>` : `<p class="ed-empty">No changes since the project was set up.</p>`)}
@@ -405,7 +442,7 @@ function reviewHere() {
   return `<aside class="review-here ${ui.revMin ? 'min' : ''}" aria-label="Waiting for your review">
     <header><span class="ed-meta">${ready ? `Ready to approve · ${ready}` : 'Reading'}${D.open.length - ready ? ` · ${D.open.length - ready} being read` : ''}</span>
       <span><button class="ed-link dim" data-act="intake">Open full page</button> <button class="ed-link dim" data-act="revmin" aria-expanded="${ui.revMin ? 'false' : 'true'}">${ui.revMin ? 'Show' : 'Hide'}</button></span></header>
-    ${ui.revMin ? '' : `<ul class="ed-rows">${D.open.map(i => itemRow(i, true)).join('')}</ul>`}</aside>`;
+    ${ui.revMin ? '' : `${batchBar()}<ul class="ed-rows">${D.open.map(i => itemRow(i, true)).join('')}</ul>`}</aside>`;
 }
 function intakeDrawer() {
   return `${ui.intake ? '<div class="intake-scrim" data-act="intake"></div>' : ''}
@@ -417,7 +454,7 @@ function intakeDrawer() {
       ${S.config && S.config.folders ? `<form class="pk-note" data-drive="1"><input name="source" id="drive-src" placeholder="or a Google Drive folder link (shared with anyone with the link)" autocomplete="off"><button class="ed-link plain">Add folder</button></form>` : ''}</div>
     ${folderJobs()}
     <div class="intake-list"><span class="ed-meta">Waiting to be placed · ${D.open.length}</span>
-      ${D.open.length ? `<ul class="ed-rows">${D.open.map(i => itemRow(i, true)).join('')}</ul>` : '<p class="ed-empty">Nothing waiting. Everything is placed in the record.</p>'}</div>
+      ${D.open.length ? `${batchBar()}<ul class="ed-rows">${D.open.map(i => itemRow(i, true)).join('')}</ul>` : '<p class="ed-empty">Nothing waiting. Everything is placed in the record.</p>'}</div>
   </aside>`;
 }
 
@@ -816,6 +853,7 @@ document.addEventListener('click', async e => {
   else if (act === 'zoom') { const w = $('#wrap');
     if (id === 'fit') fit(); else if (id === 'arrange') { delete ui.pos[ui.mode]; ui.view = null; render(); } else zoomAt(id === 'in' ? 1.2 : 1 / 1.2, w.clientWidth / 2, w.clientHeight / 2); }
   else if (act === 'accept') { b.disabled = true; accept(id); }
+  else if (act === 'batch') { batchRun(id, b.dataset.what); }
   else if (act === 'dismiss') { try { await post(`/api/items/${id}/dismiss`, {by: ui.who, reason: ''}); dirty = false; await refresh(); render(); } catch (err) { toast(err.message); } }
   else if (act === 'replay') { b.disabled = true; try { await post('/api/replay/' + id); } catch (err) { toast(err.message); } await refresh(); render(); }
   else if (act === 'goto') { b.disabled = true; try { await api('/api/replay/goto?to=' + id, {method: 'POST'}); ui.sel = null; ui.view = null; } catch (err) { toast(err.message); } await refresh(); render(); }
@@ -849,6 +887,12 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', async e => {
   const t = e.target;
+  if (t.dataset.pick || t.dataset.pickall) {     // ticks are kept in ui.picked; the bars are repainted in place
+    if (t.dataset.pickall) { ui.picked = new Set(t.checked ? readyItems().map(i => i.id) : []); }
+    else if (t.checked) ui.picked.add(t.dataset.pick); else ui.picked.delete(t.dataset.pick);
+    document.querySelectorAll('[data-pick]').forEach(c => { c.checked = ui.picked.has(c.dataset.pick); });
+    t.blur(); paintBatch(); return;
+  }
   if (t.closest('[data-feedform]') && ui.feed && t.name) { ui.feed[t.name] = t.value; if (t.name === 'kind') render(); }
   else if (t.dataset.change === 'project') { pickProject(t); }
   else if (t.dataset.change === 'who') { ui.who = t.value; try { localStorage.setItem('yb.who', ui.who); } catch {} }

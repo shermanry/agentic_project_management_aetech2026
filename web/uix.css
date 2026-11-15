@@ -202,3 +202,10 @@
 .review-here .pk-row { grid-template-columns: 1fr; }
 .review-here .pk-row .side { justify-content: flex-start; flex-wrap: wrap; }
 .review-here > header > span:last-child { display: flex; gap: 16px; white-space: nowrap; }
+
+/* Batch accept: a tick on each waiting item, and one bar above the list */
+.pk-pick { display: inline-flex; align-items: center; gap: 8px; margin-right: 10px; cursor: pointer; vertical-align: middle; }
+.pk-pick input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); cursor: pointer; flex: none; }
+.batch-bar { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--hair); font-size: 13px; }
+.batch-bar .pk-pick { margin-right: 4px; color: var(--ink-2); }
+.review-here .batch-bar { padding: 10px 16px; }
