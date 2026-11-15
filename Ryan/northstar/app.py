@@ -71,6 +71,7 @@ async def _startup() -> None:
     await asyncio.to_thread(replay.ensure_setup_nodes)     # e.g. building parts added to the seed after this project was set up
     await asyncio.to_thread(store.sweep)
     await asyncio.to_thread(analysis.load_active, store)   # approved rules from earlier analysis runs
+    await asyncio.to_thread(feeds.sync_custom)             # feeds people added earlier
     if os.environ.get("FEEDS_ENABLED", "1").lower() not in ("0", "false", "no"):
         feeds.start()   # polls weather, airspace, rules, city events on their cadences
     threading.Thread(target=pipeline.warm_up, args=(DATA / "warmup",), daemon=True).start()
@@ -213,10 +214,42 @@ async def feeds_run(only: str = "") -> dict:
 
 
 @app.post("/api/feeds/inject/{scenario}")
-async def feeds_inject(scenario: str) -> dict:
-    """Demo: feed a canned change through the real path (e.g. thursday_unflyable, tfr_over_site, rule_change)."""
+async def feeds_inject(scenario: str, feed: str = "") -> dict:
+    """Demo: feed a canned change through the real path (e.g. thursday_unflyable, tfr_over_site, rule_change).
+    `feed` = the ref of a feed a person added, to raise it from that feed."""
     try:
-        return await asyncio.to_thread(feeds.inject, scenario)
+        return await asyncio.to_thread(feeds.inject, scenario, feed or None)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+
+
+class NewFeed(BaseModel):
+    kind: str = "weather"                # weather | airspace | city | rules | space
+    title: str = ""
+    address: str = ""                    # empty = the project's site
+    window: dict = {}                    # {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}; empty = the project's flight window
+    limits: dict = {}                    # e.g. {"max_wind_mph": 18}; empty = the project's limits
+    depends: list[str] = []              # node ids that depend on this feed
+    by: str = "Sam"
+
+
+@app.post("/api/feeds")
+async def feeds_add(f: NewFeed) -> dict:
+    """A person adds a live feed: a data_feed node with its own place, window and limits, its monitors started,
+    and "depends on" links from the nodes it should put at risk."""
+    try:
+        return await asyncio.to_thread(feeds.add_feed, f.kind, f.by, f.title, f.address, f.window, f.limits, f.depends)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except RuntimeError as e:            # the address lookup could not be reached
+        raise HTTPException(502, str(e))
+
+
+@app.post("/api/feeds/{node_id}/remove")
+async def feeds_remove(node_id: str, a: RuleAction) -> dict:
+    """Remove a feed a person added (the built-in feeds stay)."""
+    try:
+        return await asyncio.to_thread(feeds.remove_feed, node_id, a.by, a.reason)
     except ValueError as e:
         raise HTTPException(404, str(e))
 
@@ -583,6 +616,7 @@ async def reset() -> dict:
     else:
         await asyncio.to_thread(replay.start_project, replay.template)   # the working project, from its template again
     _seed_warning = replay.warning
+    await asyncio.to_thread(feeds.sync_custom)             # added feeds went with the old graph
     return {"ok": True, "warning": _seed_warning}
 
 

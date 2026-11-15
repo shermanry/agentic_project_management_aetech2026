@@ -42,7 +42,7 @@ let S = null;            // last /api/state
 let D = null;            // derived from S
 let live = false, dirty = false;
 const ui = {tab: 'overview', sel: null, mode: 'tree', off: new Set(), q: '', view: null, pos: {}, ask: {}, who: 'Mary', adding: false,
-            search: null, link: null, detail: {}, busy: false, intake: false};
+            search: null, link: null, detail: {}, busy: false, intake: false, feed: null};
 try { ui.who = localStorage.getItem('yb.who') || 'Mary'; } catch {}
 
 /* ------------------------------------------------------------------ data */
@@ -299,14 +299,51 @@ function feedDays() {
   const mons = (S.feeds && S.feeds.monitors) || {}, by = {};
   for (const [name, m] of Object.entries(mons)) (by[m.feed] ||= []).push({name, ...m});
   const keys = Object.keys(by);
-  if (!keys.length) return {html: `<p class="ed-empty">No live feeds are running.</p>`};
+  if (!keys.length) return {html: `<p class="ed-empty">No live feeds are running.</p>${feedAdd()}`};
   const html = `<div class="ed-week" style="grid-template-columns:repeat(${Math.min(keys.length, 7)},minmax(0,1fr))">${keys.map(k => {
     const node = S.nodes.find(n => n.ref === k), ok = by[k].every(m => m.ok), flagged = node && (FLAG[node.status] || node.status === 'changed');
     const lastRun = Math.max(...by[k].map(m => m.last_run || 0));
     return `<div class="ed-day"><span class="ed-meta">${by[k].length} monitor${by[k].length > 1 ? 's' : ''}</span><b style="font-size:clamp(17px,1.6vw,24px);line-height:1.1">${esc(node ? node.title.replace(/ feed.*$/i, '') : k)}</b>
       <span class="ed-glyph ${!ok ? 'bad' : flagged ? 'warn' : 'ok'}"></span><small>${!ok ? esc(by[k].find(m => !m.ok).error || 'Not reachable') : flagged ? 'Raised a change' : 'No change'}${lastRun ? '<br>checked ' + when(lastRun) : ''}</small></div>`; }).join('')}</div>
-    <div class="ed-key"><span><i class="ed-glyph ok"></i>No change</span><span><i class="ed-glyph warn"></i>Raised a change</span><span><i class="ed-glyph bad"></i>Not reachable</span></div>`;
+    <div class="ed-key"><span><i class="ed-glyph ok"></i>No change</span><span><i class="ed-glyph warn"></i>Raised a change</span><span><i class="ed-glyph bad"></i>Not reachable</span></div>${feedAdd()}`;
   return {html};
+}
+/* Add live feed: a person picks what to watch, where, when and within which limits, and what depends on it.
+   POST /api/feeds creates the feed node, links it, starts its monitors and takes the first reading. */
+const FEED_LIMITS = {max_wind_mph: 'Max wind (mph)', max_gust_mph: 'Max gust (mph)', max_precip_prob: 'Max chance of rain (%)'};
+function feedAdd() {
+  const F = S.feeds || {}, kinds = F.kinds || [], mine = F.custom || [];
+  if (!kinds.length) return '';
+  const list = mine.length ? `<ul class="ed-rows feed-mine">${mine.map(c => `<li class="ed-row" style="cursor:default"><span class="t">${esc(c.title)}</span>
+      <span class="ed-meta">${esc(c.place || '')}${c.flight_window && c.flight_window.start ? ' · ' + esc(c.flight_window.start) + ' to ' + esc(c.flight_window.end) : ''}</span>
+      <span><button class="ed-link plain" data-act="sel" data-id="${esc(c.node_id)}">Open</button> <button class="ed-link dim" data-act="feedremove" data-id="${esc(c.node_id)}">Remove</button></span></li>`).join('')}</ul>` : '';
+  const f = ui.feed;
+  if (!f) return `${list}<div class="feed-add"><button class="ed-link" data-act="feedform">+ Add live feed</button></div>`;
+  const k = kinds.find(x => x.id === f.kind) || kinds[0], d = F.defaults || {limits: {}}, w = (F.site && F.site.flight_window) || {};
+  const place = /place/.test(k.needs), win = /window/.test(k.needs);
+  const targets = S.nodes.filter(n => ['event', 'deliverable', 'decision'].includes(n.type));
+  const val = n => esc(f[n] ?? '');
+  return `${list}<form class="feed-form" data-feedform="1">
+    <div class="feed-head"><span class="ed-meta">Add live feed</span><button type="button" class="ed-link dim" data-act="feedform">Cancel</button></div>
+    <label>What to watch<select name="kind">${kinds.map(x => `<option value="${esc(x.id)}" ${x.id === k.id ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select></label>
+    <label>Name<input name="title" value="${val('title')}" placeholder="Named for you if left empty" autocomplete="off"></label>
+    ${place ? `<label>Place (NYC address)<input name="address" value="${val('address')}" placeholder="${esc(d.place || 'The project site')} (project site)" autocomplete="off"></label>` : ''}
+    ${win ? `<div class="feed-pair"><label>From<input type="date" name="start" value="${esc(f.start ?? w.start ?? '')}"></label><label>To<input type="date" name="end" value="${esc(f.end ?? w.end ?? '')}"></label></div>` : ''}
+    ${k.limits.some(l => FEED_LIMITS[l]) ? `<div class="feed-pair">${k.limits.filter(l => FEED_LIMITS[l]).map(l => `<label>${FEED_LIMITS[l]}<input type="number" min="1" step="1" name="${l}" value="${val(l)}" placeholder="${esc(d.limits[l] ?? '')}"></label>`).join('')}</div>` : ''}
+    <label>What depends on it<select name="depends"><option value="">Nothing yet (link it later on the canvas)</option>${targets.map(n => `<option value="${esc(n.id)}" ${f.depends === n.id ? 'selected' : ''}>${esc(n.title)}</option>`).join('')}</select></label>
+    <div class="feed-head"><small class="dim">When it reports a change, whatever depends on it is flagged.</small><button class="ed-cta" ${f.busy ? 'disabled' : ''}>${f.busy ? 'Adding…' : 'Add feed'}</button></div></form>`;
+}
+async function addFeed() {
+  const f = ui.feed; if (!f || f.busy) return;
+  const limits = {}; for (const l of Object.keys(FEED_LIMITS)) if (f[l]) limits[l] = +f[l];
+  f.busy = true; render(); toast('Adding the feed and taking a first reading…');
+  try {
+    const out = await post('/api/feeds', {kind: f.kind, title: f.title || '', address: f.address || '', window: {start: f.start || '', end: f.end || ''},
+                                         limits, depends: f.depends ? [f.depends] : [], by: ui.who});
+    const bad = Object.values(out.first_reading || {}).find(r => !r.ok);
+    ui.feed = null; toast(`Added “${out.title}”. ${bad ? 'Its source did not answer: ' + (bad.error || 'not reachable') : 'Its source answered; changes from now on are flagged.'}`);
+  } catch (err) { f.busy = false; toast(err.message); }
+  await refresh(); render();
 }
 
 /* ------------------------------------------------------------------ + Add drawer (was the Parking lot tab)
@@ -643,6 +680,9 @@ document.addEventListener('click', async e => {
   else if (act === 'browse') { e.preventDefault(); $('#file').click(); }
   else if (act === 'replay') { b.disabled = true; try { await post('/api/replay/' + id); } catch (err) { toast(err.message); } await refresh(); render(); }
   else if (act === 'goto') { b.disabled = true; try { await api('/api/replay/goto?to=' + id, {method: 'POST'}); ui.sel = null; ui.view = null; } catch (err) { toast(err.message); } await refresh(); render(); }
+  else if (act === 'feedform') { ui.feed = ui.feed ? null : {kind: 'weather', depends: (S.nodes.find(n => n.type === 'event') || {}).id || ''}; render(); }
+  else if (act === 'feedremove') { const c = ((S.feeds && S.feeds.custom) || []).find(x => x.node_id === id);
+    if (c && confirm(`Remove “${c.title}”? Its links and open flags go with it; the history stays.`)) { try { await post(`/api/feeds/${id}/remove`, {by: ui.who, reason: ''}); if (ui.sel === id) ui.sel = null; toast('Feed removed.'); } catch (err) { toast(err.message); } await refresh(); render(); } }
   else if (act === 'feedsrun') { b.disabled = true; toast('Checking every live feed…'); try { await api('/api/feeds/run', {method: 'POST'}); toast('Feeds checked.'); } catch (err) { toast(err.message); } await refresh(); render(); }
   else if (act === 'rule') { const what = b.dataset.what; let reason = '';
     if (what === 'dismiss') { reason = prompt('Why? (kept in the record, and helps the next run)', ''); if (reason === null) return; }
@@ -656,16 +696,19 @@ document.addEventListener('submit', async e => {
   if (f.dataset.ask != null) ask(f.dataset.ask, f.q.value.trim());
   else if (f.dataset.note) { const t = f.text.value.trim(); if (t) { f.text.value = ''; intake(t); } }
   else if (f.dataset.search) { search(f.q.value); }
+  else if (f.dataset.feedform) { addFeed(); }
   else if (f.dataset.manual) { addLink({source: ui.link.a, target: ui.link.b, type: f.type.value, reason: f.reason.value.trim(), confidence: 1, origin: 'user'}); }
   else if (f.dataset.resolve) { try { await post(`/api/nodes/${f.dataset.resolve}/resolve`, {by: ui.who, reason: f.reason.value.trim()}); f.reason.value = ''; toast('Marked resolved. The flags it raised are cleared.'); await refresh(); render(); } catch (err) { toast(err.message); } }
 });
 document.addEventListener('input', e => {
+  if (e.target.closest('[data-feedform]') && ui.feed && e.target.name) { ui.feed[e.target.name] = e.target.value; return; }   // kept across re-renders
   if (e.target.closest('[data-search]')) { ui.q = e.target.value; ui.search = null; const q = ui.q.trim().toLowerCase();
     document.querySelectorAll('[data-card]').forEach(c => { const n = D.byId[c.dataset.card]; c.classList.toggle('fade', !!q && !(n.title + ' ' + (n.summary || '') + ' ' + (n.tags || []).join(' ') + ' ' + n.type).toLowerCase().includes(q)); }); }
 });
 document.addEventListener('change', async e => {
   const t = e.target;
   if (t.id === 'file' && t.files.length) intake('', [...t.files]);
+  else if (t.closest('[data-feedform]') && ui.feed && t.name) { ui.feed[t.name] = t.value; if (t.name === 'kind') render(); }
   else if (t.dataset.change === 'who') { ui.who = t.value; try { localStorage.setItem('yb.who', ui.who); } catch {} }
   else if (t.dataset.change === 'inject' && t.value) { try { await post('/api/feeds/inject/' + t.value); toast('Simulated: ' + t.value.replace(/_/g, ' ')); } catch (err) { toast(err.message); } await refresh(); render(); }
 });
