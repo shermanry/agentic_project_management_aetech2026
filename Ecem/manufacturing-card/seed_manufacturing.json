@@ -1,0 +1,529 @@
+{
+  "project": {
+    "id": "rooftop-shell",
+    "name": "Aerial Additive Manufacturing Pilot"
+  },
+  "people": [
+    {
+      "name": "Ecem",
+      "role": "design lead"
+    },
+    {
+      "name": "Jordan",
+      "role": "project manager"
+    },
+    {
+      "name": "Lee",
+      "role": "site lead"
+    },
+    {
+      "name": "Client",
+      "role": "client"
+    }
+  ],
+  "nodes": [
+    {
+      "ref": "site",
+      "type": "entity",
+      "title": "Rooftop terrace site",
+      "owner": "Jordan",
+      "tags": [
+        "site",
+        "at-height"
+      ],
+      "summary": "Terrace on a 9-storey building. No crane access and no room for a gantry: the reason drones were chosen."
+    },
+    {
+      "ref": "shell",
+      "type": "deliverable",
+      "title": "Printed shell, 2.4 m",
+      "owner": "Ecem",
+      "state": "in_progress",
+      "tags": [
+        "deliverable",
+        "print"
+      ],
+      "summary": "Thin-walled, non-structural shell printed in place, layer by layer. Enclosure only."
+    },
+    {
+      "ref": "twin",
+      "type": "entity",
+      "title": "Digital twin v4",
+      "owner": "Ecem",
+      "tags": [
+        "design",
+        "twin"
+      ],
+      "summary": "Design model, sliced into horizontal layers, with a stability check for every interim stage.",
+      "data": {
+        "aliases": [
+          "twin",
+          "design model",
+          "v4"
+        ]
+      }
+    },
+    {
+      "ref": "buildrone_1",
+      "type": "entity",
+      "title": "BuilDrone 1",
+      "owner": "Lee",
+      "tags": [
+        "equipment",
+        "drone",
+        "builder"
+      ],
+      "summary": "Quadrotor with cartridge extruder and delta arm. Carries about one layer per trip.",
+      "data": {
+        "aliases": [
+          "builddrone 1",
+          "bd1",
+          "drone 1"
+        ]
+      }
+    },
+    {
+      "ref": "buildrone_2",
+      "type": "entity",
+      "title": "BuilDrone 2",
+      "owner": "Lee",
+      "tags": [
+        "equipment",
+        "drone",
+        "builder"
+      ],
+      "summary": "Second builder. Prints while BuilDrone 1 refills, so layers stay continuous.",
+      "data": {
+        "aliases": [
+          "builddrone 2",
+          "bd2",
+          "drone 2"
+        ]
+      }
+    },
+    {
+      "ref": "scandrone",
+      "type": "entity",
+      "title": "ScanDrone",
+      "owner": "Lee",
+      "tags": [
+        "equipment",
+        "drone",
+        "scanner"
+      ],
+      "summary": "Camera drone that maps each new layer for the deviation check."
+    },
+    {
+      "ref": "method",
+      "type": "decision",
+      "title": "Fabrication method: aerial AM",
+      "owner": "Ecem",
+      "state": "decided",
+      "tags": [
+        "method",
+        "design"
+      ],
+      "summary": "Aerial AM chosen over gantry and ground robots because the terrace is at height with no crane access."
+    },
+    {
+      "ref": "mix",
+      "type": "decision",
+      "title": "Material: cement mix No.1",
+      "owner": "Ecem",
+      "state": "decided",
+      "tags": [
+        "material",
+        "design"
+      ],
+      "summary": "Mix No.1 holds its shape best under downwash. Chosen after mix No.4 slumped in tests."
+    },
+    {
+      "ref": "toolpath",
+      "type": "decision",
+      "title": "Toolpath: rounded Peano",
+      "owner": "Ecem",
+      "state": "decided",
+      "tags": [
+        "toolpath",
+        "design"
+      ],
+      "summary": "Shortest path per layer, so each layer fits one cartridge."
+    },
+    {
+      "ref": "release",
+      "type": "decision",
+      "title": "Release next layer",
+      "owner": "Ecem",
+      "state": "awaiting_inputs",
+      "tags": [
+        "layer-gate",
+        "build"
+      ],
+      "summary": "Go, hold or adjust. Needs the latest scan, cure state, stability check, wind reading, material and battery."
+    },
+    {
+      "ref": "tolerance",
+      "type": "constraint",
+      "title": "Tolerance: 5 mm per layer",
+      "owner": "Ecem",
+      "tags": [
+        "quality"
+      ],
+      "summary": "Maximum deviation of the nozzle path from the design, reachable with the delta arm."
+    },
+    {
+      "ref": "payload",
+      "type": "constraint",
+      "title": "Payload: 202 mL per load",
+      "owner": "Lee",
+      "tags": [
+        "logistics",
+        "payload"
+      ],
+      "summary": "Usable cartridge volume. About one layer per trip, so a refill after every layer."
+    },
+    {
+      "ref": "wind_limit",
+      "type": "constraint",
+      "title": "Wind limit: 6 m/s for printing",
+      "owner": "Lee",
+      "tags": [
+        "weather",
+        "safety"
+      ],
+      "summary": "Set during the dry run. Above it, path tracking drifts and the extrusion is disturbed. Example value."
+    },
+    {
+      "ref": "open_time",
+      "type": "constraint",
+      "title": "Mix open time",
+      "owner": "Ecem",
+      "tags": [
+        "material",
+        "logistics"
+      ],
+      "summary": "The mix must be deposited before it starts to set in the cartridge."
+    },
+    {
+      "ref": "weather",
+      "type": "data_feed",
+      "title": "Rooftop wind and temperature",
+      "owner": "Lee",
+      "tags": [
+        "weather"
+      ],
+      "summary": "Anemometer and temperature on the terrace, polled every few minutes during the build."
+    },
+    {
+      "ref": "scan_feed",
+      "type": "data_feed",
+      "title": "Layer scan feed",
+      "owner": "Lee",
+      "tags": [
+        "scan",
+        "quality"
+      ],
+      "summary": "Mesh of each new layer from the ScanDrone, compared against the digital twin."
+    },
+    {
+      "ref": "telemetry",
+      "type": "data_feed",
+      "title": "Drone telemetry",
+      "owner": "Lee",
+      "tags": [
+        "equipment",
+        "battery"
+      ],
+      "summary": "Battery, motor and position health for every drone."
+    },
+    {
+      "ref": "dry_run",
+      "type": "event",
+      "title": "Dry run: light-trace flight",
+      "owner": "Lee",
+      "state": "happened",
+      "tags": [
+        "prepare",
+        "safety"
+      ],
+      "summary": "Drones fly the full path with lights and no material, to check tracking and spacing."
+    },
+    {
+      "ref": "build_day",
+      "type": "event",
+      "title": "Build day 2: layers 19–40",
+      "owner": "Lee",
+      "state": "scheduled",
+      "tags": [
+        "build",
+        "schedule"
+      ],
+      "summary": "Second print day. Crew: Lee (site lead), refill technician, Ecem on the layer gate."
+    },
+    {
+      "ref": "final_scan",
+      "type": "event",
+      "title": "Final laser scan",
+      "owner": "Ecem",
+      "state": "scheduled",
+      "tags": [
+        "close",
+        "quality"
+      ],
+      "summary": "Full scan of the as-built shell against the design, for acceptance."
+    },
+    {
+      "ref": "flight_ok",
+      "type": "blocker",
+      "title": "Flight approval for rooftop operations",
+      "owner": "Jordan",
+      "state": "done",
+      "tags": [
+        "permit",
+        "airspace"
+      ],
+      "summary": "Approval to fly several drones over the terrace. Needed before the dry run."
+    },
+    {
+      "ref": "crew",
+      "type": "blocker",
+      "title": "Refill and battery crew for build day 2",
+      "owner": "Jordan",
+      "state": "waiting",
+      "tags": [
+        "staffing",
+        "logistics"
+      ],
+      "summary": "One technician to refill cartridges and swap batteries every layer."
+    },
+    {
+      "ref": "mix_report",
+      "type": "document",
+      "title": "Mix test report",
+      "owner": "Ecem",
+      "tags": [
+        "material",
+        "evidence"
+      ],
+      "summary": "Slump, flow and set-time results for mixes No.1 and No.4 under propeller downwash."
+    },
+    {
+      "ref": "paper",
+      "type": "document",
+      "title": "Zhang et al., Nature 2022",
+      "owner": "Ecem",
+      "tags": [
+        "reference"
+      ],
+      "summary": "Aerial additive manufacturing with multiple autonomous robots. Source for the process and limits."
+    }
+  ],
+  "edges": [
+    {
+      "source": "method",
+      "target": "site",
+      "type": "depends_on",
+      "reason": "Chosen because the site is at height with no crane access"
+    },
+    {
+      "source": "shell",
+      "target": "method",
+      "type": "depends_on",
+      "reason": "Built by the chosen method"
+    },
+    {
+      "source": "shell",
+      "target": "twin",
+      "type": "derived_from",
+      "reason": "Printed from the digital twin"
+    },
+    {
+      "source": "mix_report",
+      "target": "mix",
+      "type": "evidence_for",
+      "reason": "The test results the mix was decided on"
+    },
+    {
+      "source": "mix",
+      "target": "open_time",
+      "type": "about",
+      "reason": "The mix sets the open time"
+    },
+    {
+      "source": "toolpath",
+      "target": "payload",
+      "type": "depends_on",
+      "reason": "Path per layer must fit one load"
+    },
+    {
+      "source": "toolpath",
+      "target": "twin",
+      "type": "derived_from",
+      "reason": "Path sliced from the twin"
+    },
+    {
+      "source": "release",
+      "target": "scan_feed",
+      "type": "depends_on",
+      "reason": "Needs the latest layer scan"
+    },
+    {
+      "source": "release",
+      "target": "tolerance",
+      "type": "depends_on",
+      "reason": "Scan must be within tolerance"
+    },
+    {
+      "source": "release",
+      "target": "weather",
+      "type": "depends_on",
+      "reason": "Wind must be under the limit"
+    },
+    {
+      "source": "release",
+      "target": "wind_limit",
+      "type": "depends_on",
+      "reason": "Checked against the wind limit"
+    },
+    {
+      "source": "release",
+      "target": "telemetry",
+      "type": "depends_on",
+      "reason": "Battery and drone health must be ready"
+    },
+    {
+      "source": "release",
+      "target": "open_time",
+      "type": "depends_on",
+      "reason": "Material must still be workable"
+    },
+    {
+      "source": "release",
+      "target": "twin",
+      "type": "depends_on",
+      "reason": "Next stage must pass the stability check"
+    },
+    {
+      "source": "build_day",
+      "target": "crew",
+      "type": "depends_on",
+      "reason": "Cannot print without the refill crew"
+    },
+    {
+      "source": "build_day",
+      "target": "buildrone_1",
+      "type": "depends_on",
+      "reason": "Builder"
+    },
+    {
+      "source": "build_day",
+      "target": "buildrone_2",
+      "type": "depends_on",
+      "reason": "Builder"
+    },
+    {
+      "source": "build_day",
+      "target": "scandrone",
+      "type": "depends_on",
+      "reason": "Scans every layer"
+    },
+    {
+      "source": "dry_run",
+      "target": "flight_ok",
+      "type": "depends_on",
+      "reason": "Cannot fly without approval"
+    },
+    {
+      "source": "wind_limit",
+      "target": "dry_run",
+      "type": "derived_from",
+      "reason": "Set from the dry-run tracking results"
+    },
+    {
+      "source": "final_scan",
+      "target": "shell",
+      "type": "about",
+      "reason": "Acceptance of the printed shell"
+    },
+    {
+      "source": "paper",
+      "target": "method",
+      "type": "evidence_for",
+      "reason": "Source for the process and limits"
+    }
+  ],
+  "scenario": [
+    {
+      "id": "brief",
+      "title": "Client brief",
+      "author": "Jordan",
+      "approver": "Jordan",
+      "text": "Client email: we want a sculptural shell over the rooftop terrace, about 2.4 m high, enclosure only. The building has no crane access to the roof and the terrace is too small for a printer frame.",
+      "story": "The brief already contains the reason drones make sense: height and no access.",
+      "reason": "Confirmed scope with the client"
+    },
+    {
+      "id": "method",
+      "title": "Method chosen: aerial AM",
+      "author": "Ecem",
+      "approver": "Jordan",
+      "text": "Method comparison: a gantry would not fit the terrace and a crane cannot reach it. Aerial AM is justified by access and height. Trade-offs accepted: slower printing, lighter material, many refill trips.",
+      "story": "The first design decision is whether a drone is needed at all.",
+      "reason": "Only method that reaches the site"
+    },
+    {
+      "id": "mix_test",
+      "title": "Mix No.4 slumps under downwash",
+      "author": "Ecem",
+      "approver": "Ecem",
+      "text": "Mix test report: mix No.4 flows best but slumps when the propeller downwash passes over a fresh layer. Mix No.1 holds its shape. Switching the design to mix No.1; open time gets shorter.",
+      "story": "Material tests change a design decision before anything is printed.",
+      "reason": "Slump measured on three test layers"
+    },
+    {
+      "id": "dry_run",
+      "title": "Dry run passes; wind limit set",
+      "author": "Lee",
+      "approver": "Ecem",
+      "text": "Dry run with lights, no material: both builders tracked the path within tolerance and kept safe spacing at the narrowest layer. Tracking drifted above 6 m/s gusts, so the wind limit for printing is 6 m/s.",
+      "story": "The safety gate before printing sets a limit that every later layer is checked against.",
+      "reason": "Tracking logs from the dry run"
+    },
+    {
+      "id": "drift",
+      "title": "Layers 16–18 drift outward",
+      "author": "Lee",
+      "approver": "Ecem",
+      "text": "Layer scans 16, 17 and 18 each show the wall 6–7 mm outside the design on the north side. Path offsets have not corrected it.",
+      "story": "Small drift is absorbed by offsets. Three layers in a row means the design has to change.",
+      "reason": "Revise layers 19 and up in the twin; stability re-checked"
+    },
+    {
+      "id": "wind",
+      "title": "Gusts above the limit",
+      "author": "Lee",
+      "approver": "Ecem",
+      "text": "Rooftop anemometer: gusts of 8 m/s for the last 10 minutes, above the 6 m/s printing limit. Layer 23 is loaded and waiting.",
+      "story": "The layer gate holds a loaded layer while the material's open time runs down.",
+      "reason": "Hold; refill with fresh mix if the wait passes the open time"
+    },
+    {
+      "id": "battery",
+      "title": "BuilDrone 2 battery fault",
+      "author": "Lee",
+      "approver": "Ecem",
+      "text": "bd2 battery cell fault, grounded for the day",
+      "story": "A short field message. The system ties it to the builder scheduled for the next layers.",
+      "reason": "Continue with BuilDrone 1 alone, refilling between layers; slower but continuous"
+    },
+    {
+      "id": "final",
+      "title": "Final scan: within tolerance",
+      "author": "Ecem",
+      "approver": "Client",
+      "text": "Final laser scan of the shell against the design: median deviation within tolerance, local exceedance on the north side at layers 16–18, absorbed by the redesign of the upper layers.",
+      "story": "Acceptance with notes, every decision traceable to its evidence.",
+      "reason": "Accepted with notes on layers 16–18"
+    }
+  ]
+}

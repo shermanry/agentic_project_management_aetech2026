@@ -1,0 +1,84 @@
+{
+  "version": "1.0",
+  "tiers": [
+    {
+      "id": "basic",
+      "name": "Basic",
+      "decision_fields": [
+        "question",
+        "owner",
+        "due",
+        "status",
+        "outcome",
+        "reason"
+      ],
+      "features": [
+        "Decision inbox",
+        "Approve / reject / ask",
+        "Phase timeline",
+        "Decision log"
+      ],
+      "example": "Approve concept design v3",
+      "for": "Any project with a few decision-makers"
+    },
+    {
+      "id": "medium",
+      "name": "Medium",
+      "decision_fields": [
+        "question",
+        "owner",
+        "due",
+        "status",
+        "outcome",
+        "reason",
+        "options",
+        "criteria",
+        "evidence",
+        "gate",
+        "reversibility"
+      ],
+      "features": [
+        "Everything in Basic",
+        "Options × criteria comparison",
+        "Phase gates",
+        "Risk register",
+        "Budget and resources",
+        "Dependencies between decisions"
+      ],
+      "example": "Choose the fabrication method for the canopy",
+      "for": "Projects with trade-offs and phase gates"
+    },
+    {
+      "id": "advanced",
+      "name": "Advanced",
+      "decision_fields": [
+        "question",
+        "owner",
+        "due",
+        "status",
+        "outcome",
+        "reason",
+        "options",
+        "criteria",
+        "evidence",
+        "gate",
+        "reversibility",
+        "constraint_nodes",
+        "live_inputs",
+        "recommendation",
+        "cadence"
+      ],
+      "features": [
+        "Everything in Medium",
+        "Constraint graph",
+        "Live data from machines and sensors",
+        "Recommendations with evidence",
+        "Per-layer gates",
+        "Digital-twin comparison",
+        "Scenario comparison"
+      ],
+      "example": "Release layer 23 of the aerial-AM build",
+      "for": "Data-driven builds with live constraints, e.g. aerial additive manufacturing"
+    }
+  ]
+}
