@@ -210,3 +210,7 @@
 .pk-pick input { width: 16px; height: 16px; margin: 0; accent-color: var(--ink); cursor: pointer; flex: none; }
 .batch-bar { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--hair); font-size: 13px; }
 .batch-bar .pk-pick { margin-right: 4px; color: var(--ink-2); }
+
+/* ---------- Expert network: long titles are shortened so labels overlap less; the full title shows on hover or when selected ---------- */
+#net3d-labels .node-chip { max-width: 24ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#net3d-labels .node-chip:hover, #net3d-labels .node-chip.on, #net3d-labels .node-chip.drop-on { max-width: none; z-index: 3; }

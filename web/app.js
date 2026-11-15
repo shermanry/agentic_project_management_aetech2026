@@ -854,7 +854,7 @@ document.addEventListener('click', async e => {
   else if (act === 'clearsearch') { ui.search = null; ui.q = ''; render(); }
   else if (act === 'mode') { ui.mode = id; ui.view = null; render(); }
   else if (act === 'cat') { ui.off.has(id) ? ui.off.delete(id) : ui.off.add(id); ui.view = null; render(); }
-  else if (act === 'intake') { ui.intake = !ui.intake; render(); }
+  else if (act === 'intake') { ui.intake = !ui.intake; if (!ui.intake && location.hash === '#data') history.replaceState(null, '', '#overview'); render(); }   /* #data only opens the Add page: once closed, a reload should not reopen it */
   else if (act === 'adding') { ui.adding = !ui.adding; ui.view = null; render(); }
   else if (act === 'zoom') { const w = $('#wrap');
     if (id === 'fit') fit(); else if (id === 'arrange') { delete ui.pos[ui.mode]; ui.view = null; render(); } else zoomAt(id === 'in' ? 1.2 : 1 / 1.2, w.clientWidth / 2, w.clientHeight / 2); }
