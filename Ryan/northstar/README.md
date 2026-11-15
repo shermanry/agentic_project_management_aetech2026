@@ -114,6 +114,8 @@ Each example project runs as **its own copy of the app**, with its own port, dat
 
 **Adding a project from the page:** the project menu ends with **+ Add new project…**. It asks for a name, creates an empty project (seed file under `data/projects/<id>/`, an entry in `data/projects.local.json`, its own database and the next free port from 8120), starts its copy of the app and opens it. A listed project that is stopped can be picked from the menu to start it. `POST /api/projects` `{name, by}` and `POST /api/projects/{id}/start` do the same. Through one shared link (a tunnel to one port) the other projects are reached at `/p/<project id>/app/`: the app passes those requests on to that project's copy on the same machine, and the project menu uses those addresses automatically.
 
+**Deleting a project from the page:** when the open project was added from the page, the menu also has **− Delete this project…**. After a confirmation it removes the project from the list, stops its copy of the app, drops its database and deletes its files (`POST /api/projects/<id>/delete`). This cannot be undone. The built-in projects in `projects.json` cannot be deleted this way.
+
 **Adding an example project by hand:** write a seed file with the same shape as `seed.py` (`PROJECT`, `PEOPLE`, `NODES`, `EDGES`; optionally `PARTS`, `PART_EDGES`, a replay `SCENARIO` and `STARTER_REFS`), then add a line to `projects.json` with an unused port and database name. Set `"feeds": false` unless the New York live feeds make sense for it.
 
 How it works: `NORTHSTAR_PROJECT` picks the project; `seed.py` then loads that project's seed file in place of its own tables, so the rest of the app is unchanged. `GET /api/projects` returns the list for the menu.
@@ -242,6 +244,7 @@ Settings (environment or `.env`): `DATABASE_URL`, `FEEDS_ENABLED`, `MONITOR_SITE
 | GET | `/api/nodes/{id}` | Node detail: text, source, passages, links, flags, history |
 | GET | `/api/nodes/{id}/neighbours` | Graph walk: `affects`, `rests_on` or `any`, to a depth |
 | POST | `/api/edges/suggest`, `/api/edges/preview`, `/api/edges` | Suggest, dry-run and add a link between two existing nodes |
+| POST | `/api/projects/{id}/delete` | Delete a project that was added from the page: stops it, drops its database, removes its files |
 | GET | `/api/projects` | The example projects, which one this app is, and which others are running |
 | POST | `/api/items/{id}/answer` | Answer Jev's question on a proposal; the item is read again with the answer |
 | POST | `/api/relink` | Link the project's existing nodes, oldest first, with Jev at each step |

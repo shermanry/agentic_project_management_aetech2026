@@ -14,6 +14,8 @@ import json
 import os
 import re
 import shlex
+import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -63,7 +65,7 @@ def _listening(port: int) -> bool:
 def listing(current_id: str) -> list[dict]:
     """For the page's project menu. `running` is a quick port check; `available` means its seed file is on disk."""
     return [{"id": p["id"], "name": p["name"], "kind": p.get("kind", ""), "port": p["port"], "current": p["id"] == current_id,
-             "available": seed_path(p).is_file(), "running": p["id"] == current_id or _listening(p["port"])} for p in registry()]
+             "created": bool(p.get("created")), "available": seed_path(p).is_file(), "running": p["id"] == current_id or _listening(p["port"])} for p in registry()]
 
 
 def create(name: str, people: list[dict], kind: str = "") -> dict:
@@ -118,6 +120,50 @@ def start(project_id: str, wait_s: float = 45.0) -> dict:
     return {"id": p["id"], "name": p["name"], "port": p["port"], "running": True}
 
 
+def delete(project_id: str) -> dict:
+    """A person deletes a project they added from the page. It leaves the list straight away; a separate short-lived
+    process then stops its copy of the app, drops its database and removes its files, so a project can delete
+    itself. Projects in projects.json are part of the repository and cannot be deleted this way."""
+    local = _read(LOCAL)
+    p = next((x for x in local if x["id"] == project_id), None)
+    if not p:
+        if entry(project_id):
+            raise ValueError("This project is one of the built-in examples and cannot be deleted from the page")
+        raise LookupError(f"No project “{project_id}”")
+    if not (p.get("created") and re.fullmatch(r"[a-z0-9-]+", p["id"]) and re.fullmatch(r"drone_[a-z0-9_]+", p["database"])):
+        raise ValueError(f"“{p['name']}” was not created from the page and cannot be deleted from it")
+    LOCAL.write_text(json.dumps([x for x in local if x["id"] != project_id], indent=1))
+    with (HERE / "data" / "deleted-projects.log").open("ab") as f:
+        subprocess.Popen([sys.executable, str(HERE / "projects.py"), "purge", json.dumps(p)], cwd=HERE, stdout=f, stderr=f,
+                         stdin=subprocess.DEVNULL, start_new_session=True)
+    return {"id": p["id"], "name": p["name"], "deleted": True}
+
+
+def purge(p: dict) -> None:
+    """The second half of delete(), run as its own process: stop the app, drop the database, remove the files."""
+    stamp = lambda: time.strftime("%Y-%m-%d %H:%M:%S")
+    print(f"{stamp()} deleting {p['id']} (port {p['port']}, database {p['database']})", flush=True)
+    time.sleep(1.0)                                   # let the app answer the person who asked before it is stopped
+    pids = subprocess.run(["lsof", "-nP", f"-tiTCP:{p['port']}", "-sTCP:LISTEN"], capture_output=True, text=True).stdout.split()
+    for pid in pids:
+        cmd = subprocess.run(["ps", "-o", "command=", "-p", pid], capture_output=True, text=True).stdout
+        if f"--port {p['port']}" in cmd and "uvicorn" in cmd:      # only this project's copy of the app, nothing else on that port
+            os.kill(int(pid), signal.SIGTERM)
+    deadline = time.time() + 10
+    while time.time() < deadline and _listening(p["port"]):
+        time.sleep(0.25)
+    try:
+        import psycopg
+        with psycopg.connect(_database_url("postgres"), autocommit=True) as c:
+            c.execute(f'DROP DATABASE IF EXISTS "{p["database"]}" WITH (FORCE)')
+    except Exception as e:
+        print(f"{stamp()} database {p['database']} not dropped: {e}", flush=True)
+    for folder in (HERE / "data" / "projects" / p["id"], HERE / "data" / p["id"]):
+        shutil.rmtree(folder, ignore_errors=True)
+    (HERE / "data" / f"project-{p['id']}.log").unlink(missing_ok=True)
+    print(f"{stamp()} deleted {p['id']}", flush=True)
+
+
 def _database_url(name: str) -> str:
     base = os.environ.get("DATABASE_BASE", "postgresql://drone:drone@localhost:5433/")
     return base.rstrip("/") + "/" + name
@@ -155,5 +201,7 @@ if __name__ == "__main__":
         if not os.environ.get("DATABASE_URL"):
             ensure_database(entry(sys.argv[2])["database"])
         print("\n".join(f"export {k}={shlex.quote(v)}" for k, v in e.items()))
+    elif cmd == "purge" and len(sys.argv) > 2:      # started by delete(); not meant to be run by hand
+        purge(json.loads(sys.argv[2]))
     else:
         raise SystemExit("usage: projects.py list | env <project id>")

@@ -704,6 +704,25 @@ async def project_start(project_id: str) -> dict:
         raise HTTPException(500, str(e))
 
 
+class DeleteProject(BaseModel):
+    by: str = "Sam"
+
+
+@app.post("/api/projects/{project_id}/delete")
+async def project_delete(project_id: str, d: DeleteProject) -> dict:
+    """A person deletes a project that was added from the page: its copy of the app is stopped and its database
+    and files are removed for good. The page asks for confirmation first. Built-in projects are refused."""
+    try:
+        out = await asyncio.to_thread(projects.delete, project_id)
+    except LookupError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    if project_id != seed.PROJECT["id"]:              # a project deleting itself has no history left to write to
+        store.log(d.by, "project.deleted", f"{d.by} deleted the project: {out['name']}", "", {"project": project_id})
+    return out
+
+
 @app.get("/api/projects")
 def project_list() -> dict:
     """The example projects (projects.json): which one this app is, and which others are running on their ports."""

@@ -174,7 +174,7 @@ function projectMenu() {      // in the status area: the design hides the breadc
   if (!P.length) return '';
   return `<label class="who">Project <select class="proj" data-change="project" aria-label="Switch project" title="Switch to another project, or add a new one">${P.map(p =>
     `<option value="${esc(p.id)}" ${p.current ? 'selected' : ''} ${p.current || p.running || p.available ? '' : 'disabled'}>${esc(p.name)}${p.current || p.running ? '' : p.available ? ' · stopped, pick to start' : ' · not installed'}</option>`).join('')}
-    <option value="__new">+ Add new project…</option></select></label>`;
+    <option value="__new">+ Add new project…</option>${P.some(p => p.current && p.created) ? '<option value="__del">− Delete this project…</option>' : ''}</select></label>`;
 }
 /* Each project is its own copy of the app on its own port. On the host computer switching opens that port; through
    a shared link (no port in the address) it opens /p/<project id>/app/, which the app passes on to that copy. */
@@ -190,6 +190,16 @@ async function pickProject(sel) {
       const name = (prompt('Name of the new project', '') || '').trim(); if (!name) return;
       toast(`Creating “${name}”…`);
       const p = await post('/api/projects', {name, by: ui.who}); await loadProjects(); render(); openProject(p);
+    } else if (v === '__del') {
+      if (!cur || !cur.created) return;
+      if (!confirm(`Delete the project “${cur.name}”?\n\nThis permanently removes the project, everything added to it and its history, for everyone who uses it. It cannot be undone.`)) return;
+      toast(`Deleting “${cur.name}”…`);
+      // through a shared link the request goes to the main copy of the app, so the project does not have to stop itself
+      const r = await fetch(`${viaSharedLink() ? '' : BASE}/api/projects/${encodeURIComponent(cur.id)}/delete`,
+        {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({by: ui.who})});
+      if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || `Could not delete the project (${r.status})`); }
+      const home = P.find(p => !p.created && p.running) || P.find(p => !p.current && p.running);
+      if (viaSharedLink()) location.href = '/app/'; else if (home) openProject(home);
     } else {
       const p = P.find(x => x.id === v); if (!p || p.current) return;
       if (!p.running) { toast(`Starting “${p.name}”…`); await post(`/api/projects/${p.id}/start`); await loadProjects(); }
