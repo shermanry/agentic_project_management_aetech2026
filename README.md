@@ -1,6 +1,7 @@
 <p align="center"><img src="docs/logo.png" alt="YBuild" width="160"></p>
 
-# YBuild: agentic project management for drone work
+# YBuild: agentic and adaptable project management
+
 
 A project system for complex project with many dependencies and risk factors such as drone flights, experimental fabrication and everything in-between. People add anything (files, notes, emails, a folder link), an AI proposes where it belongs in the project graph and what it affects, and a person approves. Every approved change is recorded with its source and reason, so the graph is also the project's decision history.
 
