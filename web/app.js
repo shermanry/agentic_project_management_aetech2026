@@ -46,8 +46,11 @@ const ui = {tab: 'overview', sel: null, mode: 'tree', off: new Set(), q: '', vie
 try { ui.who = localStorage.getItem('yb.who') || 'Mary'; } catch {}
 
 /* ------------------------------------------------------------------ data */
+/* Reached as /p/<project id>/app/ when another project is opened through one shared link: every request then
+   carries that prefix, and the app passes it on to that project's copy. */
+const BASE = (location.pathname.match(/^\/p\/[^/]+/) || [''])[0];
 async function api(path, opt) {
-  const r = await fetch(path, opt);
+  const r = await fetch(BASE + path, opt);
   if (!r.ok) {
     let m = r.statusText;
     try { const j = await r.json(); m = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail); } catch {}
@@ -173,12 +176,12 @@ function projectMenu() {      // in the status area: the design hides the breadc
     `<option value="${esc(p.id)}" ${p.current ? 'selected' : ''} ${p.current || p.running || p.available ? '' : 'disabled'}>${esc(p.name)}${p.current || p.running ? '' : p.available ? ' · stopped, pick to start' : ' · not installed'}</option>`).join('')}
     <option value="__new">+ Add new project…</option></select></label>`;
 }
-/* Each project is its own copy of the app on its own port, so switching means opening that port. Through a shared
-   link (no port in the address) only the project the link points at can be reached. */
-const viaSharedLink = () => !location.port && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+/* Each project is its own copy of the app on its own port. On the host computer switching opens that port; through
+   a shared link (no port in the address) it opens /p/<project id>/app/, which the app passes on to that copy. */
+const viaSharedLink = () => !!BASE || (!location.port && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname));
 function openProject(p) {
-  if (viaSharedLink()) { toast(`“${p.name}” is ready on the host computer at http://localhost:${p.port}/app/. This shared link only reaches the current project.`); return; }
-  location.href = `${location.protocol}//${location.hostname}:${p.port}/app/${location.search}${location.hash}`;
+  location.href = viaSharedLink() ? `/p/${encodeURIComponent(p.id)}/app/${location.search}${location.hash}`
+    : `${location.protocol}//${location.hostname}:${p.port}/app/${location.search}${location.hash}`;
 }
 async function pickProject(sel) {
   const v = sel.value, cur = P.find(p => p.current); sel.value = cur ? cur.id : '';        // the menu shows the current project until the switch happens
@@ -885,7 +888,7 @@ function route() { const h = location.hash.replace('#', ''); if (h === 'data') u
 window.addEventListener('hashchange', route);
 window.addEventListener('resize', () => { if (ui.tab === 'pm' && S) fit(); });
 
-const es = new EventSource('/api/events');
+const es = new EventSource(BASE + '/api/events');
 const setLive = v => { live = v; const l = $('#live'); if (l) { l.classList.toggle('off', !v); l.lastChild.textContent = v ? 'Live' : 'Offline'; } };
 es.onopen = () => setLive(true); es.onerror = () => setLive(false);
 let deb; es.onmessage = () => { clearTimeout(deb); deb = setTimeout(refresh, 150); };

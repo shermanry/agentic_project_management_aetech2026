@@ -11,9 +11,11 @@ import shutil
 import threading
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+import httpx
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.background import BackgroundTask
 from pydantic import BaseModel
 
 import analysis
@@ -705,6 +707,35 @@ async def reset() -> dict:
     _seed_warning = replay.warning
     await asyncio.to_thread(feeds.sync_custom)             # added feeds went with the old graph
     return {"ok": True, "warning": _seed_warning}
+
+
+# ---------------------------------------------------------------- other projects through this address
+# Each project is its own copy of the app on its own port. Through one shared link (a tunnel to this port) only
+# this copy is reachable, so /p/<project id>/... passes the request on to that project's copy on this machine.
+_HOP = {"host", "connection", "keep-alive", "transfer-encoding", "upgrade", "proxy-authorization", "proxy-authenticate", "te", "trailer"}
+_pass: httpx.AsyncClient | None = None
+
+
+@app.api_route("/p/{project_id}/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
+async def pass_to_project(project_id: str, path: str, request: Request):
+    global _pass
+    p = projects.entry(project_id)
+    if not p:
+        raise HTTPException(404, f"No project “{project_id}”")
+    if _pass is None:
+        _pass = httpx.AsyncClient(timeout=httpx.Timeout(None, connect=5.0), follow_redirects=False)
+    url = f"http://127.0.0.1:{p['port']}/{path}" + (f"?{request.url.query}" if request.url.query else "")
+    headers = [(k, v) for k, v in request.headers.items() if k.lower() not in _HOP]
+    body = request.stream() if request.method in ("POST", "PUT", "PATCH") else None
+    try:
+        r = await _pass.send(_pass.build_request(request.method, url, headers=headers, content=body), stream=True)
+    except httpx.ConnectError:
+        raise HTTPException(503, f"“{p['name']}” is not running. Pick it in the project menu to start it.")
+    out = {k: v for k, v in r.headers.items() if k.lower() not in _HOP and k.lower() != "content-length"}
+    loc = out.get("location", "").replace(f"http://127.0.0.1:{p['port']}", "", 1)
+    if r.status_code in (301, 302, 307, 308) and loc.startswith("/"):
+        out["location"] = f"/p/{project_id}" + loc                        # e.g. /app -> /app/
+    return StreamingResponse(r.aiter_raw(), status_code=r.status_code, headers=out, background=BackgroundTask(r.aclose))
 
 
 WEB = HERE.parent.parent / "web"            # the phased front end (repo root); this page stays as the graph and dev console
