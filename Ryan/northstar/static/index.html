@@ -130,7 +130,9 @@ img.prev{max-width:100%;max-height:150px;border-radius:6px;margin-top:8px;border
   <div class="meta" id="meta"></div>
   <label>You are <select id="who"></select></label>
   <button id="rulesb" title="See rules and ask the analysis loop to suggest new ones">Rules</button>
-  <button id="reset" title="Reload the example project and clear history">Reset demo</button>
+  <a id="demolink" target="_blank" rel="noopener" style="display:none;font-size:12px">Replay demo ↗</a>
+  <select id="fresh" title="Wipe this project and start again" style="display:none;max-width:120px"></select>
+  <button id="reset" title="Reload the example project and clear history" style="display:none">Reset demo</button>
 </header>
 <main>
   <section>
@@ -224,7 +226,13 @@ function renderBuilding() {
 }
 
 function renderReplay() {
-  const r = S.replay;
+  const r = S.replay, demo = S.config.mode === "demo";
+  $("#replay").style.display = r.enabled ? "" : "none";
+  $("#reset").style.display = demo ? "" : "none";
+  $("#fresh").style.display = demo ? "none" : "";
+  if (!demo && !$("#fresh").options.length) $("#fresh").innerHTML = '<option value="">Start fresh…</option>' + r.templates.map(t => `<option value="${esc(t.id)}">${esc(t.label)}</option>`).join("");
+  const dl = $("#demolink"); dl.style.display = S.config.demo_url ? "" : "none"; if (S.config.demo_url) dl.href = S.config.demo_url;
+  if (!r.enabled) { $("#rfwd").disabled = $("#rback").disabled = true; return; }
   $("#rtitle").textContent = r.caption.title; $("#rstory").textContent = r.caption.story + (r.warning ? " " + r.warning : "");
   $("#rbar").style.width = (100 * r.pos / r.total) + "%";
   const working = busy || r.phase === "processing";
@@ -567,6 +575,9 @@ function toast(msg, onclick) {
 $("#askb").onclick = askQuestion;
 $("#rulesb").onclick = () => { rv = rv ? null : {focus: null}; if (rv) { selItem = null; draft = null; qa = null; } render(); };
 $("#q").onkeydown = e => { if (e.key === "Enter") askQuestion(); };
+$("#fresh").onchange = async e => { const t = e.target.value; e.target.value = ""; if (!t) return;
+  if (!confirm("Start this project again from “" + t + "”? Everything in it now, including its history, is removed.")) return;
+  try { await api("/api/project/new?template=" + encodeURIComponent(t), {method: "POST"}); pos = {}; selItem = selNode = draft = null; followed = null; qa = null; await refresh(); } catch (err) { toast(err.message); } };
 $("#rfwd").onclick = () => step("forward");
 $("#rback").onclick = () => step("back");
 $("#rstart").onclick = () => step("goto?to=start");

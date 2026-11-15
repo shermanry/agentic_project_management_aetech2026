@@ -42,9 +42,26 @@ def _vec(v: list[float] | None) -> str | None:
     return "[" + ",".join(f"{x:.6f}" for x in v) + "]" if v else None
 
 
+def ensure_database(url: str) -> None:
+    """Create the database named in `url` if the server doesn't have it yet (e.g. the separate one for the replay demo)."""
+    import psycopg
+    from psycopg import conninfo, sql
+    try:
+        psycopg.connect(url, connect_timeout=10).close()
+        return
+    except psycopg.OperationalError as e:
+        if "does not exist" not in str(e):
+            raise
+    params = conninfo.conninfo_to_dict(url)
+    name = params.pop("dbname")
+    with psycopg.connect(**params, dbname="postgres", autocommit=True) as c:
+        c.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
+
+
 class Store:
     def __init__(self, url: str, project: dict):
         self.project = project
+        ensure_database(url)
         self.pool = ConnectionPool(url, min_size=1, max_size=8, open=True,
                                    kwargs={"autocommit": True, "row_factory": dict_row})
         self.pool.wait(timeout=30)

@@ -32,6 +32,9 @@ UPLOADS, PACKAGES = DATA / "uploads", DATA / "packages"
 for d in (UPLOADS, PACKAGES):
     d.mkdir(parents=True, exist_ok=True)
 
+# "project" = the working app (default). "demo" = the presentation app: its own database, with the replay controls.
+MODE = os.environ.get("NORTHSTAR_MODE", "project").lower()
+DEMO_URL = os.environ.get("DEMO_URL", "http://localhost:8200")
 store = Store(os.environ.get("DATABASE_URL", "postgresql://drone:drone@localhost:5433/drone"), seed.PROJECT)
 app = FastAPI(title="North star intake")
 replay: Replay = None  # type: ignore  (created at startup, once notify works)
@@ -54,11 +57,16 @@ async def _startup() -> None:
     global _loop, _seed_warning, replay, feeds
     _loop = asyncio.get_running_loop()
     feeds = livefeeds.LiveFeeds(store, notify, submit_text, DATA)
-    replay = Replay(store, DATA, PACKAGES, notify, _approve, feeds)
-    feeds.gate = lambda: not replay.in_setup()             # no feed nodes while the replay is still adding the project's own
-    if store.empty() and replay.fresh:                     # first run: start with the project set up, as before
-        await asyncio.to_thread(replay.goto, "setup")
-        _seed_warning = replay.warning
+    replay = Replay(store, DATA, PACKAGES, notify, _approve, feeds, enabled=MODE == "demo")
+    if MODE == "demo":                                     # presentation app: the replay drives the graph
+        feeds.gate = lambda: not replay.in_setup()         # no feed nodes while the replay is still adding the project's own
+        if store.empty() and replay.fresh:
+            await asyncio.to_thread(replay.goto, "setup")
+    else:                                                  # working project: no replay; feeds only in the full example
+        feeds.gate = lambda: replay.template == "full"
+        if store.empty() and replay.fresh:
+            await asyncio.to_thread(replay.start_project, "starter")
+    _seed_warning = replay.warning
     await asyncio.to_thread(replay.ensure_setup_nodes)     # e.g. building parts added to the seed after this project was set up
     await asyncio.to_thread(store.sweep)
     await asyncio.to_thread(analysis.load_active, store)   # approved rules from earlier analysis runs
@@ -127,7 +135,8 @@ def state() -> dict:
     nodes, edges = store.nodes(), store.edges()
     return {"project": seed.PROJECT, "people": seed.PEOPLE, "node_types": NODE_TYPES, "edge_types": EDGE_TYPES,
             "nodes": nodes, "edges": edges, "parts": parts_rollup(nodes, edges), "items": [_public_item(i) for i in store.items()],
-            "events": store.events(), "replay": replay.status(), "config": {**pipeline.available(), "seed_warning": _seed_warning},
+            "events": store.events(), "replay": replay.status(),
+            "config": {**pipeline.available(), "seed_warning": _seed_warning, "mode": MODE, "demo_url": DEMO_URL if MODE != "demo" else None},
             "feeds": feeds.snapshot() if feeds else None, "rules": store.rules(),
             "analysis": {"model": analysis.model(), "running": _analysis_running.is_set()}}
 
@@ -356,6 +365,20 @@ def replay_forward() -> dict:
         raise HTTPException(409, str(e))
 
 
+@app.post("/api/project/new")
+async def project_new(template: str = "starter") -> dict:
+    """Working project only: wipe it and start again. template = empty | starter | full."""
+    global _seed_warning
+    if MODE == "demo":
+        raise HTTPException(409, "This is the presentation app. Use Reset demo here; start projects in the working app.")
+    try:
+        out = await asyncio.to_thread(replay.start_project, template)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    _seed_warning = replay.warning
+    return out
+
+
 @app.post("/api/replay/goto")
 def replay_goto(to: str = "start") -> dict:
     """Jump the replay: to=start is the empty project, to=setup is the project set up before the story."""
@@ -548,7 +571,10 @@ def item_image(item_id: str):
 async def reset() -> dict:
     """Demo helper: wipe the graph and history, reload the example project."""
     global _seed_warning
-    await asyncio.to_thread(replay.goto, "setup")          # the project as planned, before the story steps
+    if MODE == "demo":
+        await asyncio.to_thread(replay.goto, "setup")      # the project as planned, before the story steps
+    else:
+        await asyncio.to_thread(replay.start_project, replay.template)   # the working project, from its template again
     _seed_warning = replay.warning
     return {"ok": True, "warning": _seed_warning}
 

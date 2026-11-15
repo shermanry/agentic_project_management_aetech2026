@@ -7,7 +7,33 @@ The one interaction from [plan.md](../plan.md), section 1, working end to end:
 3. **Explore:** the proposal appears on the graph as a dashed ghost node; nodes it would change are outlined in red.
 4. **Approve, edit or dismiss:** approving adds the node, applies the effects and records a revision with its source and reason.
 
+## Two apps: the working project and the presentation
+
+The same code runs in two modes, each with its own database, so rehearsing the demo never touches real work.
+
+| | Working project | Presentation (replay) |
+| --- | --- | --- |
+| Start | `.venv/bin/uvicorn app:app --port 8100` | `./run_demo.sh` |
+| URL | http://localhost:8100 | http://localhost:8200 |
+| Mode | `NORTHSTAR_MODE=project` (default) | `NORTHSTAR_MODE=demo` |
+| Database | `drone` | `drone_demo` (created on first start) |
+| Replay bar | Hidden; the replay endpoints refuse | Shown: ⏮, Back, Forward, Skip setup, Reset demo |
+| Header | **Start fresh…** and a "Replay demo ↗" link | **Reset demo** |
+| Live feeds | Only in the full example | Off, so the replay is repeatable (Simulate still works) |
+
+**Starting a fresh project** (working app): choose **Start fresh…** in the header. It wipes the project and its history after a confirmation and starts again from one of:
+
+- **Empty project:** no nodes.
+- **Starter:** five nodes (the site, Drone 4A, the flight plan, the permit package, Thursday's flight) and the links between them. A brand-new install starts here.
+- **Full example:** every project node, the building parts and the live data feeds.
+
+The API is `POST /api/project/new?template=empty|starter|full`. `POST /api/reset` starts the project again from the template it was last started from. There is still one project per app; several named projects side by side is not built.
+
+With Docker, `docker compose -f Ryan/northstar/docker-compose.yml up` now starts both: the working app on 8100 and the presentation app on 8200.
+
 ## Replay mode
+
+_Presentation app only (http://localhost:8200)._
 
 The bar above the graph steps through the whole project from an **empty graph**, one thing at a time:
 
@@ -17,6 +43,7 @@ The bar above the graph steps through the whole project from an **empty graph**,
 - **Forward / Back** move one press at a time; left and right arrow keys do the same. Back goes all the way to the empty project.
 - **⏮** jumps to the empty project. **Skip setup ⏭** (shown during setup) adds the rest of the project's own nodes at once.
 - **Reset demo** returns to "the project is set up", just before the story.
+- The rehearsed steps are cached in `data/demo/`; `run_demo.sh` copies the working app's cache there the first time.
 - API: `POST /api/replay/forward`, `/api/replay/back`, `/api/replay/goto?to=start|setup`. `replay` in `/api/state` carries `pos`, `total`, `setup_total` and a ready-made `caption` (title and story) for any UI.
 
 The story steps are a reading of the whiteboard and should be checked by the drone experts. The first time a story step runs it is live (about 5 seconds for Jev); its approved proposal is then cached in the data folder, so going back and forward again is instant and identical. **Run through it once before a demo.** Back rebuilds the graph from scratch, which also wipes anything added by hand during the replay. While the replay is still in setup, the live feeds are held back so they don't add nodes out of order.
@@ -177,7 +204,8 @@ Settings (environment or `.env`): `DATABASE_URL`, `FEEDS_ENABLED`, `MONITOR_SITE
 | POST | `/api/edges/suggest`, `/api/edges/preview`, `/api/edges` | Suggest, dry-run and add a link between two existing nodes |
 | POST | `/api/ask` | `{question}` -> answer, cited sources with quotes, timings. Saves nothing |
 | POST | `/api/nodes/{id}/resolve` | Mark a blocker, discovery or constraint resolved; clears the flags it raised |
-| POST | `/api/replay/forward`, `/api/replay/back` | Step the replay |
+| POST | `/api/project/new` | Working app: wipe the project and start from `template=empty`, `starter` or `full` |
+| POST | `/api/replay/forward`, `/api/replay/back`, `/api/replay/goto` | Presentation app: step or jump the replay |
 | GET | `/api/rules` | Suggested, active and retired rules |
 | POST | `/api/rules/suggest` | Run the analysis loop once (body: `by`). Proposes rules; changes nothing else |
 | POST | `/api/rules/{id}/approve` | Make a suggested rule live |

@@ -66,9 +66,18 @@ SCENARIO = [
 ]
 
 
+# Starting points for a working project (project mode). Refs are from seed.py; order matters for links.
+TEMPLATES = {
+    "empty": {"label": "Empty project", "refs": []},
+    "starter": {"label": "Starter: site, drone, flight plan, permit, flight", "refs": ["site", "drone_4a", "flight_plan", "permit", "flight_thu"]},
+    "full": {"label": "Full example: every project node, building parts and live feeds", "refs": None},
+}
+
+
 class Replay:
-    def __init__(self, store: Store, data: Path, out_root: Path, notify, approve, feeds=None):
+    def __init__(self, store: Store, data: Path, out_root: Path, notify, approve, feeds=None, enabled: bool = True):
         self.store, self.out_root, self.notify, self.approve, self.feeds = store, out_root, notify, approve, feeds
+        self.enabled = enabled                                   # False in project mode: the replay lives in the presentation app
         self.state_file, self.cache_file = data / "replay_state.json", data / "replay_cache.json"
         self.lock = threading.Lock()
         self.setup = ([{"kind": "node", "node": n} for n in seed.NODES + seed.PARTS]
@@ -83,6 +92,7 @@ class Replay:
         else:
             self.pos = self.F + st.get("cursor", 0)              # oldest state files only had the story cursor
         self.item_id: str | None = st.get("item_id")
+        self.template: str = st.get("template", "full")          # what this project was started from (project mode)
         self.cache: dict = self._read(self.cache_file, {})
         self.warning: str | None = None
         if store.empty():                                        # database was wiped underneath us
@@ -96,7 +106,7 @@ class Replay:
             return default
 
     def _save(self) -> None:
-        self.state_file.write_text(json.dumps({"pos": self.pos, "F": self.F, "item_id": self.item_id}))
+        self.state_file.write_text(json.dumps({"pos": self.pos, "F": self.F, "item_id": self.item_id, "template": self.template}))
 
     def _key(self, step: dict) -> str:
         return step["id"] + ":" + hashlib.sha1((step["text"] + llm.jev_model()).encode()).hexdigest()[:10]
@@ -141,7 +151,9 @@ class Replay:
                 nxt = SCENARIO[k]
                 cap = (f"Step {k} of {n} approved: {SCENARIO[k - 1]['title']}",
                        f"Next: {nxt['title']}" + ("" if self._key(nxt) in self.cache else " (runs live, a few seconds)"))
-        return {"pos": self.pos, "total": self.F + 2 * n, "setup_total": self.F, "caption": {"title": cap[0], "story": cap[1]},
+        return {"enabled": self.enabled, "template": self.template,
+                "templates": [{"id": k, "label": v["label"]} for k, v in TEMPLATES.items()],
+                "pos": self.pos, "total": self.F + 2 * n, "setup_total": self.F, "caption": {"title": cap[0], "story": cap[1]},
                 "setup": [{"title": self._setup_title(s), "type": s["node"]["type"] if s["kind"] == "node" else "data_feed"} for s in self.setup],
                 # story-step fields (unchanged shape; cursor is 0 during setup)
                 "cursor": self.cursor, "last": 2 * n, "step": k, "phase": phase, "item_id": self.item_id if waiting else None,
@@ -181,11 +193,34 @@ class Replay:
             self.store.log(n.get("owner") or "system", "node.created", f"Added “{n['title']}” to the project",
                            payload={"node_id": nid, "source": "project setup", "added_by": n.get("owner") or "system"})
 
+    def start_project(self, template: str) -> dict:
+        """Project mode: wipe the working project and start it again from a template."""
+        if template not in TEMPLATES:
+            raise ValueError(f"template must be one of {list(TEMPLATES)}")
+        with self.lock:
+            refs = TEMPLATES[template]["refs"]
+            steps = self.setup if refs is None else [s for r_ in refs for s in self.setup
+                                                     if s["kind"] == "node" and s["node"]["ref"] == r_]
+            self.store.reset()
+            self.warning, self.template = None, template
+            if steps:
+                self._add_setup(steps, 0)
+            else:
+                self.store.log("system", "project.created", f"Project “{seed.PROJECT['name']}” created")
+            self.pos, self.item_id = self.F, None
+            self._save()
+            self.notify({"type": "graph", "reset": True})
+            return self.status()
+
+    def _check_enabled(self) -> None:
+        if not self.enabled:
+            raise ValueError("The replay runs in the presentation app, not in the working project")
+
     def ensure_setup_nodes(self) -> int:
         """A project that was set up before the setup list grew is missing the newer nodes (e.g. building parts).
-        Add them in place, without rebuilding. Returns how many were added."""
+        Add them in place, without rebuilding. Returns how many were added. Only for the full example."""
         with self.lock:
-            if self.pos < self.F:
+            if self.pos < self.F or (not self.enabled and self.template != "full"):
                 return 0
             missing = [s for s in self.setup if s["kind"] == "node" and not self.store.node_by_ref(s["node"]["ref"])]
             if missing:
@@ -213,6 +248,7 @@ class Replay:
         self.item_id = item_id
 
     def forward(self) -> dict:
+        self._check_enabled()
         with self.lock:
             if self.pos < self.F:                                   # setup: one node per press
                 self._add_setup([self.setup[self.pos]], self.pos)
@@ -246,6 +282,7 @@ class Replay:
 
     # ---------------------------------------------------------------- back
     def back(self) -> dict:
+        self._check_enabled()
         with self.lock:
             if self.pos == 0:
                 raise ValueError("Already at the start")
@@ -271,6 +308,7 @@ class Replay:
 
     def goto(self, to: str) -> dict:
         """Jump to the empty start ("start") or to the fully set-up project before the story ("setup")."""
+        self._check_enabled()
         if to not in ("start", "setup"):
             raise ValueError("to must be start or setup")
         with self.lock:
