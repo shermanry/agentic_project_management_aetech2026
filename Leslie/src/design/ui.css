@@ -398,3 +398,8 @@ html, body { background: #ffffff; color: #0a0a0a; color-scheme: light; }
 .ask-answer p { -webkit-line-clamp: 2; font-size: clamp(15px, 1.2vw, 17px); }
 .ask-go .note { margin-left: auto; }
 .ask-chip { min-height: 30px; }
+
+.ov-retake { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px 40px; margin-top: 96px; padding-top: 28px; border-top: 1px solid var(--ink); }
+.ed-cta.xl { min-height: 76px; padding: 0 48px; font-size: clamp(20px, 2vw, 28px); letter-spacing: -0.02em; }
+.ov-retake + .ed-foot { margin-top: 48px; }
+@media (max-width: 600px) { .ed-cta.xl { width: 100%; } }

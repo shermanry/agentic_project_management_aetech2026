@@ -68,9 +68,6 @@ export default function OverviewView({ openPM, openClient, openPilot, goTo }: Pr
               {start.label}
             </button>
             <span className="why">{start.why}</span>
-            <button className="ed-link dim" onClick={() => dispatch({ type: 'setOnboarding', onboarding: undefined })}>
-              Retake questions
-            </button>
           </>
         ) : (
           <>
@@ -234,6 +231,20 @@ export default function OverviewView({ openPM, openClient, openPilot, goTo }: Pr
             </span>
           </div>
         </div>
+      </section>
+
+      <section className="ov-retake">
+        <p className="ed-lede">{state.onboarding ? 'Changed role, or want a different starting point?' : 'Not sure where to begin?'}</p>
+        <button
+          className="ed-cta xl"
+          onClick={() => {
+            dispatch({ type: 'setOnboarding', onboarding: undefined })
+            setSkipped(false)
+            window.scrollTo({ top: 0 })
+          }}
+        >
+          {state.onboarding ? 'Retake questions' : 'Answer 3 questions'}
+        </button>
       </section>
 
       <footer className="ed-foot ed-meta">
