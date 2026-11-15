@@ -38,7 +38,7 @@ h2{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mu
 .dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--grey)}
 .dot.red{background:var(--red)}.dot.amber{background:var(--amber)}.dot.green{background:var(--green)}.dot.acc{background:var(--acc)}
 #canvas{flex:1;min-height:0;position:relative}
-svg{width:100%;height:100%;display:block}
+svg{width:100%;height:100%;display:block;user-select:none;-webkit-user-select:none}
 .edge{stroke:var(--grey);stroke-width:1.3;fill:none}
 .edge.ghost{stroke:var(--acc);stroke-dasharray:5 4;stroke-width:1.8}
 .edge.hl{stroke:var(--red);stroke-width:2}
@@ -88,7 +88,14 @@ svg{width:100%;height:100%;display:block}
 .src .h b{flex:1}
 .src .p{color:var(--mute);font-size:12px;margin-top:5px;line-height:1.5}
 mark{background:#fde68a;color:#1f2933;border-radius:2px;padding:0 1px}
-.legend{position:absolute;left:10px;bottom:8px;color:var(--mute);font-size:11px;display:flex;gap:12px;flex-wrap:wrap}
+.node.pick rect.box{stroke:var(--acc);stroke-width:3}
+.node.drop rect.box{stroke:var(--acc);stroke-width:3;stroke-dasharray:5 3}
+#dragline{stroke:var(--acc);stroke-width:2;stroke-dasharray:6 4;pointer-events:none}
+svg.linking, svg.linking .node{cursor:crosshair}
+.sug{border:1px solid var(--line);border-radius:7px;padding:7px 9px;margin-top:7px;cursor:pointer}
+.sug.on{border-color:var(--acc);background:var(--acc-bg)}
+.sug .why{color:var(--mute);font-size:11.5px;margin-top:2px}
+.legend{pointer-events:none;position:absolute;left:10px;bottom:8px;color:var(--mute);font-size:11px;display:flex;gap:12px;flex-wrap:wrap}
 .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 .row{display:flex;gap:8px;align-items:center;margin-top:6px}
 .k{color:var(--mute);width:74px;flex:none}
@@ -137,7 +144,7 @@ img.prev{max-width:100%;max-height:150px;border-radius:6px;margin-top:8px;border
     <div id="bldg"></div>
   </section>
   <section>
-    <h2>Project graph</h2>
+    <h2>Project graph <span style="text-transform:none;letter-spacing:0;font-weight:400">· drag from one node to another to connect them</span></h2>
     <div id="replay"><button id="rstart" title="Back to the empty project">⏮</button><button id="rback" title="Undo one step (left arrow)">◀ Back</button>
       <div class="cap"><b id="rtitle">Replay</b><span id="rstory"></span><div class="bar"><i id="rbar" style="width:0"></i></div></div>
       <button id="rskip" title="Add the rest of the project's own nodes at once">Skip setup ⏭</button><button id="rfwd" class="primary" title="Next step (right arrow)">Forward ▶</button></div>
@@ -158,7 +165,7 @@ img.prev{max-width:100%;max-height:150px;border-radius:6px;margin-top:8px;border
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const TYPE_COLOR = {decision:"#7c3aed",discovery:"#db2777",event:"#0891b2",data_feed:"#0d9488",deliverable:"#2563eb",blocker:"#dc2626",constraint:"#b45309",document:"#64748b",entity:"#16a34a"};
-let S = null, selItem = null, selNode = null, draft = null, draftFx = null, pos = {}, followed = null, busy = false, qa = null, rv = null;
+let S = null, selItem = null, selNode = null, draft = null, draftFx = null, pos = {}, followed = null, busy = false, qa = null, rv = null, lk = null, drag = null, dragged = false;
 const W = 150, H = 44;
 
 async function api(path, opts) {
@@ -284,6 +291,9 @@ function renderGraph() {
     nodes.push({id:"__ghost", type: draft.type, title: draft.title, status:"proposed", ghost:true});
     draft.links.filter(l => l.on).forEach(l => edges.push({src:"__ghost", dst:l.target, type:l.type, ghost:true}));
     (draftFx?.effects||[]).forEach(e => { if (e.new_status || e.clears) would[e.node_id] = e.change; });
+  } else if (lk && lk.type) {
+    edges.push({src: lk.from, dst: lk.to, type: lk.type, ghost: true});
+    (lk.fx?.effects||[]).forEach(e => { if (e.new_status || e.clears) would[e.node_id] = e.change; });
   } else if (rv?.focus) {
     const r = (S.rules||[]).find(x => x.id === rv.focus);
     (r?.meta?.dry_run||[]).forEach(h => would[h.node_id] = h.change);
@@ -299,7 +309,7 @@ function renderGraph() {
     const risky = selItem && hl.has(e.src) && hl.has(e.dst);
     out += `<line class="edge ${e.ghost?"ghost":""} ${risky?"hl":""} ${asking && !(cites[e.src] && cites[e.dst])?"dim":""}" x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" marker-end="url(#arr)"/>`;
     if (e.ghost || selNode===e.src || selNode===e.dst) out += `<text class="elabel" x="${(sx+ex)/2}" y="${(sy+ey)/2-4}">${esc(e.type.replace("_"," "))}</text>`; });
-  nodes.forEach(n => { const p = pos[n.id], cls = ["node", n.ghost?"ghost":"st-"+n.status, n.id===selNode?"sel":"", would[n.id] ? (["cleared","resolved"].includes(would[n.id]) ? "clear" : "would") : "", asking ? (cites[n.id] ? "cited" : "dim") : ""].join(" ");
+  nodes.forEach(n => { const p = pos[n.id], cls = ["node", n.ghost?"ghost":"st-"+n.status, n.id===selNode?"sel":"", lk && !selItem && (n.id===lk.a || n.id===lk.b) ? "pick" : "", would[n.id] ? (["cleared","resolved"].includes(would[n.id]) ? "clear" : "would") : "", asking ? (cites[n.id] ? "cited" : "dim") : ""].join(" ");
     const t = n.title.length > 23 ? n.title.slice(0,22)+"…" : n.title;
     const sub = n.ghost ? "proposed · not saved" : would[n.id] ? "would be: "+would[n.id] : n.type.replace("_"," ")+" · "+String(n.status).replace("_"," ");
     out += `<g class="${cls}" data-node="${esc(n.id)}" transform="translate(${p.x-W/2},${p.y-H/2})"><title>${esc(n.title)}</title>
@@ -307,7 +317,8 @@ function renderGraph() {
       <text x="12" y="18" font-weight="600">${esc(t)}</text><text class="sub" x="12" y="34">${esc(sub)}</text>
       ${(cites[n.id]||[]).slice(0,4).map((c,i) => `<circle class="badge" cx="${W-10-i*19}" cy="0" r="9"/><text class="badge-t" x="${W-10-i*19}" y="3.5">${c}</text>`).join("")}</g>`; });
   svg.innerHTML = out;
-  svg.querySelectorAll("[data-node]").forEach(g => g.onclick = () => { const id = g.dataset.node; if (id === "__ghost") return; selNode = id; if (qa?.citations && !selItem) { const el = document.querySelector(`.src[data-node="${id}"]`); if (el) { el.scrollIntoView({block:"nearest"}); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1200); return; } qa = null; } if (!selItem) renderPanel(); renderGraph(); if (selItem) { /* keep reviewing */ } });
+  svg.querySelectorAll("[data-node]").forEach(g => { g.onpointerdown = e => { if (g.dataset.node !== "__ghost" && e.button === 0 && !selItem) drag = {src: g.dataset.node, x0: e.clientX, y0: e.clientY, on: false}; }; });
+  svg.querySelectorAll("[data-node]").forEach(g => g.onclick = () => { const id = g.dataset.node; if (id === "__ghost") return; if (dragged) { dragged = false; return; } if (lk) { lk = null; } selNode = id; if (qa?.citations && !selItem) { const el = document.querySelector(`.src[data-node="${id}"]`); if (el) { el.scrollIntoView({block:"nearest"}); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1200); return; } qa = null; } if (!selItem) renderPanel(); renderGraph(); if (selItem) { /* keep reviewing */ } });
 }
 
 function renderPanel() {
@@ -345,6 +356,7 @@ function renderPanel() {
     $("#dismiss").onclick = () => act("dismiss", {by: who(), reason: $("#d-reason").value.trim()});
     return;
   }
+  if (lk) { renderLink(el); return; }
   if (rv) { renderRules(el); return; }
   if (qa) { renderAnswer(el); return; }
   const n = selNode && node(selNode);
@@ -446,6 +458,82 @@ async function askQuestion() {
   render();
 }
 
+/* ---- connect two nodes: drag from one to another, review the suggestions, edit, add ---- */
+function svgPoint(e) { const r = $("#svg").getBoundingClientRect(); return {x: e.clientX - r.left, y: e.clientY - r.top}; }
+function nodeAt(e) { const g = document.elementFromPoint(e.clientX, e.clientY)?.closest?.("[data-node]"); return g && g.dataset.node !== "__ghost" ? g.dataset.node : null; }
+document.addEventListener("pointermove", e => {
+  if (!drag) return;
+  if (!drag.on && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 7) return;
+  drag.on = true; const svg = $("#svg"); svg.classList.add("linking");
+  let line = $("#dragline"); if (!line) { line = document.createElementNS("http://www.w3.org/2000/svg", "line"); line.id = "dragline"; svg.appendChild(line); }
+  const a = pos[drag.src], p = svgPoint(e); if (!a) return;
+  line.setAttribute("x1", a.x); line.setAttribute("y1", a.y); line.setAttribute("x2", p.x); line.setAttribute("y2", p.y);
+  const over = nodeAt(e); svg.querySelectorAll(".node.drop").forEach(g => g.classList.remove("drop"));
+  if (over && over !== drag.src) svg.querySelector(`[data-node="${CSS.escape(over)}"]`)?.classList.add("drop");
+});
+document.addEventListener("pointerup", e => {
+  if (!drag) return; const d = drag; drag = null;
+  $("#dragline")?.remove(); $("#svg").classList.remove("linking"); document.querySelectorAll(".node.drop").forEach(g => g.classList.remove("drop"));
+  if (!d.on) return;
+  dragged = true; setTimeout(() => dragged = false, 60);
+  const over = nodeAt(e); if (over && over !== d.src) startLink(d.src, over);
+});
+async function startLink(a, b) {
+  qa = null; rv = null; selItem = null; draft = null; selNode = null;
+  lk = {a, b, loading: true, from: a, to: b, type: "", reason: "", pick: -1, fx: null, sug: null}; render();
+  try {
+    const r = await api("/api/edges/suggest", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({source: a, target: b})});
+    if (!lk || lk.a !== a || lk.b !== b) return;
+    lk.loading = false; lk.sug = r;
+    if (r.suggestions.length) pickSuggestion(0, false); else { lk.type = "about"; await linkPreview(false); }
+  } catch (e) { if (lk) { lk.loading = false; lk.error = e.message; lk.type = "about"; } }
+  render();
+}
+function pickSuggestion(i, draw = true) { const s = lk.sug.suggestions[i]; Object.assign(lk, {pick: i, from: s.from, to: s.to, type: s.type, reason: s.reason, fx: s.effects}); if (draw) render(); }
+async function linkPreview(draw = true) {
+  try { lk.fx = await api("/api/edges/preview", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({source: lk.from, target: lk.to, type: lk.type})}); } catch (e) { lk.fx = null; }
+  if (draw) render();
+}
+function linkEdited() { const s = lk.pick >= 0 ? lk.sug.suggestions[lk.pick] : null; return !s || s.from !== lk.from || s.to !== lk.to || s.type !== lk.type; }
+function renderLink(el) {
+  const A = node(lk.a), B = node(lk.b); if (!A || !B) { lk = null; return renderPanel(); }
+  $("#ptitle").textContent = "Connect two nodes";
+  const head = `<div style="font-weight:600">${esc(A.title)}</div><div class="muted">and</div><div style="font-weight:600">${esc(B.title)}</div>`;
+  if (lk.loading) { el.innerHTML = head + `<div class="s" style="display:flex;gap:8px;align-items:center;margin-top:10px"><span class="spin"></span><span class="muted">Looking for how these connect…</span></div><div class="actions"><button id="l-cancel">Cancel</button></div>`; $("#l-cancel").onclick = () => { lk = null; render(); }; return; }
+  const r = lk.sug, sig = r?.signals, name = id => id === lk.a ? A.title : B.title;
+  const sigs = sig ? [sig.similarity != null ? `${Math.round(sig.similarity*100)}% similar in meaning` : "", sig.shared_tags.length ? "shared tags: " + sig.shared_tags.join(", ") : "", sig.a_names_b || sig.b_names_a ? "one mentions the other" : ""].filter(Boolean).join(" · ") : "";
+  const fxLine = fx => { const n = (fx?.effects||[]).filter(e => e.new_status || e.clears).length; return n ? `would change ${n} other node${n>1?"s":""}` : "no status changes"; };
+  const from = node(lk.from), to = node(lk.to);
+  el.innerHTML = head + (sigs ? `<div class="muted" style="margin-top:6px">${esc(sigs)}</div>` : "") +
+    (lk.error ? `<div class="note">Couldn't get suggestions (${esc(lk.error)}). You can still add a link below.</div>` : "") +
+    (r?.error ? `<div class="note">The model was unreachable, so these come from name and similarity matches only.</div>` : "") +
+    (r?.existing.length ? `<h2 style="padding:12px 0 0">Already linked</h2>` + r.existing.map(e => `<div class="link"><b>${esc(name(e.from))}</b> ${esc(e.type.replace("_"," "))} → <b>${esc(name(e.to))}</b><div class="why">${esc(e.reason||"")}</div></div>`).join("") : "") +
+    `<h2 style="padding:12px 0 0">Suggested connections</h2>` +
+    (r?.suggestions.length ? r.suggestions.map((s, i) => `<div class="sug ${i===lk.pick && !linkEdited() ? "on" : ""}" data-sug="${i}"><b>${esc(name(s.from))}</b> ${esc(s.type.replace("_"," "))} → <b>${esc(name(s.to))}</b>
+        <div class="why">${esc(s.reason)} · ${Math.round(s.confidence*100)}% · ${esc(fxLine(s.effects))}</div></div>`).join("")
+      : `<p class="muted">${esc(r?.note || "No clear connection was found.")} You can still add one yourself.</p>`) +
+    `<h2 style="padding:14px 0 0">The link to add</h2>
+    <div class="row"><select id="l-from" style="flex:1"><option value="${esc(lk.a)}" ${lk.from===lk.a?"selected":""}>${esc(A.title)}</option><option value="${esc(lk.b)}" ${lk.from===lk.b?"selected":""}>${esc(B.title)}</option></select></div>
+    <div class="row"><select id="l-type">${S.edge_types.map(t => `<option value="${t}" ${t===lk.type?"selected":""}>${t.replace("_"," ")}</option>`).join("")}</select><span>→ <b>${esc(to.title)}</b></span></div>
+    <div class="row"><input type="text" id="l-reason" placeholder="Why are these connected?" value="${esc(lk.reason)}" style="flex:1"></div>
+    <h2 style="padding:14px 0 0">If you add this</h2>
+    ${(lk.fx?.effects||[]).length ? lk.fx.effects.map(e => `<div class="fx ${e.clears||e.change==="resolved"?"green":e.new_status==="reopened"?"amber":e.new_status?"red":""}"><b>${esc(e.title)}</b> → ${esc(e.change)}<div class="why">${esc(e.why)}</div></div>`).join("") + (lk.fx.notify?.length ? `<p class="muted" style="margin-top:8px">Would notify: ${lk.fx.notify.map(esc).join(", ")}</p>` : "")
+      : '<p class="muted">Nothing else changes. The two nodes are linked and the link is recorded.</p>'}
+    <div class="actions"><button class="primary" id="l-add">Add link</button><button id="l-cancel">Cancel</button></div>`;
+  el.querySelectorAll("[data-sug]").forEach(c => c.onclick = () => pickSuggestion(+c.dataset.sug));
+  $("#l-from").onchange = e => { lk.from = e.target.value; lk.to = lk.from === lk.a ? lk.b : lk.a; linkPreview(); };
+  $("#l-type").onchange = e => { lk.type = e.target.value; linkPreview(); };
+  $("#l-reason").oninput = e => { lk.reason = e.target.value; };
+  $("#l-cancel").onclick = () => { lk = null; render(); };
+  $("#l-add").onclick = async () => {
+    const s = lk.pick >= 0 && !linkEdited() ? lk.sug.suggestions[lk.pick] : null;
+    try {
+      await api("/api/edges", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({source: lk.from, target: lk.to, type: lk.type, reason: lk.reason.trim(), confidence: s ? s.confidence : 1, origin: s && s.origin === "jev" ? "jev" : "user", by: who()})});
+      selNode = lk.from; lk = null; await refresh();
+    } catch (e) { toast(e.message); }
+  };
+}
+
 function renderHist() {
   $("#hist").innerHTML = S.events.map(e => { const fx = e.payload?.effects || [];
     return `<div class="ev"><div class="m">${esc(e.actor)} · ${ago(e.at)}</div><div><b>${esc(e.title)}</b></div>
@@ -483,7 +571,7 @@ $("#rfwd").onclick = () => step("forward");
 $("#rback").onclick = () => step("back");
 $("#rstart").onclick = () => step("goto?to=start");
 $("#rskip").onclick = () => step("goto?to=setup");
-document.addEventListener("keydown", e => { if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+document.addEventListener("keydown", e => { if (e.key === "Escape" && lk) { lk = null; render(); return; } if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
   if (e.key === "ArrowRight" && !$("#rfwd").disabled) step("forward"); if (e.key === "ArrowLeft" && !$("#rback").disabled) step("back"); });
 $("#send").onclick = () => send();
 $("#text").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };

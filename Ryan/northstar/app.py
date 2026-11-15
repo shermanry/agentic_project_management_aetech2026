@@ -19,6 +19,7 @@ from pydantic import BaseModel
 import analysis
 import effects
 import livefeeds
+import links
 import pipeline
 import qa
 import seed
@@ -468,6 +469,56 @@ def neighbours(node_id: str, direction: str = "any", depth: int = 2) -> dict:
         raise HTTPException(404, "No such node")
     depth = max(1, min(depth, 6))
     return {"node_id": node_id, "direction": direction, "depth": depth, "nodes": store.neighbours(node_id, direction, depth)}
+
+
+class EdgeIn(BaseModel):
+    source: str                      # "from" node id
+    target: str                      # "to" node id
+    type: str = "about"
+    reason: str = ""
+    confidence: float = 1.0
+    origin: str = "user"             # "jev" when a suggestion is accepted unchanged
+    by: str = "Sam"
+
+
+def _edge_nodes(e: EdgeIn, need_type: bool = True) -> tuple[dict, dict]:
+    if need_type and e.type not in EDGE_TYPES:
+        raise HTTPException(400, f"type must be one of {EDGE_TYPES}")
+    if e.source == e.target:
+        raise HTTPException(400, "Pick two different nodes")
+    src, dst = (store.node(e.source) if e.source.isdigit() else None), (store.node(e.target) if e.target.isdigit() else None)
+    if not src or not dst:
+        raise HTTPException(404, "No such node")
+    return src, dst
+
+
+@app.post("/api/edges/suggest")
+def edge_suggest(e: EdgeIn) -> dict:
+    """The user dragged a line between two nodes: how might they be connected, and what would each link change?
+    Saves nothing."""
+    src, dst = _edge_nodes(e, need_type=False)
+    return links.suggest(src["id"], dst["id"], store)
+
+
+@app.post("/api/edges/preview")
+def edge_preview(e: EdgeIn) -> dict:
+    """Dry run of one specific link between two existing nodes. Saves nothing."""
+    src, dst = _edge_nodes(e)
+    return links.edge_effects(src, dst, e.type, store)
+
+
+@app.post("/api/edges")
+def edge_add(e: EdgeIn) -> dict:
+    """Add a link between two existing nodes, apply its effects and record it in the history."""
+    src, dst = _edge_nodes(e)
+    fx = links.edge_effects(src, dst, e.type, store)
+    try:
+        seq = store.add_edge(src, dst, e.type, e.reason.strip()[:300], e.confidence, "jev" if e.origin == "jev" else "user", e.by, fx,
+                             {"suggested_by": "jev" if e.origin == "jev" else None, "source": "drawn on the graph", "added_by": e.by})
+    except ValueError as err:
+        raise HTTPException(409, str(err))
+    notify({"type": "graph", "seq": seq, "node_id": src["id"]})
+    return {"revision": seq, "effects": fx}
 
 
 @app.post("/api/nodes/{node_id}/resolve")

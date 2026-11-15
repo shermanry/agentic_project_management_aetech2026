@@ -44,6 +44,19 @@ A part has no status of its own. `GET /api/parts` (also `parts` in `/api/state`)
 
 The page shows this as a small massing of the tower in the left column: each face is a part, coloured from the roll-up, and clicking it opens the part with "At this part of the building". Any other front end (the 3D building in Leslie's prototype, for instance) can colour itself from the same call. The parts are placeholders modelled on Leslie's overview page; the drone experts should say which parts matter.
 
+## Connecting two nodes by hand
+
+On the graph page, drag from one node to another. The side panel then shows:
+
+- **What the system found:** how similar the two are in meaning, shared tags, whether one names the other, and any link they already have.
+- **Suggested connections:** up to three from Jev, each with a direction, a type, a reason and a confidence, plus how many other nodes it would change. Clicking one fills in the editor. If Jev finds nothing sensible it says so.
+- **The link to add:** direction, type and reason, all editable. "If you add this" is a dry run that updates as you edit.
+- **Add link** saves the edge, applies its effects and records it in the decision history with who added it and why. Esc or Cancel discards it.
+
+A link can change other nodes. If the new link makes something depend on a node that is already blocked or at risk, it inherits that risk, and so does whatever rests on it. Those flags clear when the original cause is resolved.
+
+Endpoints: `POST /api/edges/suggest` and `POST /api/edges/preview` save nothing; `POST /api/edges` adds the link. All take `{source, target, type, reason, by}` where `source` is the "from" node. The logic is in `links.py`.
+
 ## Querying the graph (for other features to build on)
 
 Three read-only endpoints. None of them calls a language model.
@@ -106,6 +119,7 @@ drop / paste / chat
 | `db/001_schema.sql` | Vendored copy of Sharare's decision-engine schema (branch `sharare/decision-engine`, commit d1d0b9d). Delete once that branch is merged and mount hers instead |
 | `db/020_search.sql` | Keyword-search and edge indexes, applied at every startup |
 | `db/010_northstar.sql` | One extra table, `intake_items`: things being processed or waiting for review |
+| `links.py` | Connecting two existing nodes: signals, Jev suggestions, dry-run effects |
 | `qa.py` | Question answering over the graph with cited sources |
 | `replay.py` | The replay scenario and the Back / Forward logic |
 | `livefeeds.py` | Runs the monitors, maps their events to feed nodes, ripples bad news, clears good news, sends discoveries to intake; demo scenarios |
@@ -160,6 +174,7 @@ Settings (environment or `.env`): `DATABASE_URL`, `FEEDS_ENABLED`, `MONITOR_SITE
 | GET | `/api/search` | Hybrid search with filters; no model call. See "Querying the graph" |
 | GET | `/api/nodes/{id}` | Node detail: text, source, passages, links, flags, history |
 | GET | `/api/nodes/{id}/neighbours` | Graph walk: `affects`, `rests_on` or `any`, to a depth |
+| POST | `/api/edges/suggest`, `/api/edges/preview`, `/api/edges` | Suggest, dry-run and add a link between two existing nodes |
 | POST | `/api/ask` | `{question}` -> answer, cited sources with quotes, timings. Saves nothing |
 | POST | `/api/nodes/{id}/resolve` | Mark a blocker, discovery or constraint resolved; clears the flags it raised |
 | POST | `/api/replay/forward`, `/api/replay/back` | Step the replay |

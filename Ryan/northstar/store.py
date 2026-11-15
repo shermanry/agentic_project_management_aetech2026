@@ -340,6 +340,52 @@ class Store:
                   (self.project["id"], int(src), int(dst), type_, _EDGE_ORIGIN.get(origin, "user"),
                    max(0.0, min(1.0, float(confidence))), reason, created_by))
 
+    def pair_similarity(self, a_id: str, b_id: str) -> float | None:
+        """Cosine similarity of two nodes' card vectors (same embedding model), or None if either has no vector."""
+        r = self._q("""SELECT 1 - (ca.embedding <=> cb.embedding) AS sim
+                       FROM chunks ca JOIN node_head ha ON ha.id = ca.node_version_id,
+                            chunks cb JOIN node_head hb ON hb.id = cb.node_version_id
+                       WHERE ha.node_id = %s AND hb.node_id = %s AND ca.role = 'card' AND cb.role = 'card'
+                         AND ca.embedding IS NOT NULL AND cb.embedding IS NOT NULL AND ca.embedding_model = cb.embedding_model""",
+                    (int(a_id), int(b_id)))
+        return round(float(r[0]["sim"]), 3) if r else None
+
+    def add_edge(self, src: dict, dst: dict, type_: str, reason: str, confidence: float, origin: str, by: str,
+                 fx: dict, meta: dict) -> int:
+        """A person connects two existing nodes. One transaction: the edge, an event in the history, and flags
+        for anything the link puts at risk. Flags hang off the node that causes them, so resolving it clears them."""
+        uid = self.user(by)
+        with self.pool.connection() as c, c.transaction():
+            if c.execute("SELECT 1 FROM edges WHERE from_node = %s AND to_node = %s AND type = %s",
+                         (int(src["id"]), int(dst["id"]), type_)).fetchone():
+                raise ValueError("These two nodes already have that link")
+            self._insert_edge(c, src["id"], dst["id"], type_, reason, confidence, origin, self.user("jev") if origin == "jev" else uid)
+            cause = int(fx.get("cause") or src["id"])
+            feed_tags = []
+            if fx.get("inherits_from"):          # copy feed keys so a feed update that clears the cause clears these too
+                for r in c.execute("SELECT matched_by FROM attention_items WHERE state = 'open' AND %s = ANY (touches)",
+                                   (int(fx["inherits_from"]),)).fetchall():
+                    feed_tags += [m for m in r["matched_by"] if m.startswith("feed:")]
+            payload = {"title": f"Linked “{src['title']}” → {type_.replace('_', ' ')} → “{dst['title']}”", "reason": reason,
+                       "node_id": src["id"], "edge": {"from": src["id"], "to": dst["id"], "type": type_}, **meta,
+                       "effects": [{"node_id": e["node_id"], "title": e["title"], "change": e["change"], "why": e["why"]} for e in fx["effects"]],
+                       "notify": fx["notify"]}
+            event_id = c.execute("""INSERT INTO events (project_id, actor_id, verb, object_type, object_id, payload)
+                                    VALUES (%s, %s, 'edge.added', 'node', %s, %s) RETURNING id""",
+                                 (self.project["id"], uid, cause, Jsonb(payload))).fetchone()["id"]
+            for e in fx["effects"]:
+                if e["new_status"] == "superseded":
+                    self._resolve(c, int(e["node_id"]))
+                    continue
+                if not e["new_status"]:
+                    continue
+                c.execute("""INSERT INTO attention_items (project_id, event_id, type, touches, matched_by, reason, suggested_action, levels)
+                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                          (self.project["id"], event_id, _ATTENTION_TYPE.get(e["new_status"], "fyi"), [int(e["node_id"])],
+                           [f"effect:{e['new_status']}", "chain:" + ">".join(e["chain"]), *sorted(set(feed_tags))], e["why"], e["change"],
+                           Jsonb({"pilot": "red", "pm": "red"} if e["new_status"] in ("blocked", "at_risk") else {"pilot": "amber", "pm": "amber"})))
+        return event_id
+
     def put_node(self, n: dict, vector=None, vector_model=None, created_by: str = "system") -> str:
         with self.pool.connection() as c, c.transaction():
             return str(self._insert_node(c, n, vector, vector_model, self.user(created_by)))
