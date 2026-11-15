@@ -127,12 +127,12 @@ function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; 
 function render() {
   dirty = false;
   if (!S) return;
-  const y = window.scrollY, tab = ui.tab;
+  const y = window.scrollY, gate = UIX.gated(), tab = gate ? 'overview' : ui.tab;   // UIX: until the survey is answered it is the only page
   const counts = {pm: D.flagged.length};
   secN = 0;
   UIX.sync(S, D);
   const page = UIX.page(tab) || {overview, client, pm, pilot}[tab]();   // UIX: onboarding can stand in for the Overview
-  $('#root').innerHTML = `<div class="app light tab-${tab} view-${tab === 'pm' ? 'pm' : 'monitor'} ${UIX.inNet() ? 'net-on' : ''}">
+  $('#root').innerHTML = `<div class="app light tab-${tab} view-${tab === 'pm' ? 'pm' : 'monitor'} ${UIX.inNet() ? 'net-on' : ''} ${gate ? 'ob-gate' : ''}">
   <header class="topbar">
     <a class="brand" href="#overview" style="text-decoration:none;display:flex;align-items:center;gap:14px">
       <img src="logo.png" alt="YBuild" style="height:26px;width:auto;display:block">

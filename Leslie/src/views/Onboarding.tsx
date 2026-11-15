@@ -1,5 +1,6 @@
-// First-run questionnaire on the Overview. Three questions, one per screen, then a suggested start.
-// Answers are kept in this browser only (localStorage) and can be retaken any time.
+// The survey is the landing page: three questions, one per screen. Nothing else opens until it is
+// answered; the app then lands on the page for the person's role (a client on the Client page).
+// Answers are kept in this browser only (localStorage) and can be retaken from the end of the Overview.
 import { useState } from 'react'
 import { PROJECT } from '../data/sampleProject'
 import type { Onboarding as Answers } from '../model/graph'
@@ -16,6 +17,12 @@ export function startFor(a: Answers): Start {
   if (a.role === 'client') return { tab: 'client', label: 'Building explorer', why: 'The simplest way in: explore the building, then draft a brief.' }
   if (a.role === 'pilot') return { tab: 'pilot', label: 'Knowledge network', why: 'Every piece of project knowledge in one view. Ask a question to find your way.' }
   return { tab: 'pm', label: 'Project tree', why: 'Everything laid out left to right. Ask a question in plain words to find things.' }
+}
+
+/** Where a person lands after the survey: the page for their role. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function landFor(a: Answers): 'overview' | 'client' | 'pm' | 'pilot' {
+  return a.role === 'client' ? 'client' : a.role === 'pm' ? 'pm' : a.role === 'pilot' ? 'pilot' : 'overview'
 }
 
 const STEPS = [
@@ -51,33 +58,27 @@ const STEPS = [
 ]
 
 interface Props {
-  onDone: (a: Answers, go: Start | null) => void
-  onSkip: () => void
+  /** Called with the answers once the last question is answered. */
+  onDone: (a: Answers) => void
   /** Open the Add page (drag and drop). */
   onAdd: () => void
 }
 
-export default function Onboarding({ onDone, onSkip, onAdd }: Props) {
+export default function Onboarding({ onDone, onAdd }: Props) {
   const [step, setStep] = useState(0)
   const [ans, setAns] = useState<Partial<Answers>>({})
-  const done = step >= STEPS.length
-  const answers = ans as Answers
-  const start = done ? startFor(answers) : undefined
 
   return (
     <div className="ed-page ob">
       <header className="ob-top">
         <span className="ed-meta">
-          {PROJECT.name} — {done ? 'Ready' : `Question ${step + 1} of ${STEPS.length}`}
+          {PROJECT.name} — Question {step + 1} of {STEPS.length}
         </span>
         <span className="ob-bar" aria-hidden>
           {STEPS.map((_, i) => (
             <i key={i} className={i < step ? 'on' : ''} />
           ))}
         </span>
-        <button className="ed-link dim" onClick={onSkip}>
-          Skip
-        </button>
       </header>
 
       <div className="ob-drop">
@@ -89,56 +90,39 @@ export default function Onboarding({ onDone, onSkip, onAdd }: Props) {
         </p>
       </div>
 
-      {!done ? (
-        <section className="ob-step" key={step}>
-          <h1 className="ed-display md">{STEPS[step].q}</h1>
-          <ul className="ed-rows ob-options">
-            {STEPS[step].options.map(([value, label, hint]) => (
-              <li key={value}>
-                <button
-                  className="ed-row"
-                  onClick={() => {
-                    setAns({ ...ans, [STEPS[step].key]: value })
-                    setStep(step + 1)
-                  }}
-                >
-                  <span className="t">
-                    {label}
-                    {hint && <span className="ob-hint">{hint}</span>}
+      <section className="ob-step" key={step}>
+        <h1 className="ed-display md">{STEPS[step].q}</h1>
+        <ul className="ed-rows ob-options">
+          {STEPS[step].options.map(([value, label, hint]) => (
+            <li key={value}>
+              <button
+                className="ed-row"
+                onClick={() => {
+                  const next = { ...ans, [STEPS[step].key]: value }
+                  setAns(next)
+                  if (step + 1 < STEPS.length) setStep(step + 1)
+                  else onDone(next as Answers)
+                }}
+              >
+                <span className="t">
+                  {label}
+                  {hint && <span className="ob-hint">{hint}</span>}
+                </span>
+                <span className="side">
+                  <span className="go" aria-hidden>
+                    →
                   </span>
-                  <span className="side">
-                    <span className="go" aria-hidden>
-                      →
-                    </span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          {step > 0 && (
-            <button className="ed-link dim" onClick={() => setStep(step - 1)}>
-              Back
-            </button>
-          )}
-        </section>
-      ) : (
-        <section className="ob-step">
-          <span className="ed-meta">Start here</span>
-          <h1 className="ed-display md">{start!.label}</h1>
-          <p className="ed-lede">{start!.why}</p>
-          <div className="ob-actions">
-            <button className="ed-cta" onClick={() => onDone(answers, start!)}>
-              Take me there
-            </button>
-            <button className="ed-link" onClick={() => onDone(answers, null)}>
-              Show the overview first
-            </button>
-            <button className="ed-link dim" onClick={() => setStep(0)}>
-              Start again
-            </button>
-          </div>
-        </section>
-      )}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        {step > 0 && (
+          <button className="ed-link dim" onClick={() => setStep(step - 1)}>
+            Back
+          </button>
+        )}
+      </section>
     </div>
   )
 }

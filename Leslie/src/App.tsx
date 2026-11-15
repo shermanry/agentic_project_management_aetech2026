@@ -6,6 +6,7 @@ import OverviewView from './views/OverviewView'
 import ClientView from './views/ClientView'
 import PMView from './views/PMView'
 import PilotView from './views/PilotView'
+import Onboarding, { landFor } from './views/Onboarding'
 import { Monogram, Wordmark } from './components/Logo'
 import Intake from './components/Intake'
 import { isParked } from './model/graph'
@@ -64,9 +65,11 @@ function Shell() {
     return () => window.removeEventListener('hashchange', on)
   }, [])
   const info = VIEWS.find((v) => v.id === view)!
+  // The survey is the landing page: until it is answered, no tab or feature can be opened.
+  const gate = !state.onboarding
 
   return (
-    <div className={`app light tab-${view} view-${view === 'overview' ? 'monitor' : view === 'pm' ? 'pm' : 'twin'}`}>
+    <div className={`app light ${gate ? 'tab-overview view-monitor ob-gate' : `tab-${view} view-${view === 'overview' ? 'monitor' : view === 'pm' ? 'pm' : 'twin'}`}`}>
       <header className="topbar">
         <a className="brand" href="#overview" aria-label="YBuild, go to overview">
           <span className="brand-full">
@@ -122,12 +125,25 @@ function Shell() {
         <span className="dim">{info.desc}</span>
       </div>
 
-      {view === 'overview' && (
+      {gate && (
+        <Onboarding
+          onAdd={() => setIntake(true)}
+          onDone={(a) => {
+            dispatch({ type: 'setOnboarding', onboarding: a })
+            const land = landFor(a)
+            // their first goal still counts on arrival: open the Add page, or ask the guide what is open
+            if (a.goal === 'add') setIntake(true)
+            if (a.goal === 'blocking' && (land === 'pm' || land === 'pilot')) dispatch({ type: 'setQuery', query: 'What still needs checking?' })
+            setView(land)
+            window.scrollTo({ top: 0 })
+          }}
+        />
+      )}
+      {!gate && view === 'overview' && (
         <OverviewView
           openPM={(id) => (dispatch({ type: 'select', id }), setView('pm'))}
           openClient={(c) => (setClientComp(c), setView('client'))}
           openPilot={(id) => (dispatch({ type: 'select', id }), setView('pilot'))}
-          onAdd={() => setIntake(true)}
           goTo={(s) => {
             if (s.tab === 'add') return setIntake(true)
             if (s.question) dispatch({ type: 'setQuery', query: s.question })
@@ -135,10 +151,10 @@ function Shell() {
           }}
         />
       )}
-      {view === 'client' && <ClientView key={clientComp} initial={clientComp} />}
-      {view === 'pm' && <PMView />}
-      {view === 'pilot' && <PilotView />}
-      <Intake open={intake} setOpen={setIntake} scene3d={view === 'pilot' ? 'network' : view === 'client' ? 'building' : undefined} reveal={(id) => (dispatch({ type: 'select', id }), setView('pm'), setIntake(false))} />
+      {!gate && view === 'client' && <ClientView key={clientComp} initial={clientComp} />}
+      {!gate && view === 'pm' && <PMView />}
+      {!gate && view === 'pilot' && <PilotView />}
+      <Intake open={intake} setOpen={setIntake} scene3d={gate ? undefined : view === 'pilot' ? 'network' : view === 'client' ? 'building' : undefined} reveal={(id) => (dispatch({ type: 'select', id }), setView('pm'), setIntake(false))} />
     </div>
   )
 }

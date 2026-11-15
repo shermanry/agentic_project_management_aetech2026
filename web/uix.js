@@ -1,6 +1,7 @@
 /* uix.js: the pieces of the UI/UX design (Leslie/) that the live page lacked, wired to the real API.
    (The Pilot tab is labelled "Expert" in the UI; its id stays 'pilot'.)
-     1 Onboarding questionnaire on the Overview, the "Suggested for you" strip and the Retake button
+     1 Onboarding survey as the landing page (nothing else opens until it is answered; it then lands on the page
+       for the person's role), the "Suggested for you" strip and the Retake button at the end of the Overview
      2 Ask bar on the PM and Pilot tabs: plain-language question, short answer, "Go to" buttons, highlights
      3 Design brief on the Client tab: preview, copy, download .md  (GET /api/brief)
      4 Pilot tab as the 3D knowledge network (three.js), with the flight brief one click away
@@ -28,7 +29,20 @@ window.makeUIX = ({ui, esc, $, api, post, render, toast, inspector, loadDetail, 
       ['some', 'I know the basics', ''],
       ['expert', 'I know it well', 'Get out of my way']]},
   ];
-  const ob = {saved: store.get('yb.onboarding'), step: 0, ans: {}, skipped: PRESENTER};
+  const ob = {saved: store.get('yb.onboarding'), step: 0, ans: {}, off: PRESENTER};   // off: presenter mode starts without the survey
+  /* The survey is the landing page: until it is answered, every tab shows it and the tabs are hidden. */
+  const gated = () => !ob.saved && !ob.off;
+  /* Where a person lands after the survey: the page for their role. */
+  const LAND = {client: 'client', pm: 'pm', pilot: 'pilot', explore: 'overview'};
+  function finish() {
+    ob.saved = {...ob.ans}; store.set('yb.onboarding', ob.saved); ob.step = 0; ob.ans = {};
+    const a = ob.saved, tab = LAND[a.role] || 'overview';
+    if (tab === 'pilot') pilotMode = 'net';
+    if (a.goal === 'add') ui.intake = true;                                   // their first goal was to add something: the Add page opens on top
+    if (location.hash.replace('#', '') === tab) render(); else location.hash = tab;
+    window.scrollTo(0, 0);
+    if (a.goal === 'blocking' && (tab === 'pm' || tab === 'pilot')) setTimeout(() => runGuide('What still needs checking?'), 60);
+  }
   function startFor(a) {
     if (a.goal === 'building') return {tab: 'client', label: 'Building explorer', why: 'See each part of the building and what is open on it.'};
     if (a.goal === 'add') return {tab: 'add', label: 'Add files', why: 'Drop files anywhere on the page, or paste a note. You approve where each one goes.'};
@@ -39,22 +53,19 @@ window.makeUIX = ({ui, esc, $, api, post, render, toast, inspector, loadDetail, 
     return {tab: 'pm', label: 'Project tree', why: 'Everything laid out left to right. Ask a question in plain words to find things.'};
   }
   function onboarding() {
-    const done = ob.step >= STEPS.length, st = STEPS[ob.step], start = done ? startFor(ob.ans) : null;
+    const st = STEPS[ob.step];
     return `<main class="ed-page ob">
-      <header class="ob-top"><span class="ed-meta">${esc(S.project.name)} — ${done ? 'Ready' : `Question ${ob.step + 1} of ${STEPS.length}`}</span>
-        <span class="ob-bar" aria-hidden="true">${STEPS.map((_, i) => `<i class="${i < ob.step ? 'on' : ''}"></i>`).join('')}</span>
-        <button class="ed-link dim" data-uix="ob-skip">Skip</button></header>
+      <header class="ob-top"><span class="ed-meta">${esc(S.project.name)} — Question ${ob.step + 1} of ${STEPS.length}</span>
+        <span class="ob-bar" aria-hidden="true">${STEPS.map((_, i) => `<i class="${i < ob.step ? 'on' : ''}"></i>`).join('')}</span></header>
       <div class="ob-drop"><button class="ed-cta" data-act="intake">+ Add files</button>
         <p><b>Have material already?</b> Drag files anywhere onto this page, at any time: emails, drawings, photos, notes. They are read and you choose where they go.</p></div>
-      ${!done ? `<section class="ob-step"><h1 class="ed-display md">${esc(st.q)}</h1>
+      <section class="ob-step"><h1 class="ed-display md">${esc(st.q)}</h1>
           <ul class="ed-rows ob-options">${st.options.map(([v, label, hint]) => `<li><button class="ed-row" data-uix="ob-pick" data-v="${v}"><span class="t">${esc(label)}${hint ? `<span class="ob-hint">${esc(hint)}</span>` : ''}</span><span class="side"><span class="go" aria-hidden="true">→</span></span></button></li>`).join('')}</ul>
-          ${ob.step > 0 ? '<button class="ed-link dim" data-uix="ob-back">Back</button>' : ''}</section>`
-        : `<section class="ob-step"><span class="ed-meta">Start here</span><h1 class="ed-display md">${esc(start.label)}</h1><p class="ed-lede">${esc(start.why)}</p>
-          <div class="ob-actions"><button class="ed-cta" data-uix="ob-go">Take me there</button><button class="ed-link" data-uix="ob-stay">Show the overview first</button><button class="ed-link dim" data-uix="ob-again">Start again</button></div></section>`}
+          ${ob.step > 0 ? '<button class="ed-link dim" data-uix="ob-back">Back</button>' : ''}</section>
     </main>`;
   }
-  /* app.js hook: a page that replaces the tab's normal one, or null */
-  function page(tab) { return tab === 'overview' && !ob.saved && !ob.skipped ? onboarding() : null; }
+  /* app.js hook: a page that replaces the tab's normal one, or null. The survey stands in for every tab until it is answered. */
+  function page() { return gated() ? onboarding() : null; }
   function startStrip() {
     const start = ob.saved ? startFor(ob.saved) : null;
     return `<div class="ov-start">${start
@@ -183,7 +194,7 @@ window.makeUIX = ({ui, esc, $, api, post, render, toast, inspector, loadDetail, 
   }
   /* app.js hook */
   function pilotPage() { return pilotMode === 'net' ? network() : null; }
-  const inNet = () => ui.tab === 'pilot' && pilotMode === 'net';
+  const inNet = () => ui.tab === 'pilot' && pilotMode === 'net' && !gated();
 
   const net = {T: null, loading: null, root: null, sig: '', raf: 0, meshes: {}, lines: [], chips: {}, tags: [], cam: null,
     home: {pos: [310, 250, 460], target: [45, 45, 0]},      // the design's camera, aimed a little higher so the graph sits below the ask bar
@@ -300,12 +311,9 @@ window.makeUIX = ({ui, esc, $, api, post, render, toast, inspector, loadDetail, 
     const b = e.target.closest('[data-uix]'); if (!b) return;
     const a = b.dataset.uix;
     if (a === 'noop') { e.stopPropagation(); return; }
-    if (a === 'ob-pick') { ob.ans[STEPS[ob.step].key] = b.dataset.v; ob.step++; render(); window.scrollTo(0, 0); }
+    if (a === 'ob-pick') { ob.ans[STEPS[ob.step].key] = b.dataset.v; ob.step++; if (ob.step >= STEPS.length) finish(); else { render(); window.scrollTo(0, 0); } }
     else if (a === 'ob-back') { ob.step = Math.max(0, ob.step - 1); render(); }
-    else if (a === 'ob-again') { ob.step = 0; ob.ans = {}; render(); }
-    else if (a === 'ob-skip') { ob.skipped = true; render(); }
-    else if (a === 'ob-go' || a === 'ob-stay') { ob.saved = {...ob.ans}; store.set('yb.onboarding', ob.saved); const st = startFor(ob.saved); render(); if (a === 'ob-go') goTo(st); }
-    else if (a === 'ob-open' || a === 'ob-retake') { ob.saved = null; store.set('yb.onboarding', null); ob.skipped = false; ob.step = 0; ob.ans = {}; render(); window.scrollTo({top: 0}); }
+    else if (a === 'ob-open' || a === 'ob-retake') { ob.saved = null; store.set('yb.onboarding', null); ob.off = false; ob.step = 0; ob.ans = {}; render(); window.scrollTo({top: 0}); }
     else if (a === 'go-start') goTo(startFor(ob.saved));
     else if (a === 'try') runGuide(b.dataset.q);
     else if (a === 'clear') clearGuide();
@@ -326,6 +334,6 @@ window.makeUIX = ({ui, esc, $, api, post, render, toast, inspector, loadDetail, 
     ui.q = e.target.value; if (guide && guide.q !== ui.q.trim()) guide = null; if (f.dataset.guide === 'pilot') net.refresh(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && brief) { brief = null; render(); } });
 
-  return {sync: (s, d) => { S = s; D = d; }, page, startStrip, retake, askBar, hits, modal, briefButton, pilotPage, afterRender, inNet,
+  return {sync: (s, d) => { S = s; D = d; }, page, gated, startStrip, retake, askBar, hits, modal, briefButton, pilotPage, afterRender, inNet,
           netLink: () => '<button class="ed-link" data-uix="pilot-net">Knowledge network</button>'};
 };

@@ -373,6 +373,8 @@ html, body { background: #ffffff; color: #0a0a0a; color-scheme: light; }
 
 /* ---------- onboarding questionnaire ---------- */
 .ob { min-height: calc(100vh - 80px); display: flex; flex-direction: column; }
+/* the survey is the landing page: no tabs, breadcrumb, + Add or project strip until it is answered */
+.ob-gate .topbar .seg.views, .ob-gate .topbar .crumbs, .ob-gate .topbar .add-btn, .ob-gate .project-strip { display: none; }
 .ob-top { display: flex; align-items: center; gap: 20px; padding: 18px 0; border-bottom: 1px solid var(--hair); }
 .ob-bar { display: inline-flex; gap: 6px; margin-right: auto; }
 .ob-bar i { width: 34px; height: 2px; background: var(--hair); }

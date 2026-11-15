@@ -28,7 +28,7 @@ Changes (accepted links, moved cards, added notes) live only in the browser tab.
 
 ## Ask bar and onboarding
 - **Ask bar (PM and Expert):** type a question in plain words ("What's blocking the flight?", "Who looks after safety?"). A short answer appears with "Go to" buttons for the matching nodes, and both views highlight them. The logic is in `src/features/ask.ts`: a local stand-in for an LLM, so no API key is needed. Replace `ask()` with a real model call that returns the same `AskResult` shape.
-- **Onboarding (Overview):** first-time visitors answer three questions (role, first goal, familiarity) and get a suggested starting tab. Answers are stored in the browser only and can be retaken from the Overview.
+- **Survey (landing page):** the first thing anyone sees is a three-question survey (role, first goal, familiarity). No tab or feature opens until it is answered. It then lands on the page for the person's role: a client on Client, a project manager on PM, an expert on Expert, "just looking" on the Overview. Answers are stored in the browser only; the large **Retake questions** button at the end of the Overview brings the survey back.
 
 ## Adding files (drag and drop + converter)
 Drag and drop works anywhere in the app. Dropped files are sent to the **converter** in [`../Minh/converter`](../Minh/converter), which turns each file into an embedding-ready package (text, images, audio, video chunks plus metadata). YBuild adds one node per package and shows it on the **+ Add** page under "Waiting to be placed", with a suggested category and link. Nothing joins the graph until you accept.

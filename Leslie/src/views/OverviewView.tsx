@@ -4,7 +4,7 @@ import { useState } from 'react'
 import BuildingScene from '../components/BuildingScene'
 import { CATEGORIES, COMPONENTS, PROJECT, SAMPLE_WINDOW, type ComponentId } from '../data/sampleProject'
 import { needsAttention, useGraph } from '../model/graph'
-import Onboarding, { startFor, type Start } from './Onboarding'
+import { startFor, type Start } from './Onboarding'
 import north from '../assets/comp-north.jpg'
 import east from '../assets/comp-east.jpg'
 import roof from '../assets/comp-roof.jpg'
@@ -19,34 +19,19 @@ interface Props {
   openPilot: (id?: string) => void
   /** Go to a tab, optionally asking the guide a question on arrival. */
   goTo: (s: Start) => void
-  /** Open the Add page. */
-  onAdd: () => void
 }
 
 const two = (n: number) => String(n).padStart(2, '0')
 
-export default function OverviewView({ openPM, openClient, openPilot, goTo, onAdd }: Props) {
+export default function OverviewView({ openPM, openClient, openPilot, goTo }: Props) {
   const { state, dispatch, byId } = useGraph()
   const [comp, setComp] = useState<ComponentId>('roof')
   const { nodes, edges, candidates } = state
   const pending = candidates.filter((c) => c.state === 'pending')
   const open = nodes.filter((n) => needsAttention(n) && n.openQuestion)
   const current = COMPONENTS.find((c) => c.id === comp)!
-  const [skipped, setSkipped] = useState(false)
+  // The survey is answered before any page opens (App.tsx), so there is always a suggested start.
   const start = state.onboarding ? startFor(state.onboarding) : undefined
-
-  // First visit: a short questionnaire before the board.
-  if (!state.onboarding && !skipped)
-    return (
-      <Onboarding
-        onAdd={onAdd}
-        onSkip={() => setSkipped(true)}
-        onDone={(a, go) => {
-          dispatch({ type: 'setOnboarding', onboarding: a })
-          if (go) goTo(go)
-        }}
-      />
-    )
 
   return (
     <div className="ed-page">
@@ -64,20 +49,13 @@ export default function OverviewView({ openPM, openClient, openPilot, goTo, onAd
       </header>
 
       <div className="ov-start">
-        {start ? (
+        {start && (
           <>
             <span className="ed-meta">Suggested for you</span>
             <button className="ed-link" onClick={() => goTo(start)}>
               {start.label}
             </button>
             <span className="why">{start.why}</span>
-          </>
-        ) : (
-          <>
-            <span className="ed-meta">New here?</span>
-            <button className="ed-link" onClick={() => setSkipped(false)}>
-              Answer 3 questions to find your start
-            </button>
           </>
         )}
       </div>
@@ -237,16 +215,16 @@ export default function OverviewView({ openPM, openClient, openPilot, goTo, onAd
       </section>
 
       <section className="ov-retake">
-        <p className="ed-lede">{state.onboarding ? 'Changed role, or want a different starting point?' : 'Not sure where to begin?'}</p>
+        <p className="ed-lede">Changed role, or want a different starting point?</p>
         <button
           className="ed-cta xl"
           onClick={() => {
+            // back to the survey, which is the landing page until it is answered again
             dispatch({ type: 'setOnboarding', onboarding: undefined })
-            setSkipped(false)
             window.scrollTo({ top: 0 })
           }}
         >
-          {state.onboarding ? 'Retake questions' : 'Answer 3 questions'}
+          Retake questions
         </button>
       </section>
 
