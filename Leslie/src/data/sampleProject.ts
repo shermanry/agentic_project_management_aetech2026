@@ -25,7 +25,7 @@ export const UNCLASSIFIED_COLOR = '#8FA3B8'
 export type NodeKind = 'document' | 'site' | 'model' | 'constraint' | 'weather' | 'decision' | 'output' | 'note' | 'file'
 
 export interface Origin {
-  kind: 'upload' | 'gis' | 'bim-link' | 'derived' | 'external-api-planned' | 'manual' | 'agent-proposed' | 'email' | 'ai-generated' | 'local'
+  kind: 'converter' | 'upload' | 'gis' | 'bim-link' | 'derived' | 'external-api-planned' | 'manual' | 'agent-proposed' | 'email' | 'ai-generated' | 'local'
   name: string
 }
 
@@ -45,6 +45,8 @@ export interface GraphNode {
   openQuestion?: string
   canvas: { x: number; y: number }
   pos3d: [number, number, number]
+  /** Set when the node came from the converter service. */
+  pkg?: { id: string; kind: string; chunks: number; warnings: number; thumbnail?: string }
 }
 
 export interface GraphEdge {

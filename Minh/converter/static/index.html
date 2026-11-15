@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Converter</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23ff7a3d'/%3E%3Cg fill='none' stroke='%23111' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='6' r='2'/%3E%3Ccircle cx='6.5' cy='17.5' r='2'/%3E%3Ccircle cx='17.5' cy='17.5' r='2'/%3E%3Cpath d='M12 8v3.5l-4.5 4M12 11.5l4.5 4'/%3E%3C/g%3E%3C/svg%3E">
+<title>YBuild · Converter</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-8 -8 339 236'%3E%3Cg fill='%230B0E11'%3E%3Cpath%20d='M0%200%20H44%20L108%2088%20L86%20119%20Z'/%3E%3Cpath%20d='M164%200%20H207%20L64%20220%20H20%20Z'/%3E%3Cpath%20d='M224%200%20H261%20C294%200%20316%2023%20316%2056%20C316%2088%20294%20113%20261%20113%20H161%20L171%2098%20H261%20C285%2098%20301%2080%20301%2056%20C301%2031%20285%2014%20261%2014%20H215%20Z'/%3E%3Cpath%20d='M171%2098%20H261%20C300%2098%20322%20125%20322%20160%20C322%20195%20297%20220%20261%20220%20H96%20L106%20205%20H261%20C289%20205%20306%20187%20306%20160%20C306%20133%20289%20113%20261%20113%20H161%20Z'/%3E%3C/g%3E%3C/svg%3E">
 <style>
 :root {
   --bg: #101010; --rail: #0b0b0b; --panel: #1a1a1a; --panel2: #222224; --hover: #26262b; --line: #2a2a30; --line2: #36363d;
@@ -249,11 +249,118 @@ details pre { font: 11.5px ui-monospace, Consolas, monospace; white-space: pre-w
   .starters { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; width: 100%; scrollbar-width: none; } .starter { flex-shrink: 0; }
   #grid { columns: 2 140px; }
 }
+
+/* =====================================================================
+   YBuild theme. Appended overrides only: the rules above and the script
+   below are unchanged, so behaviour is identical. Same visual language
+   as the YBuild app (Leslie/src/design/ui.css): white page, black type,
+   hairline rules, square corners, no colour coding.
+   ===================================================================== */
+:root {
+  --bg: #ffffff; --rail: #ffffff; --panel: #ffffff; --panel2: #f4f4f2; --hover: #efefec; --line: #e2e2df; --line2: #cfcfcb;
+  --ink: #0a0a0a; --soft: #2b2b2b; --muted: #6b6b6b; --faint: #9b9b98;
+  --accent: #0a0a0a; --accent-soft: rgba(0, 0, 0, .06);
+  --ok: #0a0a0a; --warn: #6b6b6b; --err: #b00020;
+  --text: #0a0a0a; --image: #6b6b6b; --audio: #9b9b98; --video: #2b2b2b;
+  --r: 0px;
+  color-scheme: light;
+}
+body { font-family: "Helvetica Neue", Helvetica, "Inter", Arial, sans-serif; letter-spacing: -.005em; }
+*, *::before, *::after { border-radius: 0 !important; }
+.spin, .dot, .round.rec { border-radius: 50% !important; }
+::-webkit-scrollbar-thumb { background: #d6d6d2; border-color: var(--bg); }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* rail */
+.rail { border-right: 1px solid var(--line); }
+.rail .logo { background: none; color: var(--ink); width: 42px; height: 34px; }
+.rail .ic.on { background: none; color: var(--ink); box-shadow: inset 2px 0 0 var(--ink); }
+.rail .ic:hover { background: var(--panel2); }
+.rail .ic .badge { background: var(--ink); color: #fff; }
+.rail .me { background: none; }
+.tip { background: var(--ink); }
+
+/* hero: large left-aligned headline, no decorative banner */
+.wrap { max-width: 1180px; }
+.hero { align-items: flex-start; gap: 26px; padding-top: 28px; }
+.banner { display: none; }
+h1 { font-size: clamp(44px, 8vw, 112px); line-height: .95; letter-spacing: -.05em; text-align: left; font-weight: 400; }
+
+/* composer: a rule, not a pill */
+#composer { width: 100%; background: none; backdrop-filter: none; border: 0; border-bottom: 1.5px solid var(--ink); padding: 8px 0 12px; box-shadow: none; }
+#composer:focus-within { border-color: var(--ink); border-bottom-width: 2.5px; }
+#composer.over { background: var(--panel2); border-color: var(--ink); }
+#prompt { font-size: clamp(20px, 2.2vw, 28px); letter-spacing: -.03em; line-height: 1.25; }
+.att { background: var(--panel2); border-color: var(--line); }
+.att .ext { background: #e8e8e4; }
+.round { background: none; color: var(--ink); border: 1px solid var(--line2); }
+.round:hover { background: var(--panel2); }
+#send { background: var(--ink); color: #fff; border: 0; }
+#send:hover { background: #333; transform: none; }
+.menu { box-shadow: 0 12px 30px rgba(0, 0, 0, .12); background: #fff; border-color: var(--ink); }
+.menu .opt.on { background: var(--panel2); box-shadow: inset 2px 0 0 var(--ink); }
+#manual { width: 100%; border: 0; border-top: 1px solid var(--ink); padding: 16px 0; }
+#manual input, #manual select, #manual textarea, .field { background: #fff; border: 0; border-bottom: 1px solid var(--line2); padding: 8px 0; }
+#manual label { letter-spacing: .08em; text-transform: uppercase; }
+.starters { justify-content: flex-start; max-width: none; gap: 6px 20px; }
+.starter { border: 0; padding: 4px 0; color: var(--muted); font-size: 14px; }
+.starter:hover { background: none; color: var(--ink); box-shadow: inset 0 -1px 0 var(--ink); }
+
+/* feed */
+.run { border: 0; border-top: 1px solid var(--ink); }
+.you { padding-left: 0; padding-right: 0; }
+.you .av { background: none; }
+.res { padding-left: 0; padding-right: 0; }
+.res .t { font-weight: 500; font-size: 20px; letter-spacing: -.02em; }
+.btn { background: none; border: 0; padding: 5px 0; margin-right: 12px; box-shadow: inset 0 -1px 0 var(--ink); }
+.btn:hover { background: none; color: var(--muted); }
+.btn.primary { background: var(--ink); color: #fff; padding: 7px 14px; box-shadow: none; font-weight: 400; }
+.btn.primary:hover { background: #333; color: #fff; }
+.foot { padding-left: 0; padding-right: 0; }
+.quote { border-left: 1px solid var(--ink); background: var(--panel2); }
+.q { border: 0; border-bottom: 1px solid var(--line); padding-left: 0; padding-right: 0; }
+.spin { border-color: var(--line2); border-top-color: var(--ink); }
+
+/* chips and status: words, not colours */
+.chip, .nt, [class*="nt-"], [class*="imp-"], [class*="st-"] { background: none !important; color: var(--muted) !important; border: 0 !important; padding: 0 8px 0 0; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.chip b { color: var(--ink); }
+.imp-critical, .imp-high { color: var(--ink) !important; }
+
+/* library */
+.libhd { margin-top: 72px; padding-top: 16px; border-top: 1px solid var(--ink); }
+.libhd h2 { font-size: clamp(26px, 2.6vw, 40px); font-weight: 400; letter-spacing: -.03em; }
+.pill { padding: 6px 0; margin-right: 16px; }
+.pill.on { background: none; box-shadow: inset 0 -1px 0 var(--ink); }
+#search { background: none; border: 0; border-bottom: 1px solid var(--line2); padding: 8px 0; }
+#search:focus { border-color: var(--ink); }
+.card { background: none; border: 0; }
+.card:hover { transform: none; }
+.card .th { background: var(--panel2) !important; }
+.card .th .ext { color: rgba(0, 0, 0, .16); }
+.card .over { position: static; background: none; padding: 10px 0 6px; }
+.card .t { font-weight: 400; font-size: 16px; letter-spacing: -.015em; }
+.card .tag .chip { background: rgba(255, 255, 255, .92) !important; backdrop-filter: none; padding: 2px 6px; color: var(--ink) !important; }
+.card.imp-high-c, .card.imp-critical-c { box-shadow: none; }
+.empty { border: 1px dashed var(--faint); background: var(--panel2); }
+
+/* drawer */
+#scrim { background: rgba(255, 255, 255, .7); }
+#drawer { inset: 0 0 0 auto; border: 0; border-left: 1px solid var(--ink); box-shadow: none; }
+#drawer .hd { background: rgba(255, 255, 255, .95); }
+#drawer .hd h3 { font-size: clamp(22px, 2.2vw, 30px); font-weight: 400; letter-spacing: -.03em; }
+.sec h4 { font-weight: 400; }
+.agentbox { background: none; border-top: 1px solid var(--ink); }
+.insight { border-left: 1px solid var(--ink); }
+.region img { border: 1px solid var(--ink); }
+.chunk { background: #fff; }
+.warnbox { background: var(--panel2); color: var(--soft); border: 0; border-left: 1px solid var(--ink); }
+#lightbox { background: rgba(255, 255, 255, .96); }
+#toast { background: var(--ink); color: #fff; }
 </style>
 </head>
 <body>
 <nav class="rail" aria-label="Main">
-  <div class="logo" title="Converter"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#111" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="5" r="2.2"/><circle cx="5.5" cy="18" r="2.2"/><circle cx="18.5" cy="18" r="2.2"/><path d="M12 7.2v4.3M12 11.5l-5.2 4.6M12 11.5l5.2 4.6"/></svg></div>
+  <div class="logo" title="YBuild converter"><svg viewBox="-8 -8 339 236" width="30" height="21" fill="currentColor" role="img" aria-label="YBuild"><path d="M0 0 H44 L108 88 L86 119 Z"/><path d="M164 0 H207 L64 220 H20 Z"/><path d="M224 0 H261 C294 0 316 23 316 56 C316 88 294 113 261 113 H161 L171 98 H261 C285 98 301 80 301 56 C301 31 285 14 261 14 H215 Z"/><path d="M171 98 H261 C300 98 322 125 322 160 C322 195 297 220 261 220 H96 L106 205 H261 C289 205 306 187 306 160 C306 133 289 113 261 113 H161 Z"/></svg></div>
   <button class="ic on" data-go="new" aria-label="New"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M12 8v8M8 12h8"/></svg><span class="tip">New</span></button>
   <button class="ic" data-go="library" aria-label="Library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg><span class="tip">Library</span></button>
   <button class="ic" data-go="model" aria-label="Models"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M12 12 20 7.5M12 12 4 7.5M12 12v9"/></svg><span class="tip">Models</span></button>

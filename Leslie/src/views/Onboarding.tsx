@@ -4,13 +4,13 @@ import { useState } from 'react'
 import { PROJECT } from '../data/sampleProject'
 import type { Onboarding as Answers } from '../model/graph'
 
-export type Start = { tab: 'client' | 'pm' | 'pilot' | 'data' | 'overview'; label: string; why: string; question?: string }
+export type Start = { tab: 'client' | 'pm' | 'pilot' | 'add'; label: string; why: string; question?: string }
 
 /** Where a person should begin, from their answers. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function startFor(a: Answers): Start {
   if (a.goal === 'building') return { tab: 'client', label: 'Building explorer', why: 'Click any part of the building to see what is known about it.' }
-  if (a.goal === 'add') return { tab: 'data', label: 'Parking lot', why: 'Drop files or paste notes. They get sorted into the project for you to approve.' }
+  if (a.goal === 'add') return { tab: 'add', label: 'Add files', why: 'Drop files anywhere on the page, or paste a note. You approve where each one goes.' }
   if (a.goal === 'blocking')
     return { tab: a.role === 'pilot' ? 'pilot' : 'pm', label: a.role === 'pilot' ? 'Knowledge network' : 'Project tree', why: 'We will ask the guide what is still open and show you where.', question: 'What still needs checking?' }
   if (a.role === 'client') return { tab: 'client', label: 'Building explorer', why: 'The simplest way in: explore the building, then draft a brief.' }
@@ -25,7 +25,7 @@ const STEPS = [
     options: [
       ['client', 'Client', 'I want to follow the project and see what I am getting'],
       ['pm', 'Project manager', 'I keep the pieces moving and decide what happens next'],
-      ['pilot', 'Pilot or specialist', 'I plan and carry out the technical work'],
+      ['pilot', 'Expert', 'I plan and carry out the technical work'],
       ['explore', 'Just looking', 'Show me around'],
     ],
   },

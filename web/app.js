@@ -7,8 +7,8 @@
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const PRESENTER = new URLSearchParams(location.search).has('presenter');
-const TABS = [['overview', 'Overview'], ['client', 'Client'], ['pm', 'PM'], ['pilot', 'Pilot'], ['data', 'Parking lot']];
-const CRUMB = {overview: 'Overview', client: 'Client view', pm: 'Knowledge canvas', pilot: 'Pilot brief', data: 'Parking lot'};
+const TABS = [['overview', 'Overview'], ['client', 'Client'], ['pm', 'PM'], ['pilot', 'Expert']];   // the Parking lot tab is now the + Add drawer (drop files anywhere)
+const CRUMB = {overview: 'Overview', client: 'Client view', pm: 'Knowledge canvas', pilot: 'Expert view'};
 
 /* The design groups nodes by domain; the back end types them by lifecycle (decision, blocker, ...).
    Both are shown: the type is the card's "kind", the domain is worked out from tags and wording. */
@@ -30,16 +30,19 @@ const TYPE_LABEL = {decision: 'Decision', discovery: 'Discovery', event: 'Event'
 const TYPE_ICON = {decision: '◆', discovery: '✦', event: '◷', data_feed: '≋', deliverable: '▣', blocker: '⊘', constraint: '⊟', document: '▤', entity: '●'};
 const FLAG = {at_risk: 'At risk', blocked: 'Blocked', reopened: 'Decide again'};
 /* Wires run from what something rests on to what rests on it, left to right. */
-const REVERSED = new Set(['depends_on', 'derived_from', 'about', 'supersedes']);
+const REVERSED = new Set(['depends_on', 'derived_from', 'about', 'supersedes', 'part_of']);
 const VERB = {depends_on: ['rests on', 'feeds'], derived_from: ['derived from', 'source of'], about: ['about', 'context for'],
               supersedes: ['replaces', 'replaced by'], blocks: ['blocks', 'blocked by'], evidence_for: ['evidence for', 'evidence'],
-              similar_to: ['similar to', 'similar to']};
+              similar_to: ['similar to', 'similar to'], part_of: ['part of', 'includes']};
+const LEVEL = {red: '#c8452f', amber: '#e0a13a', none: '#ffffff'};
+const LEVEL_WORD = {red: 'At risk or blocked', amber: 'Being looked at', none: 'Nothing open'};
 const CW = 202, CH = 114, COL = 318, ROW = CH + 46;
 
 let S = null;            // last /api/state
 let D = null;            // derived from S
 let live = false, dirty = false;
-const ui = {tab: 'overview', sel: null, mode: 'tree', off: new Set(), q: '', view: null, pos: {}, ask: {}, who: 'Mary', adding: false};
+const ui = {tab: 'overview', sel: null, mode: 'tree', off: new Set(), q: '', view: null, pos: {}, ask: {}, who: 'Mary', adding: false,
+            search: null, link: null, detail: {}, busy: false, intake: false};
 try { ui.who = localStorage.getItem('yb.who') || 'Mary'; } catch {}
 
 /* ------------------------------------------------------------------ data */
@@ -102,7 +105,7 @@ let refreshing = null, again = false;
 async function refresh() {
   if (refreshing) { again = true; return refreshing; }
   refreshing = (async () => {
-    try { S = await api('/api/state'); derive(); if (ui.sel && !D.byId[ui.sel]) ui.sel = null; safeRender(); }
+    try { S = await api('/api/state'); derive(); if (ui.sel && !D.byId[ui.sel]) ui.sel = null; ui.detail = {}; safeRender(); if (ui.sel && ui.tab === 'pm') loadDetail(ui.sel); }
     catch (e) { if (!S) $('#root').innerHTML = `<div class="app light"><main class="ed-page"><header class="ov-hero"><h1 class="ed-display md">Not connected</h1><p class="ed-lede">${esc(e.message)}. Start the north star app, then reload.</p></header></main></div>`; }
     finally { refreshing = null; if (again) { again = false; refresh(); } }
   })();
@@ -122,9 +125,11 @@ function render() {
   dirty = false;
   if (!S) return;
   const y = window.scrollY, tab = ui.tab;
-  const counts = {data: D.open.length, pm: D.flagged.length};
-  const page = {overview, client, pm, pilot, data: parking}[tab]();
-  $('#root').innerHTML = `<div class="app light tab-${tab} view-${tab === 'pm' ? 'pm' : 'monitor'}">
+  const counts = {pm: D.flagged.length};
+  secN = 0;
+  UIX.sync(S, D);
+  const page = UIX.page(tab) || {overview, client, pm, pilot}[tab]();   // UIX: onboarding can stand in for the Overview
+  $('#root').innerHTML = `<div class="app light tab-${tab} view-${tab === 'pm' ? 'pm' : 'monitor'} ${UIX.inNet() ? 'net-on' : ''}">
   <header class="topbar">
     <a class="brand" href="#overview" style="text-decoration:none;display:flex;align-items:center;gap:14px">
       <img src="logo.png" alt="YBuild" style="height:26px;width:auto;display:block">
@@ -133,6 +138,7 @@ function render() {
     <nav class="crumbs"><span>Projects</span><span class="sl">›</span><b>${esc(S.project.name)}</b><span class="sl">›</span><span>${CRUMB[tab]}</span></nav>
     <nav class="seg views">${TABS.map(([id, l]) => `<button class="${id === tab ? 'on' : ''}" data-act="tab" data-id="${id}">${l}${counts[id] ? `<sup class="tab-count">${counts[id]}</sup>` : ''}</button>`).join('')}</nav>
     <div class="status-area">
+      <button class="add-btn" data-act="intake" aria-haspopup="dialog">+ Add${D.open.length ? `<sup class="tab-count">${D.open.length}</sup>` : ''}</button>
       <span class="live ${live ? '' : 'off'}" id="live"><i></i>${live ? 'Live' : 'Offline'}</span>
       <label class="who">As <select data-change="who">${S.people.filter(p => p.role !== 'client').map(p => `<option ${p.name === ui.who ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
       <div class="clock"><span class="clock-t" id="clock">${clock()}</span><span class="clock-z">New York</span></div>
@@ -140,21 +146,69 @@ function render() {
   </header>
   ${PRESENTER ? presenterBar() : ''}
   ${page}
+  ${intakeDrawer()}
+  ${UIX.modal()}
   </div>`;
   if (tab === 'pm') mountCanvas(); else window.scrollTo(0, y);
+  UIX.afterRender();
 }
 const clock = () => new Date().toLocaleTimeString('en-US', {timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false});
 setInterval(() => { const c = $('#clock'); if (c) c.textContent = clock(); }, 20000);
 
 function presenterBar() {
-  const sc = (S.feeds && S.feeds.scenarios) || {};
-  const names = Array.isArray(sc) ? sc.map(s => s.id || s) : Object.keys(sc);
-  const r = S.replay || {};
+  const sc = (S.feeds && S.feeds.scenarios) || [];
+  const names = Array.isArray(sc) ? sc.map(x => x.id || x) : Object.keys(sc);
+  const r = S.replay || {}, cap = r.caption || {};
   return `<div class="presenter"><b>Presenter</b>
-    <select data-change="inject"><option value="">Simulate a change…</option>${names.map(n => `<option value="${esc(n)}">${esc(String(n).replace(/_/g, ' '))}</option>`).join('')}</select>
+    <button data-act="goto" data-id="start" title="Empty project">⏮ Empty</button><button data-act="goto" data-id="setup" title="Project as planned, before the story">Set up</button>
     <button data-act="replay" data-id="back">◂ Back</button><button data-act="replay" data-id="forward">Forward ▸</button>
-    <span class="dim">Story step ${r.cursor ?? 0} of ${(r.steps || []).length}${r.phase && r.phase !== 'idle' ? ' · ' + esc(r.phase) : ''}</span>
-    <button data-act="reset" style="margin-left:auto">Reset project</button></div>`;
+    <span class="dim">${r.pos ?? 0} of ${r.total ?? 0}</span>
+    <span style="flex:1 1 260px;min-width:0"><b style="text-transform:none;letter-spacing:0;font-size:13px">${esc(cap.title || '')}</b> <span class="dim">${esc(cap.story || '')}</span>${r.error ? ` <span class="flag bad">${esc(r.error)}</span>` : ''}</span>
+    <select data-change="inject"><option value="">Simulate a change…</option>${names.map(n => `<option value="${esc(n)}">${esc(String(n).replace(/_/g, ' '))}</option>`).join('')}</select>
+    <button data-act="feedsrun" title="Poll every live feed now">Check feeds</button>
+    <button data-act="reset">Reset</button></div>`;
+}
+
+/* ------------------------------------------------------------------ building (state.parts: a level rolled up from the nodes linked to each part) */
+function buildingSVG(only) {
+  const parts = {}; for (const p of S.parts || []) parts[p.part] = p;
+  const fill = k => { const p = parts[k]; if (!p) return '#f4f4f2'; if (only && only !== k) return '#ececea'; return LEVEL[p.level] || '#fff'; };
+  const g = (k, shape) => { const p = parts[k]; return `<g ${p ? `data-act="sel" data-id="${p.id}" style="cursor:pointer"` : ''}><title>${esc(p ? `${p.title}: ${LEVEL_WORD[p.level]}` : k)}</title>${shape.replace('/>', ` fill="${fill(k)}" stroke="#0a0a0a" stroke-width="1.2" stroke-linejoin="round"/>`)}</g>`; };
+  const lines = []; for (let y = 96; y < 250; y += 14) lines.push(`<path d="M60 ${y + 8}L120 ${y + 20}L180 ${y + 8}" fill="none" stroke="#0a0a0a" stroke-opacity=".13"/>`);
+  return `<svg viewBox="0 0 240 320" role="img" aria-label="Building, coloured by what is open on each part" style="display:block;width:100%;height:100%">
+    ${g('roof', '<path d="M60 44L120 32L180 44L120 56Z"/>')}
+    ${g('upper', '<path d="M60 44L120 56L180 44L180 100L120 112L60 100Z"/>')}
+    ${g('north', '<path d="M60 100L120 112L120 262L60 250Z"/>')}
+    ${g('east', '<path d="M120 112L180 100L180 250L120 262Z"/>')}
+    ${g('entrance', '<path d="M40 252L120 268L200 252L200 280L120 296L40 280Z"/>')}
+    <path d="M120 56V112" stroke="#0a0a0a" stroke-opacity=".3"/>${lines.join('')}</svg>`;
+}
+function partTiles() {
+  const ps = S.parts || [];
+  if (!ps.length) return `<p class="ed-empty">No building parts are in the record yet.</p>`;
+  return `<div class="ed-tiles">${ps.map(p => `<button class="ed-tile" data-act="sel" data-id="${p.id}"><span class="frame" style="display:block;padding:10px">${buildingSVG(p.part)}</span>
+    <span class="t" style="font-size:15px">${esc(p.title)}</span><span class="ed-meta ${p.level === 'red' ? 'flag bad' : p.level === 'amber' ? 'flag' : ''}">${p.open ? `${p.open} open` : 'Nothing open'} · ${p.linked.length} linked</span></button>`).join('')}</div>
+    <div class="ed-key"><span><i class="ed-glyph" style="background:${LEVEL.red};border-color:${LEVEL.red}"></i>At risk or blocked</span><span><i class="ed-glyph" style="background:${LEVEL.amber};border-color:${LEVEL.amber}"></i>Being looked at</span><span><i class="ed-glyph"></i>Nothing open</span></div>`;
+}
+function partRows(plain) {
+  return (S.parts || []).map(p => { const open = p.linked.filter(l => l.rank);
+    return `<li class="ed-row"><span class="t"><i class="ed-glyph" style="background:${LEVEL[p.level]};border-color:${p.level === 'none' ? 'var(--ink)' : LEVEL[p.level]}"></i>${esc(p.title)}</span>
+      <span class="side"><span class="ed-meta ${p.level === 'red' ? 'flag bad' : p.level === 'amber' ? 'flag' : ''}">${esc(LEVEL_WORD[p.level])}</span></span>
+      ${p.summary ? `<span class="sub">${esc(p.summary)}</span>` : ''}
+      ${open.length ? `<ul class="fx">${open.map(l => `<li><span class="chg">${esc(plain ? 'Being looked at' : FLAG[l.status] || l.status)}</span>${plain ? `<span>${esc(l.title)}</span>` : nodeBtn(l.id, l.title)}<span class="y">${esc(l.reason)}</span></li>`).join('')}</ul>` : ''}</li>`; }).join('');
+}
+
+/* ------------------------------------------------------------------ rules (the analysis loop: runs only when a person asks) */
+function rulesBlock() {
+  const rules = S.rules || [], prop = rules.filter(r => r.status === 'proposed'), act = rules.filter(r => r.status === 'active');
+  const running = (S.analysis && S.analysis.running) || ui.busy === 'rules';
+  const row = r => `<li class="ed-row"><span class="t">${esc(r.name)}</span><span class="side"><span class="ed-meta ${r.status === 'proposed' ? 'flag' : ''}">${r.status === 'proposed' ? 'Suggested' : 'Active'}</span>
+      ${r.status === 'proposed' ? `<button class="ed-link plain" data-act="rule" data-id="${esc(r.id)}" data-what="approve">Approve</button><button class="ed-link dim" data-act="rule" data-id="${esc(r.id)}" data-what="dismiss">Dismiss</button>`
+        : `<button class="ed-link dim" data-act="rule" data-id="${esc(r.id)}" data-what="dismiss">Retire</button>`}</span>
+      <span class="sub">${esc(r.describe || '')}</span>${r.why ? `<span class="sub"><span class="ed-meta">Why</span> ${esc(r.why)}</span>` : ''}</li>`;
+  return `${prop.length || act.length ? `<ul class="ed-rows">${[...prop, ...act].map(row).join('')}</ul>` : `<p class="ed-empty">No rules yet. Rules decide what else gets flagged when something is accepted or a feed changes.</p>`}
+    <div style="margin-top:22px;display:flex;gap:20px;align-items:center;flex-wrap:wrap"><button class="ed-cta" data-act="suggest" ${running ? 'disabled' : ''}>${running ? 'Reading the record…' : 'Suggest rules'}</button>
+    <span class="ed-meta" style="text-transform:none;letter-spacing:0;max-width:60ch;line-height:1.4">Reads this project's graph and history with ${esc((S.analysis && S.analysis.model) || 'the analysis model')} and proposes up to three rules. About a minute. Nothing changes until a rule is approved.</span></div>`;
 }
 
 /* ------------------------------------------------------------------ shared pieces */
@@ -205,7 +259,8 @@ function askBlock(key, placeholder, big) {
     : `<form class="ask" data-ask="${esc(key)}"><input name="q" placeholder="${esc(placeholder)}" value="${esc(a.q || '')}" autocomplete="off"><button class="btn sm primary">Ask</button></form>`;
   return form + (out ? (big ? `<div class="ask-out">${out}</div>` : out) : '');
 }
-const section = (no, title, body, note) => `<section class="ed-section"><div class="ed-label"><span class="ed-meta">${no}</span><h2>${title}</h2>${note ? `<span class="ed-meta" style="text-transform:none;letter-spacing:0;line-height:1.4">${note}</span>` : ''}</div><div class="ed-body">${body}</div></section>`;
+let secN = 0;
+const section = (no, title, body, note) => `<section class="ed-section"><div class="ed-label"><span class="ed-meta">${String(++secN).padStart(2, '0')}</span><h2>${title}</h2>${note ? `<span class="ed-meta" style="text-transform:none;letter-spacing:0;line-height:1.4">${note}</span>` : ''}</div><div class="ed-body">${body}</div></section>`;
 const foot = () => `<footer class="ed-foot"><span class="ed-meta">${esc(S.project.name)} · ${S.nodes.length} nodes · ${S.edges.length} links</span><span class="ed-meta">${esc((S.config && S.config.jev_model) || '')}</span></footer>`;
 
 /* ------------------------------------------------------------------ overview */
@@ -214,26 +269,30 @@ function overview() {
   const again = D.flagged.filter(n => n.type === 'decision').length;
   const lede = D.flagged.length
     ? `${D.flagged.length} ${D.flagged.length === 1 ? 'thing needs' : 'things need'} another look${again ? `, ${again} of them ${again === 1 ? 'a decision' : 'decisions'} already made` : ''}.${last ? ` Latest cause: ${last.title}.` : ''}`
-    : 'Nothing is flagged. Every decision still rests on what it was decided on.';
+    : S.nodes.length ? 'Nothing is flagged. Every decision still rests on what it was decided on.' : 'An empty project. Add the first thing with + Add, or press Forward in the presenter bar.';
   const recent = [...D.events].reverse().filter(e => e.kind !== 'project.seeded').slice(0, 6);
   const feeds = feedDays();
   return `<main class="ed-page">
   <header class="ov-hero"><span class="ed-meta">${esc(S.project.id)} · Living decision record</span>
     <h1 class="ed-display">${esc(S.project.name)}</h1>
     <div class="ov-hero-foot"><p class="ed-lede" style="max-width:44ch">${esc(lede)}</p><button class="ed-link" data-act="tab" data-id="pm">Open the knowledge canvas</button></div></header>
+  ${UIX.startStrip()}
   <section class="ed-nums">
     <div><span class="ed-num">${S.nodes.length}</span><span class="ed-meta">Nodes</span></div>
     <div><span class="ed-num">${S.edges.length}</span><span class="ed-meta">Links</span></div>
     <div><span class="ed-num">${D.open.length}</span><span class="ed-meta">To review</span></div>
     <div><span class="ed-num">${D.flagged.length}</span><span class="ed-meta">Need another look</span></div>
   </section>
-  ${section('01', 'Review', D.open.length ? `<ul class="ed-rows">${D.open.map(i => itemRow(i, false)).join('')}</ul>` : `<p class="ed-empty">Nothing is waiting. Drop a file or a note in the parking lot and it will be read, placed and shown here before anything changes.</p>`, 'New information, placed by the agent. Nothing joins the record until someone accepts it.')}
+  ${section('01', 'Review', D.open.length ? `<ul class="ed-rows">${D.open.map(i => itemRow(i, false)).join('')}</ul>` : `<p class="ed-empty">Nothing is waiting. Drop a file anywhere, or press + Add, and it will be read, placed and shown here before anything changes.</p>`, 'New information, placed by the agent. Nothing joins the record until someone accepts it.')}
   ${section('02', 'Another look', D.flagged.length ? `<div class="ed-rows">${D.flagged.map(flaggedRow).join('')}</div>` : `<p class="ed-empty">No decision, deliverable or event is at risk.</p>`, 'What a change put at risk, blocked or re-opened, and why.')}
+  ${section('03', 'Building', partTiles(), 'Each part lights up from what is open on the things linked to it.')}
   ${section('03', 'What changed', recent.length ? `<ul class="ed-rows">${recent.map(e => eventRow(e)).join('')}</ul>` : `<p class="ed-empty">No changes since the project was set up.</p>`)}
   ${section('04', 'Ask the record', askBlock('project', 'Why is Thursday’s flight at risk?', true), 'Answers come only from the record and cite the nodes they rest on.')}
   ${section('05', 'Project map', `<div class="ed-cols">${CAT_ORDER.map(c => { const ns = S.nodes.filter(n => D.cat[n.id] === c);
       return `<div class="ed-col"><span class="ed-meta">${CATS[c].label} · ${ns.length}</span>${ns.map(n => `<button class="ed-item" data-act="sel" data-id="${n.id}"><span class="t">${esc(n.title)}</span><span class="ed-meta ${FLAG[n.status] ? 'flag' : ''}">${esc(TYPE_LABEL[n.type] || n.type)} · ${esc(statusLabel(n))}</span></button>`).join('')}</div>`; }).join('')}</div>`)}
   ${section('06', 'Live feeds', feeds.html, 'Monitors that watch the outside world and raise a change when it touches the record.')}
+  ${section('07', 'Rules', rulesBlock(), 'What the record has learned to watch for. Suggested by the analysis loop, approved by a person.')}
+  ${UIX.retake()}
   ${foot()}</main>`;
 }
 function feedDays() {
@@ -250,17 +309,19 @@ function feedDays() {
   return {html};
 }
 
-/* ------------------------------------------------------------------ parking lot */
-function parking() {
-  const done = S.items.filter(i => i.status === 'approved').slice(0, 12);
-  return `<main class="ed-page">
-  <header class="ov-hero"><span class="ed-meta">Intake · ${D.open.length} parked</span><h1 class="ed-display md">Parking lot</h1>
-    <div class="ov-hero-foot"><p class="ed-lede" style="max-width:46ch">Drop anything here: an email, a site note, a permit, a photo. The agent reads it, proposes where it belongs and shows what it would change. You decide.</p></div></header>
-  <div class="pk-drop" id="drop"><span class="big">Drop files here</span><button class="ed-link" data-act="browse">Browse</button><input type="file" id="file" multiple>
-    <form class="pk-note" data-note="1" style="flex:1 1 320px"><input name="text" placeholder="or paste a note" autocomplete="off" style="flex:1"><button class="ed-link plain">Add</button></form></div>
-  ${section('01', 'Parked', D.open.length ? `<ul class="ed-rows">${D.open.map(i => itemRow(i, true)).join('')}</ul>` : `<p class="ed-empty">Nothing parked.</p>`, 'Proposed, not yet part of the record.')}
-  ${section('02', 'In the record', done.length ? `<div class="ed-rows">${done.map(i => `<button class="ed-row" ${i.node_id ? `data-act="sel" data-id="${i.node_id}"` : ''}><span class="t">${esc(itemTitle(i))}</span><span class="side"><span class="ed-meta">${esc(TYPE_LABEL[i.proposal && i.proposal.type] || '')} · added by ${esc(i.author || '')}</span><span class="go">→</span></span></button>`).join('')}</div>` : `<p class="ed-empty">Nothing has been accepted from the parking lot yet.</p>`)}
-  ${foot()}</main>`;
+/* ------------------------------------------------------------------ + Add drawer (was the Parking lot tab)
+   Files can be dropped anywhere on the page. Everything goes through POST /api/intake, which uses the converter
+   (Minh/converter) to read the file, then waits here until someone accepts where it belongs. */
+function intakeDrawer() {
+  return `${ui.intake ? '<div class="intake-scrim" data-act="intake"></div>' : ''}
+  <aside class="intake ${ui.intake ? 'open' : ''}" aria-label="Add to project" ${ui.intake ? '' : 'aria-hidden="true"'}>
+    <header><div><span class="ed-meta">Add to project</span><h2>Drop files anywhere</h2></div><button class="icon-btn" data-act="intake" aria-label="Close">×</button></header>
+    <p class="intake-status on"><i></i>An email, a site note, a permit, a photo. It is read, a place is proposed with what it would change, and you decide.</p>
+    <div class="intake-drop" id="drop"><button class="ed-cta" data-act="browse">Choose files</button><input type="file" id="file" multiple hidden>
+      <form class="pk-note" data-note="1"><input name="text" placeholder="or paste a note" autocomplete="off"><button class="ed-link plain">Add</button></form></div>
+    <div class="intake-list"><span class="ed-meta">Waiting to be placed · ${D.open.length}</span>
+      ${D.open.length ? `<ul class="ed-rows">${D.open.map(i => itemRow(i, true)).join('')}</ul>` : '<p class="ed-empty">Nothing waiting. Everything is placed in the record.</p>'}</div>
+  </aside>`;
 }
 
 /* ------------------------------------------------------------------ pilot */
@@ -270,9 +331,10 @@ function upstream(id) {
   return out;
 }
 function pilot() {
+  const net3d = UIX.pilotPage(); if (net3d) return net3d;     // UIX: the design's Pilot tab is the 3D knowledge network
   const flights = S.nodes.filter(n => n.type === 'event');
   const f = flights.find(n => FLAG[n.status]) || flights[0];
-  if (!f) return `<main class="ed-page"><header class="ov-hero"><span class="ed-meta">Pilot brief</span><h1 class="ed-display md">No flight yet</h1><p class="ed-lede">Add a flight in the parking lot and its brief appears here.</p></header></main>`;
+  if (!f) return `<main class="ed-page"><header class="ov-hero"><span class="ed-meta">Pilot brief</span><h1 class="ed-display md">No flight yet</h1><p class="ed-lede">Add a flight with + Add and its brief appears here.</p></header></main>`;
   const up = upstream(f.id).map(u => ({...u, n: D.byId[u.id]}));
   const bad = up.filter(u => u.n.status === 'blocked' || u.n.type === 'blocker' && !['resolved', 'done'].includes(u.n.status));
   const word = f.status === 'blocked' || bad.length ? 'No-go' : FLAG[f.status] ? 'At risk' : 'Go';
@@ -286,7 +348,7 @@ function pilot() {
   return `<main class="ed-page">
   <header class="ov-hero"><span class="ed-meta">Pilot brief · ${esc(f.title)}</span><h1 class="ed-display md ${word !== 'Go' ? 'flag' + (word === 'No-go' ? ' bad' : '') : ''}">${word}</h1>
     <div class="ov-hero-foot"><p class="ed-lede" style="max-width:48ch">${esc(c ? `${c.why} Because: ${c.ev.title}.` : word === 'Go' ? 'Everything this flight rests on is in place.' : f.summary || '')}</p>
-    <button class="ed-link" data-act="sel" data-id="${f.id}">See it on the canvas</button></div></header>
+    <button class="ed-link" data-act="sel" data-id="${f.id}">See it on the canvas</button>${UIX.netLink()}</div></header>
   <section class="ed-nums">
     <div><span class="ed-num">${up.length}</span><span class="ed-meta">Things it rests on</span></div>
     <div><span class="ed-num">${up.filter(u => FLAG[u.n.status]).length}</span><span class="ed-meta">Flagged</span></div>
@@ -312,7 +374,8 @@ function client() {
       ${n.summary ? `<span class="sub">${esc(n.summary)}</span>` : ''}${c ? `<span class="sub flag">${esc(c.why)}</span>` : ''}</li>`; };
   return `<main class="ed-page">
   <header class="ov-hero"><span class="ed-meta">Client view · read only</span><h1 class="ed-display md">${esc(S.project.name)}</h1>
-    <div class="ov-hero-foot"><p class="ed-lede" style="max-width:46ch">${esc(lede)}</p></div></header>
+    <div class="ov-hero-foot"><p class="ed-lede" style="max-width:46ch">${esc(lede)}</p>${UIX.briefButton()}</div></header>
+  ${(S.parts || []).length ? section('01', 'Your building', `<div style="display:grid;grid-template-columns:minmax(180px,1fr) minmax(0,2fr);gap:32px;align-items:start"><div class="ed-figure"><div class="frame" style="aspect-ratio:3/4;padding:18px">${buildingSVG()}</div></div><ul class="ed-rows">${partRows(true)}</ul></div>`, 'Each part of the building, and whether anything about it is being looked at again.') : ''}
   ${section('01', 'Your deliverables', dels.length ? `<ul class="ed-rows">${dels.map(row).join('')}</ul>` : `<p class="ed-empty">None yet.</p>`)}
   ${section('02', 'What changed', changes.length ? `<ul class="ed-rows">${changes.map(e => eventRow(e, f => D.byId[f.node_id] && show.has(D.byId[f.node_id].type))).join('')}</ul>` : `<p class="ed-empty">Nothing has changed that affects you.</p>`, 'Only changes that touch a deliverable, a flight or a decision.')}
   ${section('03', 'Decisions on record', decs.length ? `<ul class="ed-rows">${decs.map(row).join('')}</ul>` : `<p class="ed-empty">No decisions recorded.</p>`)}
@@ -369,7 +432,7 @@ function pm() {
   for (const id in moved) if (L.pos[id]) L.pos[id] = moved[id];
   const sel = ui.sel, near = new Set(sel ? [sel] : []);
   if (sel) for (const f of D.flow) { if (f.a === sel) near.add(f.b); if (f.b === sel) near.add(f.a); }
-  const q = ui.q.trim().toLowerCase(), hit = n => !q || (n.title + ' ' + (n.summary || '') + ' ' + (n.tags || []).join(' ') + ' ' + n.type).toLowerCase().includes(q);
+  const q = ui.q.trim().toLowerCase(), hits = UIX.hits() || (ui.search && ui.search.res ? new Set(ui.search.res.results.map(r => r.node.id)) : null), hit = n => hits ? hits.has(n.id) : !q || (n.title + ' ' + (n.summary || '') + ' ' + (n.tags || []).join(' ') + ' ' + n.type).toLowerCase().includes(q);
   const cards = nodes.map(n => { const p = L.pos[n.id], c = D.cat[n.id], fl = FLAG[n.status], cz = fl && D.cause[n.id];
     return `<div class="card ${sel === n.id ? 'sel' : ''} ${(sel && !near.has(n.id)) || !hit(n) ? 'fade' : ''} ${c ? '' : 'uncl'} ${fl ? 'flagged' + (n.status === 'blocked' ? ' bad' : '') : ''}" data-card="${n.id}" style="left:${p.x}px;top:${p.y}px;--cat:${c ? CATS[c].c : UNCL}">
       <i class="port in"></i><i class="port out"></i>
@@ -379,7 +442,7 @@ function pm() {
       <div class="card-foot"><span class="badge t-${tone(n)}">${esc(statusLabel(n))}</span><span class="links">⇄ ${D.deg[n.id]}</span></div></div>`; }).join('');
   const modeInfo = {tree: 'Left to right: what each thing rests on, then what rests on it.', free: 'Grouped by domain. Drag cards anywhere.', dec: 'Each decision between what it rests on and what it affects.'}[ui.mode];
   return `<div class="pm"><div class="pm-main">
-    <div class="pm-search pm-add" style="padding-top:18px"><form class="ed-search" data-search="1" style="flex:1 1 320px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><input type="search" name="q" placeholder="Search the record" value="${esc(ui.q)}" autocomplete="off"></form>
+    <div class="pm-search pm-add" style="padding-top:18px">${UIX.askBar('pm')}
       <button class="ed-cta" data-act="adding">${ui.adding ? 'Close' : '+ Add to record'}</button></div>
     ${ui.adding ? `<form class="pm-add" data-note="1"><input name="text" placeholder="Type a note, a finding or a change. It is read and proposed, not added directly." autocomplete="off" autofocus><button class="ed-link plain">Send for review</button></form>` : ''}
     <div class="pm-toolbar"><div class="seg sm">${[['tree', 'Tree'], ['free', 'Freeform'], ['dec', 'Decisions']].map(([m, l]) => `<button class="${ui.mode === m ? 'on' : ''}" data-act="mode" data-id="${m}">${l}</button>`).join('')}</div><span class="mode-info dim">${modeInfo}</span></div>
@@ -389,7 +452,7 @@ function pm() {
       ${L.labels.map(g => `<div class="group-label" style="left:${g.x}px;top:${g.y}px">${esc(g.label)}</div>`).join('')}
       <svg class="edges" id="edges" width="1" height="1" style="overflow:visible"></svg>${cards}</div>
       <div class="zoombar"><button data-act="zoom" data-id="out">−</button><span id="zoom" style="min-width:44px;text-align:center;font-size:12px">100%</span><button data-act="zoom" data-id="in">+</button><button data-act="zoom" data-id="fit">Fit</button><button data-act="zoom" data-id="arrange">Auto-arrange</button></div>
-      <div class="legend-box"><div class="wire-key"><span class="k-app">Link in the record</span><span class="k-acc">Proposed by the agent, accepted</span></div></div>
+      <div class="legend-box"><div class="wire-key"><span class="k-app">Link in the record</span><span class="k-acc">Proposed by the agent, accepted</span></div><div class="ed-meta" style="margin-top:6px;text-transform:none;letter-spacing:0">Drag from a card’s black dot to another card to connect them.</div></div>
     </div></div>
     <aside class="pm-side">${inspector()}</aside></div>`;
 }
@@ -417,6 +480,8 @@ function mountCanvas() {
   w.addEventListener('wheel', e => { e.preventDefault(); const r = w.getBoundingClientRect(); zoomAt(e.deltaY < 0 ? 1.1 : 1 / 1.1, e.clientX - r.left, e.clientY - r.top); }, {passive: false});
   w.addEventListener('pointerdown', e => {
     if (e.target.closest('.zoombar,.legend-box')) return;
+    const port = e.target.closest('.port.out');
+    if (port) return linkDrag(e, w, port.closest('[data-card]').dataset.card);
     const card = e.target.closest('[data-card]'), id = card && card.dataset.card, sx = e.clientX, sy = e.clientY;
     const start = id ? {...L.pos[id]} : {x: ui.view.x, y: ui.view.y}; let moved = false;
     w.setPointerCapture(e.pointerId);
@@ -424,13 +489,15 @@ function mountCanvas() {
       if (id) { const p = L.pos[id] = {x: start.x + dx / ui.view.k, y: start.y + dy / ui.view.k}; card.style.left = p.x + 'px'; card.style.top = p.y + 'px'; (ui.pos[ui.mode] ||= {})[id] = p; drawEdges(); }
       else { ui.view.x = start.x + dx; ui.view.y = start.y + dy; applyView(); } };
     const up = () => { w.removeEventListener('pointermove', move); w.removeEventListener('pointerup', up); w.removeEventListener('pointercancel', up);
-      if (!moved) { ui.sel = id || null; render(); } };
+      if (!moved) { ui.sel = id || null; ui.link = null; render(); if (id) loadDetail(id); } };
     w.addEventListener('pointermove', move); w.addEventListener('pointerup', up); w.addEventListener('pointercancel', up);
   });
 }
 
 function inspector() {
+  if (ui.link) return linkPanel();
   const n = ui.sel && D.byId[ui.sel];
+  if (!n && ui.search) return searchPanel();
   if (!n) return `<div class="inspector"><div class="ins-head"><div class="ins-kicker"><span class="dim">Knowledge canvas</span></div><h3 class="ins-title">${esc(S.project.name)}</h3>
       <div class="ins-badges"><span class="badge t-info">${S.nodes.length} nodes</span> <span class="badge t-info">${S.edges.length} links</span> <span class="badge t-warn">${D.flagged.length} flagged</span></div></div>
     <section class="ins-sec"><h4>Start here</h4><p>Select a card to see what it rests on, what it affects and why it changed.</p></section>
@@ -452,6 +519,7 @@ function inspector() {
     <section class="ins-sec"><dl class="specs"><dt>Owner</dt><dd>${esc(n.owner || 'Unassigned')}</dd><dt>State</dt><dd>${esc(String(n.state || '').replace(/_/g, ' '))}</dd>
       ${src ? `<dt>Source</dt><dd>${esc(src)}${n.data.added_by ? ' · ' + esc(n.data.added_by) : ''}</dd>` : ''}${n.data && n.data.when ? `<dt>When</dt><dd>${esc(n.data.when)}</dd>` : ''}
       <dt>Added</dt><dd>${n.created_at ? when(n.created_at) : ''}</dd>${(n.tags || []).length ? `<dt>Tags</dt><dd>${esc(n.tags.join(', '))}</dd>` : ''}</dl></section>
+    ${detailBlock(n.id)}
     ${ins.length ? `<section class="ins-sec"><h4>Rests on · ${ins.length}</h4><ul class="rels">${ins.map(f => rel(f, f.a, 'in')).join('')}</ul></section>` : ''}
     ${outs.length ? `<section class="ins-sec"><h4>Affects · ${outs.length}</h4><ul class="rels">${outs.map(f => rel(f, f.b, 'out')).join('')}</ul></section>` : ''}
     ${hist.length ? `<section class="ins-sec"><h4>History</h4><ul class="hist">${hist.map(h => `<li>${h.f ? `<b>${esc(h.f.change)}</b> · ` : ''}${esc(h.ev.title)}<small>${esc(h.ev.actor || '')} · ${when(h.ev.at)}</small></li>`).join('')}</ul></section>` : ''}
@@ -459,11 +527,86 @@ function inspector() {
     <section class="ins-sec"><h4>Ask about this node</h4>${askBlock(n.id, 'Why does this matter?')}</section></div>`;
 }
 
+/* ---- node detail (GET /api/nodes/{id}): source, what it flagged, the passages it was read from */
+async function loadDetail(id) {
+  if (!id || ui.detail[id]) return;
+  try { ui.detail[id] = await api('/api/nodes/' + id + '?limit=3'); if (ui.sel === id && (ui.tab === 'pm' || UIX.inNet()) && !ui.link) safeRender(); } catch {}
+}
+function detailBlock(id) {
+  const d = ui.detail[id]; if (!d) return '';
+  const raised = (d.raised || []).filter(r => r.id !== id), ps = (d.passages && d.passages.items) || [];
+  const loc = p => { const o = p.pointer || {}; return Object.entries(o).filter(([, v]) => v != null && typeof v !== 'object').map(([k, v]) => `${k} ${v}`).join(' · '); };
+  return `${raised.length ? `<section class="ins-sec"><h4>It flagged · ${raised.length}</h4><ul class="rels">${raised.map(r => `<li><button data-act="sel" data-id="${r.id}"><span class="rel-verb flag">${esc(FLAG[r.status] || r.status)}</span><span class="rel-t">${esc(r.title)}</span></button></li>`).join('')}</ul></section>` : ''}
+    ${ps.length ? `<section class="ins-sec"><h4>Read from · ${d.passages.total} passage${d.passages.total > 1 ? 's' : ''}${d.source && d.source.name ? ' · ' + esc(d.source.name) : ''}</h4><ul class="hist">${ps.map(p => `<li>${esc(String(p.text || '').slice(0, 260))}${String(p.text || '').length > 260 ? '…' : ''}<small>${esc([p.role, p.modality, loc(p)].filter(Boolean).join(' · '))}</small></li>`).join('')}</ul></section>` : ''}`;
+}
+
+/* ---- hybrid search (GET /api/search): meaning and keywords, no model call */
+async function search(q) {
+  ui.q = q; q = q.trim();
+  if (!q) { ui.search = null; return render(); }
+  ui.search = {q, loading: true}; ui.sel = null; ui.link = null; render();
+  try { ui.search = {q, res: await api(`/api/search?q=${encodeURIComponent(q)}&k=8&passages=1`)}; } catch (e) { ui.search = {q, err: e.message}; }
+  render();
+}
+function searchPanel() {
+  const s = ui.search, rs = (s.res && s.res.results) || [];
+  const snip = p => esc(p.snippet || p.text || '').replace(/\[\[(.+?)\]\]/g, '<mark>$1</mark>');
+  return `<div class="inspector"><div class="ins-head"><div class="ins-kicker"><span class="dim">Search${s.res ? ' · ' + esc(s.res.mode === 'hybrid' ? 'meaning and keywords' : s.res.mode) : ''}</span></div><h3 class="ins-title">“${esc(s.q)}”</h3>
+      <div class="ins-badges"><span class="badge t-info">${s.loading ? 'Searching' : rs.length + ' found'}</span> <button class="ed-link dim" data-act="clearsearch">Clear</button></div></div>
+    ${s.err ? `<section class="ins-sec"><span class="flag bad">${esc(s.err)}</span></section>` : ''}
+    ${rs.map(r => `<section class="ins-sec"><ul class="rels"><li><button data-act="sel" data-id="${r.node.id}"><span class="rel-verb">${esc(TYPE_LABEL[r.node.type] || r.node.type)}</span><span class="rel-t">${esc(r.node.title)}${FLAG[r.node.status] ? ` <span class="flag">· ${esc(FLAG[r.node.status])}</span>` : ''}</span></button></li></ul>
+      ${r.passages[0] ? `<p style="font-size:13px;color:var(--ink-2);margin-top:6px">${snip(r.passages[0])}</p>` : ''}<small class="dim">matched by ${esc((r.matched || []).join(' and '))}</small></section>`).join('')}
+    ${!s.loading && !rs.length && !s.err ? `<section class="ins-sec"><p>Nothing in the record matches.</p></section>` : ''}</div>`;
+}
+
+/* ---- connect two nodes (POST /api/edges/suggest, then POST /api/edges): suggestions come with their dry-run effects */
+function linkDrag(e, w, from) {
+  const svg = $('#edges'), a = L.pos[from], x1 = a.x + CW, y1 = a.y + CH / 2, r = w.getBoundingClientRect();
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  line.setAttribute('fill', 'none'); line.setAttribute('stroke', '#0a0a0a'); line.setAttribute('stroke-width', '1.6'); line.setAttribute('stroke-dasharray', '6 5');
+  svg.appendChild(line); w.setPointerCapture(e.pointerId);
+  const move = ev => line.setAttribute('d', `M${x1} ${y1}L${(ev.clientX - r.left - ui.view.x) / ui.view.k} ${(ev.clientY - r.top - ui.view.y) / ui.view.k}`);
+  const up = ev => { w.removeEventListener('pointermove', move); w.removeEventListener('pointerup', up); w.removeEventListener('pointercancel', up); line.remove();
+    try { w.releasePointerCapture(ev.pointerId); } catch {}
+    const el = document.elementFromPoint(ev.clientX, ev.clientY), c = el && el.closest('[data-card]');
+    if (c && c.dataset.card !== from) connect(from, c.dataset.card); };
+  w.addEventListener('pointermove', move); w.addEventListener('pointerup', up); w.addEventListener('pointercancel', up);
+}
+async function connect(a, b) {
+  ui.link = {a, b, loading: true}; render();
+  try { const res = await post('/api/edges/suggest', {source: a, target: b}); if (ui.link && ui.link.a === a && ui.link.b === b) ui.link = {a, b, res}; }
+  catch (e) { if (ui.link) ui.link = {a, b, err: e.message}; }
+  render();
+}
+async function addLink(body) {
+  try { const out = await post('/api/edges', {...body, by: ui.who}); const n = effectsOf(out).length;
+    toast(`Link added to the record${n ? `. ${n} thing${n > 1 ? 's' : ''} flagged for another look.` : '.'}`); ui.sel = ui.link ? ui.link.a : ui.sel; ui.link = null; dirty = false; await refresh(); render(); }
+  catch (e) { toast(e.message); render(); }
+}
+function linkPanel() {
+  const k = ui.link, A = D.byId[k.a], B = D.byId[k.b], res = k.res || {}, sg = res.suggestions || [];
+  const t = id => esc(D.byId[id] ? D.byId[id].title : id);
+  return `<div class="inspector"><div class="ins-head"><div class="ins-kicker"><span class="dim">Connect two nodes</span></div><h3 class="ins-title">${esc(A.title)} <span class="dim">and</span> ${esc(B.title)}</h3>
+      <div class="ins-badges"><button class="ed-link dim" data-act="unlink">Cancel</button></div></div>
+    ${(res.existing || []).length ? `<section class="ins-sec"><h4>Already linked</h4>${res.existing.map(x => `<p>${esc(String(x.type || '').replace(/_/g, ' '))}${x.reason ? ` <span class="dim">${esc(x.reason)}</span>` : ''}</p>`).join('')}</section>` : ''}
+    <section class="ins-sec ai-box"><h4>Suggested links · need approval</h4>
+      ${k.loading ? `<span class="reading">Working out how they relate</span>` : k.err ? `<span class="flag bad">${esc(k.err)}</span>` : sg.length ? sg.map((x, i) => { const fx = effectsOf(x);
+        return `<div class="sugg"><b>${t(x.from)}</b> <i>${esc(String(x.type).replace(/_/g, ' '))}</i> <b>${t(x.to)}</b> <span class="dim">${Math.round((x.confidence || 0) * 100)}%</span><br>${esc(x.reason || '')}
+          ${fx.length ? `<div style="margin-top:6px"><span class="ed-meta">If added, this would change</span>${fx.map(f => `<div><span class="flag">${esc(f.change)}</span> · ${esc(f.title)}</div>`).join('')}</div>` : `<div class="dim" style="margin-top:6px">Adding it changes nothing else.</div>`}
+          <div class="sugg-act"><button class="btn sm primary" data-act="addlink" data-id="${i}">Accept link</button></div></div>`; }).join('')
+        : `<p>${esc(res.note || res.error || 'No link suggested. Add one by hand below.')}</p>`}</section>
+    <section class="ins-sec"><h4>Or say it yourself</h4><form data-manual="1" style="display:flex;flex-direction:column;gap:10px">
+      <span><b>${esc(A.title)}</b></span>
+      <select name="type" style="border:0;border-bottom:1px solid var(--hair);background:none;padding:6px 0">${(S.edge_types || []).map(x => `<option value="${esc(x)}">${esc(x.replace(/_/g, ' '))}</option>`).join('')}</select>
+      <span><b>${esc(B.title)}</b></span>
+      <div class="ask"><input name="reason" placeholder="Why? (kept with the link)" autocomplete="off"><button class="btn sm primary">Add link</button></div></form></section></div>`;
+}
+
 /* ------------------------------------------------------------------ actions */
 async function intake(text, files) {
   const fd = new FormData(); fd.append('text', text || ''); fd.append('author', ui.who);
   for (const f of files || []) fd.append('files', f);
-  try { await api('/api/intake', {method: 'POST', body: fd}); toast('Reading it now. It will appear under Parked for review.'); ui.adding = false; await refresh(); }
+  try { await api('/api/intake', {method: 'POST', body: fd}); toast('Reading it now. It will appear under Waiting to be placed.'); ui.adding = false; ui.intake = true; await refresh(); render(); }
   catch (e) { toast(e.message); }
 }
 async function accept(id) {
@@ -485,9 +628,13 @@ document.addEventListener('click', async e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const act = b.dataset.act, id = b.dataset.id;
   if (act === 'tab') { location.hash = id; }
-  else if (act === 'sel') { ui.sel = id; if (ui.tab !== 'pm') location.hash = 'pm'; else render(); }
+  else if (act === 'sel') { ui.sel = id; ui.link = null; if (UIX.inNet()) render(); else if (ui.tab !== 'pm') location.hash = 'pm'; else render(); loadDetail(id); }
+  else if (act === 'unlink') { ui.link = null; render(); }
+  else if (act === 'addlink') { const sg = ui.link && ui.link.res && ui.link.res.suggestions[+id]; if (sg) { b.disabled = true; addLink({source: sg.from, target: sg.to, type: sg.type, reason: sg.reason, confidence: sg.confidence, origin: 'jev'}); } }
+  else if (act === 'clearsearch') { ui.search = null; ui.q = ''; render(); }
   else if (act === 'mode') { ui.mode = id; ui.view = null; render(); }
   else if (act === 'cat') { ui.off.has(id) ? ui.off.delete(id) : ui.off.add(id); ui.view = null; render(); }
+  else if (act === 'intake') { ui.intake = !ui.intake; render(); }
   else if (act === 'adding') { ui.adding = !ui.adding; ui.view = null; render(); }
   else if (act === 'zoom') { const w = $('#wrap');
     if (id === 'fit') fit(); else if (id === 'arrange') { delete ui.pos[ui.mode]; ui.view = null; render(); } else zoomAt(id === 'in' ? 1.2 : 1 / 1.2, w.clientWidth / 2, w.clientHeight / 2); }
@@ -495,17 +642,25 @@ document.addEventListener('click', async e => {
   else if (act === 'dismiss') { try { await post(`/api/items/${id}/dismiss`, {by: ui.who, reason: ''}); dirty = false; await refresh(); render(); } catch (err) { toast(err.message); } }
   else if (act === 'browse') { e.preventDefault(); $('#file').click(); }
   else if (act === 'replay') { b.disabled = true; try { await post('/api/replay/' + id); } catch (err) { toast(err.message); } await refresh(); render(); }
+  else if (act === 'goto') { b.disabled = true; try { await api('/api/replay/goto?to=' + id, {method: 'POST'}); ui.sel = null; ui.view = null; } catch (err) { toast(err.message); } await refresh(); render(); }
+  else if (act === 'feedsrun') { b.disabled = true; toast('Checking every live feed…'); try { await api('/api/feeds/run', {method: 'POST'}); toast('Feeds checked.'); } catch (err) { toast(err.message); } await refresh(); render(); }
+  else if (act === 'rule') { const what = b.dataset.what; let reason = '';
+    if (what === 'dismiss') { reason = prompt('Why? (kept in the record, and helps the next run)', ''); if (reason === null) return; }
+    try { await post(`/api/rules/${encodeURIComponent(id)}/${what}`, {by: ui.who, reason}); toast(what === 'approve' ? 'Rule is live. It now joins every effects check.' : 'Rule removed.'); } catch (err) { toast(err.message); } await refresh(); render(); }
+  else if (act === 'suggest') { if (!confirm('Run the analysis loop now?\n\nIt sends this project\u2019s graph and history to the analysis model and suggests up to 3 rules. It takes about a minute and costs roughly $0.10 to $0.30. Nothing changes until you approve a rule.')) return;
+    ui.busy = 'rules'; render(); try { const out = await post('/api/rules/suggest', {by: ui.who}); const n = (out.rules || out.proposed || []).length; toast(n ? `${n} rule${n > 1 ? 's' : ''} suggested.` : 'Analysis finished.'); } catch (err) { toast(err.message); } ui.busy = false; await refresh(); render(); }
   else if (act === 'reset') { if (confirm('Reset the project to its starting state? Everything added since is removed.')) { try { await post('/api/reset'); ui.sel = null; ui.view = null; } catch (err) { toast(err.message); } await refresh(); render(); } }
 });
 document.addEventListener('submit', async e => {
   const f = e.target; e.preventDefault();
   if (f.dataset.ask != null) ask(f.dataset.ask, f.q.value.trim());
   else if (f.dataset.note) { const t = f.text.value.trim(); if (t) { f.text.value = ''; intake(t); } }
-  else if (f.dataset.search) { ui.q = f.q.value; render(); }
+  else if (f.dataset.search) { search(f.q.value); }
+  else if (f.dataset.manual) { addLink({source: ui.link.a, target: ui.link.b, type: f.type.value, reason: f.reason.value.trim(), confidence: 1, origin: 'user'}); }
   else if (f.dataset.resolve) { try { await post(`/api/nodes/${f.dataset.resolve}/resolve`, {by: ui.who, reason: f.reason.value.trim()}); f.reason.value = ''; toast('Marked resolved. The flags it raised are cleared.'); await refresh(); render(); } catch (err) { toast(err.message); } }
 });
 document.addEventListener('input', e => {
-  if (e.target.closest('[data-search]')) { ui.q = e.target.value; const q = ui.q.trim().toLowerCase();
+  if (e.target.closest('[data-search]')) { ui.q = e.target.value; ui.search = null; const q = ui.q.trim().toLowerCase();
     document.querySelectorAll('[data-card]').forEach(c => { const n = D.byId[c.dataset.card]; c.classList.toggle('fade', !!q && !(n.title + ' ' + (n.summary || '') + ' ' + (n.tags || []).join(' ') + ' ' + n.type).toLowerCase().includes(q)); }); }
 });
 document.addEventListener('change', async e => {
@@ -514,11 +669,21 @@ document.addEventListener('change', async e => {
   else if (t.dataset.change === 'who') { ui.who = t.value; try { localStorage.setItem('yb.who', ui.who); } catch {} }
   else if (t.dataset.change === 'inject' && t.value) { try { await post('/api/feeds/inject/' + t.value); toast('Simulated: ' + t.value.replace(/_/g, ' ')); } catch (err) { toast(err.message); } await refresh(); render(); }
 });
-document.addEventListener('dragover', e => { const d = $('#drop'); if (d) { e.preventDefault(); d.classList.add('over'); } });
-document.addEventListener('dragleave', e => { const d = $('#drop'); if (d && !e.relatedTarget) d.classList.remove('over'); });
-document.addEventListener('drop', e => { const d = $('#drop'); if (!d) return; e.preventDefault(); d.classList.remove('over'); if (e.dataTransfer.files.length) intake('', [...e.dataTransfer.files]); });
+/* Drag and drop is native to the whole page: a file dropped on any tab is sent to intake. */
+let dragDepth = 0;
+const hasFiles = e => [...((e.dataTransfer && e.dataTransfer.types) || [])].includes('Files');
+function veil(on) {
+  let v = $('#veil');
+  if (on && !v) { v = document.createElement('div'); v.id = 'veil'; v.className = 'drop-veil'; v.innerHTML = '<span class="ed-meta">Add to project</span><span class="big">Drop to add to the project</span>'; document.body.appendChild(v); }
+  else if (!on && v) v.remove();
+}
+document.addEventListener('dragenter', e => { if (!hasFiles(e)) return; dragDepth++; veil(true); });
+document.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+document.addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) veil(false); });
+document.addEventListener('drop', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth = 0; veil(false); if (e.dataTransfer.files.length) intake('', [...e.dataTransfer.files]); });
 
-function route() { const h = location.hash.replace('#', ''); ui.tab = TABS.some(t => t[0] === h) ? h : 'overview'; ui.view = null; if (S) { render(); if (ui.tab !== 'pm') window.scrollTo(0, 0); } }
+function route() { const h = location.hash.replace('#', ''); if (h === 'data') ui.intake = true;   // old Parking lot links open the drawer
+  ui.tab = TABS.some(t => t[0] === h) ? h : 'overview'; ui.view = null; if (S) { render(); if (ui.tab !== 'pm') window.scrollTo(0, 0); } }
 window.addEventListener('hashchange', route);
 window.addEventListener('resize', () => { if (ui.tab === 'pm' && S) fit(); });
 
@@ -527,5 +692,6 @@ const setLive = v => { live = v; const l = $('#live'); if (l) { l.classList.togg
 es.onopen = () => setLive(true); es.onerror = () => setLive(false);
 let deb; es.onmessage = () => { clearTimeout(deb); deb = setTimeout(refresh, 150); };
 setInterval(refresh, 20000);
+const UIX = window.makeUIX({ui, esc, $, api, post, render, toast, inspector, loadDetail, CATS, CAT_ORDER, UNCL, PRESENTER});   // the UI/UX design's additions (uix.js)
 route(); refresh();
 })();

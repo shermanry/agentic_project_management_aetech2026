@@ -81,7 +81,7 @@ export function Legend({ compact = false }: { compact?: boolean }) {
 }
 
 /**
- * Ask bar, shared by PM and Pilot. Type a question in plain words; the guide answers briefly and
+ * Ask bar, shared by PM and Expert. Type a question in plain words; the guide answers briefly and
  * points to the matching nodes. Enter opens the best match.
  */
 export function SearchBar({ id }: { id: string }) {
@@ -180,7 +180,43 @@ export function SearchBar({ id }: { id: string }) {
   );
 }
 
-/** Category filter chips, shared by PM and Pilot. */
+/** The top row shared by the PM and Expert tabs: ask bar plus a large "Add node" button. */
+export function AskRow({ id, onAdded }: { id: string; onAdded?: () => void }) {
+  const { dispatch } = useGraph()
+  const [note, setNote] = useState<string>()
+  return (
+    <>
+      <div className="pm-search">
+        <SearchBar id={id} />
+        <button className="ed-cta" onClick={() => setNote(note === undefined ? '' : undefined)} aria-expanded={note !== undefined}>
+          + Add node
+        </button>
+      </div>
+      {note !== undefined && (
+        <form
+          className="pm-add"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (note.trim()) dispatch({ type: 'addNode', title: note.trim(), kind: 'note' })
+            setNote(undefined)
+            onAdded?.()
+          }}
+        >
+          <input id={`${id}-new`} autoFocus aria-label="New node title" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Name the new node" />
+          <button className="ed-link plain" disabled={!note.trim()}>
+            Add
+          </button>
+          <button type="button" className="ed-link dim" onClick={() => setNote(undefined)}>
+            Cancel
+          </button>
+          <span className="ed-meta">Waits to be placed until you accept where it goes</span>
+        </form>
+      )}
+    </>
+  )
+}
+
+/** Category filter chips, shared by PM and Expert. */
 export function CategoryChips() {
   const { state, dispatch } = useGraph();
   const f = state.filter;

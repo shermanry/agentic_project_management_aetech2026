@@ -50,7 +50,7 @@ export interface GraphState {
   candidates: Candidate[]
   log: LogEntry[]
   selectedId?: string
-  /** Search text and category filter, shared by the PM canvas and the Pilot network. */
+  /** Search text and category filter, shared by the PM canvas and the Expert network. */
   query: string
   filter: Filter
   /** Organizer output per parked node id. */
@@ -67,7 +67,7 @@ type Action =
   | { type: 'resetLayout' }
   | { type: 'accept'; id: string }
   | { type: 'dismiss'; id: string }
-  | { type: 'addNode'; title: string; kind: 'note' | 'file'; text?: string }
+  | { type: 'addNode'; title: string; kind: GraphNode['kind']; text?: string; pkg?: GraphNode['pkg']; offline?: boolean }
   | { type: 'setSuggestions'; suggestions: Record<string, Suggestion> }
   | { type: 'applySuggestion'; id: string }
   | { type: 'dropSuggestion'; id: string }
@@ -126,9 +126,12 @@ function reducer(s: GraphState, a: Action): GraphState {
         kind: a.kind,
         category: null,
         status: 'Unclassified',
-        summary: a.text?.trim() ? a.text.trim().slice(0, 220) : a.kind === 'file' ? 'File added locally. Its contents were not read.' : 'Note added locally.',
+        summary: a.text?.trim() ? a.text.trim().slice(0, 220) : a.kind === 'note' ? 'Note added locally.' : 'File added. Its contents were not read.',
         why: 'Parked: organize it into the graph, or remove it.',
-        origin: { kind: 'local', name: a.kind === 'file' ? 'Dropped file (name only)' : 'Typed note' },
+        origin: a.pkg
+          ? { kind: 'converter', name: `Converter · ${a.pkg.kind.replace(/_/g, ' ')} · ${a.pkg.chunks} chunks` }
+          : { kind: 'local', name: a.kind === 'note' ? 'Typed note' : a.offline ? 'Added by name (converter offline)' : 'Dropped file (name only)' },
+        pkg: a.pkg,
         owner: 'You (local)',
         updatedAt: new Date().toISOString().slice(0, 10),
         verification: 'Unreviewed',

@@ -7,16 +7,15 @@ import ClientView from './views/ClientView'
 import PMView from './views/PMView'
 import PilotView from './views/PilotView'
 import { Monogram, Wordmark } from './components/Logo'
-import ParkingView from './views/ParkingView'
+import Intake from './components/Intake'
 import { isParked } from './model/graph'
 
-type View = 'overview' | 'client' | 'pm' | 'pilot' | 'data'
+type View = 'overview' | 'client' | 'pm' | 'pilot'
 const VIEWS: { id: View; label: string; crumb: string; desc: string }[] = [
   { id: 'overview', label: 'Overview', crumb: 'Overview', desc: 'Project twin board: status of every node, open questions and proposed links.' },
   { id: 'client', label: 'Client', crumb: 'Building explorer', desc: 'Explore the building, see what is known about each part, and draft a design brief.' },
   { id: 'pm', label: 'PM', crumb: 'Knowledge canvas', desc: 'Arrange, filter and review project information by constraint category.' },
-  { id: 'pilot', label: 'Pilot', crumb: '3D network', desc: 'Every node and relationship in space, colour-matched to the PM categories.' },
-  { id: 'data', label: 'Parking lot', crumb: 'Parking lot', desc: 'Everything imported lands here first, then gets organized into the graph.' },
+  { id: 'pilot', label: 'Expert', crumb: '3D network', desc: 'Every node and relationship in space, colour-matched to the PM categories.' },
 ]
 
 const readView = (): View => {
@@ -50,6 +49,7 @@ function Shell() {
   const [view, setViewState] = useState<View>(readView)
   const [clientComp, setClientComp] = useState<ComponentId>()
   const [shared, setShared] = useState(false)
+  const [intake, setIntake] = useState(false)
   const setView = (v: View) => {
     setViewState(v)
     try {
@@ -66,7 +66,7 @@ function Shell() {
   const info = VIEWS.find((v) => v.id === view)!
 
   return (
-    <div className={`app light tab-${view} view-${view === 'overview' || view === 'data' ? 'monitor' : view === 'pm' ? 'pm' : 'twin'}`}>
+    <div className={`app light tab-${view} view-${view === 'overview' ? 'monitor' : view === 'pm' ? 'pm' : 'twin'}`}>
       <header className="topbar">
         <a className="brand" href="#overview" aria-label="YBuild, go to overview">
           <span className="brand-full">
@@ -89,12 +89,14 @@ function Shell() {
           {VIEWS.map((v) => (
             <button key={v.id} className={view === v.id ? 'on' : ''} onClick={() => setView(v.id)}>
               {v.label}
-              {v.id === 'data' && parkedCount > 0 && <sup className="tab-count">{parkedCount}</sup>}
             </button>
           ))}
         </nav>
 
         <div className="status-area">
+          <button className="add-btn" onClick={() => setIntake(true)} aria-haspopup="dialog">
+            + Add{parkedCount > 0 && <sup className="tab-count">{parkedCount}</sup>}
+          </button>
           <button
             className="btn sm"
             onClick={() => {
@@ -126,6 +128,7 @@ function Shell() {
           openClient={(c) => (setClientComp(c), setView('client'))}
           openPilot={(id) => (dispatch({ type: 'select', id }), setView('pilot'))}
           goTo={(s) => {
+            if (s.tab === 'add') return setIntake(true)
             if (s.question) dispatch({ type: 'setQuery', query: s.question })
             setView(s.tab)
           }}
@@ -134,7 +137,7 @@ function Shell() {
       {view === 'client' && <ClientView key={clientComp} initial={clientComp} />}
       {view === 'pm' && <PMView />}
       {view === 'pilot' && <PilotView />}
-      {view === 'data' && <ParkingView openPM={(id) => (dispatch({ type: 'select', id }), setView('pm'))} />}
+      <Intake open={intake} setOpen={setIntake} reveal={(id) => (dispatch({ type: 'select', id }), setView('pm'), setIntake(false))} />
     </div>
   )
 }

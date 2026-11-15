@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Badge, CategoryChips, Icon, NodeInspector, SearchBar } from '../components/ui'
+import { AskRow, Badge, CategoryChips, Icon, NodeInspector } from '../components/ui'
 import { CAT, CATEGORIES, UNCLASSIFIED_COLOR, type GraphEdge, type GraphNode } from '../data/sampleProject'
 import { colorOf, useGraph } from '../model/graph'
 
@@ -172,8 +172,6 @@ export default function PMView() {
   const [zoom, setZoom] = useState(0.8)
   const [pan, setPan] = useState<P>({ x: 20, y: 10 })
   const [over, setOver] = useState<Record<Mode, Record<string, P>>>({ canvas: {}, graph: {}, decisions: {} })
-  const [note, setNote] = useState<string>()
-  const [dropping, setDropping] = useState(false)
   const wrap = useRef<HTMLDivElement>(null)
 
   const nodeKey = state.nodes.map((n) => `${n.id}:${n.category}`).join()
@@ -311,34 +309,10 @@ export default function PMView() {
           .filter((g) => g !== null)
       : []
 
-  const addNote = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (note?.trim()) dispatch({ type: 'addNode', title: note.trim(), kind: 'note' })
-    setNote(undefined)
-    requestAnimationFrame(fit)
-  }
-
   return (
     <div className="pm">
       <div className="pm-main">
-        <div className="pm-search">
-          <SearchBar id="pm-search" />
-          <button className="ed-cta" onClick={() => setNote(note === undefined ? '' : undefined)} aria-expanded={note !== undefined}>
-            + Add node
-          </button>
-        </div>
-        {note !== undefined && (
-          <form className="pm-add" onSubmit={addNote}>
-            <input id="new-node" autoFocus aria-label="New node title" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Name the new node" />
-            <button className="ed-link plain" disabled={!note.trim()}>
-              Add
-            </button>
-            <button type="button" className="ed-link dim" onClick={() => setNote(undefined)}>
-              Cancel
-            </button>
-            <span className="ed-meta">Lands in Parked until it is organized</span>
-          </form>
-        )}
+        <AskRow id="pm-search" onAdded={() => requestAnimationFrame(fit)} />
 
         <div className="pm-toolbar">
           <div className="seg sm" role="group" aria-label="Layout">
@@ -355,17 +329,10 @@ export default function PMView() {
 
         <div
           ref={wrap}
-          className={`canvas-wrap ${dropping ? 'drop' : ''}`}
+          className="canvas-wrap"
           onPointerDown={(e) => {
             if (e.button !== 0) return
             drag.current = { sx: e.clientX, sy: e.clientY, ox: pan.x, oy: pan.y, moved: false }
-          }}
-          onDragOver={(e) => (e.preventDefault(), setDropping(true))}
-          onDragLeave={() => setDropping(false)}
-          onDrop={(e) => {
-            e.preventDefault()
-            setDropping(false)
-            Array.from(e.dataTransfer.files).forEach((f) => dispatch({ type: 'addNode', title: f.name, kind: 'file' }))
           }}
         >
           <div className="layer" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
