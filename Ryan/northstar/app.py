@@ -24,6 +24,8 @@ import folders
 import livefeeds
 import brief
 import links
+import ordered
+import relink
 import pipeline
 import projects
 import qa
@@ -282,7 +284,8 @@ async def events() -> StreamingResponse:
 
 
 @app.post("/api/intake")
-async def intake(text: str = Form(""), author: str = Form("Sam"), files: list[UploadFile] = File(default=[])) -> dict:
+async def intake(text: str = Form(""), author: str = Form("Sam"), modified: str = Form(""),
+                 files: list[UploadFile] = File(default=[])) -> dict:
     """A drop, a paste or a chat message. Each file becomes one item; text alone becomes one item;
     text sent with files is attached to them as the user's note."""
     text = text.strip()
@@ -290,19 +293,25 @@ async def intake(text: str = Form(""), author: str = Form("Sam"), files: list[Up
     real = [f for f in files if f.filename]
     if not real and not text:
         raise HTTPException(400, "Nothing to add: send text, files, or both")
-    for f in real:
+    dates = [ordered.to_ts(x) for x in modified.split(",")] if modified else []     # each file's own date, from the page
+    for n, f in enumerate(real):
         item_id = new_id("it")
         dest = UPLOADS / f"{item_id}_{Path(f.filename).name}"
         with dest.open("wb") as out:
             shutil.copyfileobj(f.file, out)
         it = {"id": item_id, "status": "processing", "label": f.filename, "author": author,
-              "source": {"kind": "file", "filename": f.filename, "path": str(dest), "note": text}, "created_at": now()}
+              "source": {"kind": "file", "filename": f.filename, "path": str(dest), "note": text,
+                         "created_ts": dates[n] if n < len(dates) else None}, "created_at": now()}
         store.put_item(it)
         created.append(item_id)
     if not real:
         created.append(_new_text_item(text, author))
     for item_id in created:
-        _start_processing(item_id)
+        if real and ordered.enabled():
+            notify({"type": "item", "id": item_id, "status": "processing"})
+            lane.add(item_id)          # files that arrive together are added one at a time, oldest first (ordered.py)
+        else:
+            _start_processing(item_id)
     return {"items": created}
 
 
@@ -331,9 +340,14 @@ def _add_file_from_path(path: Path, filename: str, note: str, author: str, extra
     dest = UPLOADS / f"{item_id}_{Path(filename).name}"
     shutil.copyfile(path, dest)
     store.put_item({"id": item_id, "status": "processing", "label": filename, "author": author,
-                    "source": {"kind": "file", "filename": filename, "path": str(dest), "note": note, **extra},
+                    "source": {"kind": "file", "filename": filename, "path": str(dest), "note": note, **extra,
+                               "created_ts": ordered.to_ts(extra.get("modified_at"))},
                     "created_at": now()})
-    _start_processing(item_id)
+    if ordered.enabled():
+        notify({"type": "item", "id": item_id, "status": "processing"})
+        lane.add(item_id, from_folder=True)
+    else:
+        _start_processing(item_id)
     return item_id
 
 
@@ -429,6 +443,33 @@ def _approve(it: dict, type_: str, title: str, links: list[dict], by: str, reaso
     if not quiet:
         notify({"type": "graph", "seq": seq, "node_id": node_id})
     return {"node_id": node_id, "effects": fx, "revision": seq}
+
+
+# One lane for incoming files: a single file waits for review; a batch is added in order of creation (ordered.py).
+lane = ordered.Lane(store, lambda item_id: pipeline.process(item_id, store, PACKAGES, notify), _approve, _start_processing, notify)
+_relinking = threading.Event()
+
+
+class RelinkIn(BaseModel):
+    by: str = "Jev"
+
+
+@app.post("/api/relink")
+def relink_now(d: RelinkIn) -> dict:
+    """Link the nodes already in the project, oldest first, with Jev at each step (relink.py). Runs in the
+    background; the graph updates as links are added."""
+    if _relinking.is_set():
+        raise HTTPException(409, "Already linking")
+
+    def work() -> None:
+        try:
+            out = relink.run(store, d.by or "Jev", notify)
+            notify({"type": "relinked", "links": out["links"], "looked_at": out["looked_at"]})
+        finally:
+            _relinking.clear()
+    _relinking.set()
+    threading.Thread(target=work, daemon=True).start()
+    return {"started": True, "nodes": len(store.nodes())}
 
 
 @app.post("/api/items/{item_id}/approve")

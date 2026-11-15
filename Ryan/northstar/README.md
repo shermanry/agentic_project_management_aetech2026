@@ -84,6 +84,18 @@ A link can change other nodes. If the new link makes something depend on a node 
 
 Endpoints: `POST /api/edges/suggest` and `POST /api/edges/preview` save nothing; `POST /api/edges` adds the link. All take `{source, target, type, reason, by}` where `source` is the "from" node. The logic is in `links.py`.
 
+## Adding many files at once: in order of creation, Jev at each step
+
+A proposal can only link to what is already in the graph. So files that arrive together are **added one at a time, oldest first** (`ordered.py`):
+
+- **One file** behaves as before: it is read, proposed, and waits for a person to review it.
+- **Two or more files arriving together** (a multi-file drop, a dropped folder, a linked folder) are a batch. They are sorted by each file's own date, then by name in natural order (A2 before A10). For each one in turn: it is read, Jev proposes its type and links against the graph as it stands at that moment, and it is **added automatically** before the next one is read. File 7 can link to files 1 to 6.
+- Each automatic addition is in the history like any other, with "Added automatically, in order of creation (7 of 25)" as its reason.
+- The pages send each file's last-modified date as the `modified` form field; linked folders use the date from the folder listing. Without dates, the order is by file name.
+- It is slower than reading in parallel: about 6 seconds per file. `INTAKE_ORDERED=0` goes back to parallel reading with a review for every file.
+
+**Linking what is already there.** For a project whose files were read all at once and came out as loose nodes, `POST /api/relink` (or `.venv/bin/python relink.py <project id>`) walks the existing nodes oldest first, shows Jev each one with the nodes before it, and adds the links it proposes. Nodes that already have outgoing links are left alone.
+
 ## Example projects and switching between them
 
 Each example project runs as **its own copy of the app**, with its own port, database and data folder, so one can never disturb another. The list is in `projects.json`.
@@ -168,6 +180,8 @@ drop / paste / chat
 | `db/010_northstar.sql` | One extra table, `intake_items`: things being processed or waiting for review |
 | `projects.json`, `projects.py`, `run_project.sh` | The example projects, their settings, and the launcher |
 | `brief.py` | Design brief generator for the Client tab |
+| `ordered.py` | The lane that adds a batch of files one at a time, in order of creation |
+| `relink.py` | Links the nodes a project already has, in order of creation |
 | `links.py` | Connecting two existing nodes: signals, Jev suggestions, dry-run effects |
 | `qa.py` | Question answering over the graph with cited sources |
 | `replay.py` | The replay scenario and the Back / Forward logic |
@@ -227,6 +241,7 @@ Settings (environment or `.env`): `DATABASE_URL`, `FEEDS_ENABLED`, `MONITOR_SITE
 | GET | `/api/nodes/{id}/neighbours` | Graph walk: `affects`, `rests_on` or `any`, to a depth |
 | POST | `/api/edges/suggest`, `/api/edges/preview`, `/api/edges` | Suggest, dry-run and add a link between two existing nodes |
 | GET | `/api/projects` | The example projects, which one this app is, and which others are running |
+| POST | `/api/relink` | Link the project's existing nodes, oldest first, with Jev at each step |
 | GET | `/api/brief` | Draft design brief in Markdown, templated from the live record (no model call). Used by the Client tab |
 | POST | `/api/ask` | `{question}` -> answer, cited sources with quotes, timings. Saves nothing |
 | POST | `/api/nodes/{id}/resolve` | Mark a blocker, discovery or constraint resolved; clears the flags it raised |

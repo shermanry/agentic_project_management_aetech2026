@@ -124,7 +124,7 @@ def _one(job: Job, e, add_file: Callable) -> None:
             if e.size and e.size > sources.max_bytes():
                 raise RuntimeError(f"larger than {sources.max_bytes() // 1_000_000} MB, left out")
             path = e.fetch(Path(td))
-            item_id = add_file(Path(path), e.name, note, job.author, {"uri": e.uri, "folder": where, "via": job.kind})
+            item_id = add_file(Path(path), e.name, note, job.author, {"uri": e.uri, "folder": where, "via": job.kind, "modified_at": e.modified})
             _SEEN.add(f"{job.source}|{e.key}")
             job.items.append(item_id)
             job.done += 1

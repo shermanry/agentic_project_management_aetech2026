@@ -564,6 +564,7 @@ async function send(files) {
   if (!text && !(files && files.length)) return;
   const fd = new FormData(); fd.append("text", text); fd.append("author", who());
   [...(files||[])].forEach(f => fd.append("files", f, f.name));
+  fd.append("modified", [...(files||[])].map(f => f.lastModified || "").join(","));
   $("#text").value = "";
   try { await api("/api/intake", {method:"POST", body: fd}); await refresh(); } catch (e) { toast(e.message); }
 }

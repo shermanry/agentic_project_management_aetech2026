@@ -721,7 +721,7 @@ async function addFolder(all, extraNote, quiet) {
   ui.jobs.push(job); if (!quiet) ui.intake = true; render();
   let i = 0;
   const worker = async () => { while (i < files.length && job.status === 'running') { const f = files[i++], dir = folderOf(f);
-    const fd = new FormData(); fd.append('author', ui.who); fd.append('files', f, f.name);
+    const fd = new FormData(); fd.append('author', ui.who); fd.append('files', f, f.name); fd.append('modified', f.lastModified || '');   // the file's own date: a batch is added oldest first
     fd.append('text', [dir ? `From the folder "${dir}".` : '', extraNote || ''].filter(Boolean).join(' '));
     try { await api('/api/intake', {method: 'POST', body: fd}); job.done++; } catch (e) { job.failed++; job.errors.push(`${f.name}: ${e.message}`); }
     safeRender(); } };
@@ -758,6 +758,7 @@ function folderJobs() {
 async function intake(text, files, quiet, onTitle) {      // quiet: stay in the 3D view; the item shows up under + Add
   const fd = new FormData(); fd.append('text', text || ''); fd.append('author', ui.who);
   for (const f of files || []) fd.append('files', f);
+  fd.append('modified', [...(files || [])].map(f => f.lastModified || '').join(','));   // each file's own date: a batch is added oldest first
   try { await api('/api/intake', {method: 'POST', body: fd}); toast(quiet ? `Reading it now${onTitle ? `, in relation to ${onTitle}` : ''}. Open + Add to place it.` : 'Reading it now. It will appear under Waiting to be placed.'); ui.adding = false; if (!quiet) ui.intake = true; await refresh(); render(); }
   catch (e) { toast(e.message); }
 }
