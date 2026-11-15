@@ -7,8 +7,8 @@
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const PRESENTER = new URLSearchParams(location.search).has('presenter');
-const TABS = [['overview', 'Overview'], ['client', 'Client'], ['pm', 'PM'], ['pilot', 'Pilot'], ['data', 'Parking lot']];
-const CRUMB = {overview: 'Overview', client: 'Client view', pm: 'Knowledge canvas', pilot: 'Pilot brief', data: 'Parking lot'};
+const TABS = [['overview', 'Overview'], ['client', 'Client'], ['pm', 'PM'], ['pilot', 'Expert']];   // the Parking lot tab is now the + Add drawer (drop files anywhere)
+const CRUMB = {overview: 'Overview', client: 'Client view', pm: 'Knowledge canvas', pilot: 'Expert view'};
 
 /* The design groups nodes by domain; the back end types them by lifecycle (decision, blocker, ...).
    Both are shown: the type is the card's "kind", the domain is worked out from tags and wording. */
@@ -42,7 +42,7 @@ let S = null;            // last /api/state
 let D = null;            // derived from S
 let live = false, dirty = false;
 const ui = {tab: 'overview', sel: null, mode: 'tree', off: new Set(), q: '', view: null, pos: {}, ask: {}, who: 'Mary', adding: false,
-            search: null, link: null, detail: {}, busy: false};
+            search: null, link: null, detail: {}, busy: false, intake: false};
 try { ui.who = localStorage.getItem('yb.who') || 'Mary'; } catch {}
 
 /* ------------------------------------------------------------------ data */
@@ -125,10 +125,10 @@ function render() {
   dirty = false;
   if (!S) return;
   const y = window.scrollY, tab = ui.tab;
-  const counts = {data: D.open.length, pm: D.flagged.length};
+  const counts = {pm: D.flagged.length};
   secN = 0;
   UIX.sync(S, D);
-  const page = UIX.page(tab) || {overview, client, pm, pilot, data: parking}[tab]();   // UIX: onboarding can stand in for the Overview
+  const page = UIX.page(tab) || {overview, client, pm, pilot}[tab]();   // UIX: onboarding can stand in for the Overview
   $('#root').innerHTML = `<div class="app light tab-${tab} view-${tab === 'pm' ? 'pm' : 'monitor'} ${UIX.inNet() ? 'net-on' : ''}">
   <header class="topbar">
     <a class="brand" href="#overview" style="text-decoration:none;display:flex;align-items:center;gap:14px">
@@ -138,6 +138,7 @@ function render() {
     <nav class="crumbs"><span>Projects</span><span class="sl">›</span><b>${esc(S.project.name)}</b><span class="sl">›</span><span>${CRUMB[tab]}</span></nav>
     <nav class="seg views">${TABS.map(([id, l]) => `<button class="${id === tab ? 'on' : ''}" data-act="tab" data-id="${id}">${l}${counts[id] ? `<sup class="tab-count">${counts[id]}</sup>` : ''}</button>`).join('')}</nav>
     <div class="status-area">
+      <button class="add-btn" data-act="intake" aria-haspopup="dialog">+ Add${D.open.length ? `<sup class="tab-count">${D.open.length}</sup>` : ''}</button>
       <span class="live ${live ? '' : 'off'}" id="live"><i></i>${live ? 'Live' : 'Offline'}</span>
       <label class="who">As <select data-change="who">${S.people.filter(p => p.role !== 'client').map(p => `<option ${p.name === ui.who ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
       <div class="clock"><span class="clock-t" id="clock">${clock()}</span><span class="clock-z">New York</span></div>
@@ -145,6 +146,7 @@ function render() {
   </header>
   ${PRESENTER ? presenterBar() : ''}
   ${page}
+  ${intakeDrawer()}
   ${UIX.modal()}
   </div>`;
   if (tab === 'pm') mountCanvas(); else window.scrollTo(0, y);
@@ -267,7 +269,7 @@ function overview() {
   const again = D.flagged.filter(n => n.type === 'decision').length;
   const lede = D.flagged.length
     ? `${D.flagged.length} ${D.flagged.length === 1 ? 'thing needs' : 'things need'} another look${again ? `, ${again} of them ${again === 1 ? 'a decision' : 'decisions'} already made` : ''}.${last ? ` Latest cause: ${last.title}.` : ''}`
-    : S.nodes.length ? 'Nothing is flagged. Every decision still rests on what it was decided on.' : 'An empty project. Add the first thing in the parking lot, or press Forward in the presenter bar.';
+    : S.nodes.length ? 'Nothing is flagged. Every decision still rests on what it was decided on.' : 'An empty project. Add the first thing with + Add, or press Forward in the presenter bar.';
   const recent = [...D.events].reverse().filter(e => e.kind !== 'project.seeded').slice(0, 6);
   const feeds = feedDays();
   return `<main class="ed-page">
@@ -281,7 +283,7 @@ function overview() {
     <div><span class="ed-num">${D.open.length}</span><span class="ed-meta">To review</span></div>
     <div><span class="ed-num">${D.flagged.length}</span><span class="ed-meta">Need another look</span></div>
   </section>
-  ${section('01', 'Review', D.open.length ? `<ul class="ed-rows">${D.open.map(i => itemRow(i, false)).join('')}</ul>` : `<p class="ed-empty">Nothing is waiting. Drop a file or a note in the parking lot and it will be read, placed and shown here before anything changes.</p>`, 'New information, placed by the agent. Nothing joins the record until someone accepts it.')}
+  ${section('01', 'Review', D.open.length ? `<ul class="ed-rows">${D.open.map(i => itemRow(i, false)).join('')}</ul>` : `<p class="ed-empty">Nothing is waiting. Drop a file anywhere, or press + Add, and it will be read, placed and shown here before anything changes.</p>`, 'New information, placed by the agent. Nothing joins the record until someone accepts it.')}
   ${section('02', 'Another look', D.flagged.length ? `<div class="ed-rows">${D.flagged.map(flaggedRow).join('')}</div>` : `<p class="ed-empty">No decision, deliverable or event is at risk.</p>`, 'What a change put at risk, blocked or re-opened, and why.')}
   ${section('03', 'Building', partTiles(), 'Each part lights up from what is open on the things linked to it.')}
   ${section('03', 'What changed', recent.length ? `<ul class="ed-rows">${recent.map(e => eventRow(e)).join('')}</ul>` : `<p class="ed-empty">No changes since the project was set up.</p>`)}
@@ -307,17 +309,19 @@ function feedDays() {
   return {html};
 }
 
-/* ------------------------------------------------------------------ parking lot */
-function parking() {
-  const done = S.items.filter(i => i.status === 'approved').slice(0, 12);
-  return `<main class="ed-page">
-  <header class="ov-hero"><span class="ed-meta">Intake · ${D.open.length} parked</span><h1 class="ed-display md">Parking lot</h1>
-    <div class="ov-hero-foot"><p class="ed-lede" style="max-width:46ch">Drop anything here: an email, a site note, a permit, a photo. The agent reads it, proposes where it belongs and shows what it would change. You decide.</p></div></header>
-  <div class="pk-drop" id="drop"><span class="big">Drop files here</span><button class="ed-link" data-act="browse">Browse</button><input type="file" id="file" multiple>
-    <form class="pk-note" data-note="1" style="flex:1 1 320px"><input name="text" placeholder="or paste a note" autocomplete="off" style="flex:1"><button class="ed-link plain">Add</button></form></div>
-  ${section('01', 'Parked', D.open.length ? `<ul class="ed-rows">${D.open.map(i => itemRow(i, true)).join('')}</ul>` : `<p class="ed-empty">Nothing parked.</p>`, 'Proposed, not yet part of the record.')}
-  ${section('02', 'In the record', done.length ? `<div class="ed-rows">${done.map(i => `<button class="ed-row" ${i.node_id ? `data-act="sel" data-id="${i.node_id}"` : ''}><span class="t">${esc(itemTitle(i))}</span><span class="side"><span class="ed-meta">${esc(TYPE_LABEL[i.proposal && i.proposal.type] || '')} · added by ${esc(i.author || '')}</span><span class="go">→</span></span></button>`).join('')}</div>` : `<p class="ed-empty">Nothing has been accepted from the parking lot yet.</p>`)}
-  ${foot()}</main>`;
+/* ------------------------------------------------------------------ + Add drawer (was the Parking lot tab)
+   Files can be dropped anywhere on the page. Everything goes through POST /api/intake, which uses the converter
+   (Minh/converter) to read the file, then waits here until someone accepts where it belongs. */
+function intakeDrawer() {
+  return `${ui.intake ? '<div class="intake-scrim" data-act="intake"></div>' : ''}
+  <aside class="intake ${ui.intake ? 'open' : ''}" aria-label="Add to project" ${ui.intake ? '' : 'aria-hidden="true"'}>
+    <header><div><span class="ed-meta">Add to project</span><h2>Drop files anywhere</h2></div><button class="icon-btn" data-act="intake" aria-label="Close">×</button></header>
+    <p class="intake-status on"><i></i>An email, a site note, a permit, a photo. It is read, a place is proposed with what it would change, and you decide.</p>
+    <div class="intake-drop" id="drop"><button class="ed-cta" data-act="browse">Choose files</button><input type="file" id="file" multiple hidden>
+      <form class="pk-note" data-note="1"><input name="text" placeholder="or paste a note" autocomplete="off"><button class="ed-link plain">Add</button></form></div>
+    <div class="intake-list"><span class="ed-meta">Waiting to be placed · ${D.open.length}</span>
+      ${D.open.length ? `<ul class="ed-rows">${D.open.map(i => itemRow(i, true)).join('')}</ul>` : '<p class="ed-empty">Nothing waiting. Everything is placed in the record.</p>'}</div>
+  </aside>`;
 }
 
 /* ------------------------------------------------------------------ pilot */
@@ -330,7 +334,7 @@ function pilot() {
   const net3d = UIX.pilotPage(); if (net3d) return net3d;     // UIX: the design's Pilot tab is the 3D knowledge network
   const flights = S.nodes.filter(n => n.type === 'event');
   const f = flights.find(n => FLAG[n.status]) || flights[0];
-  if (!f) return `<main class="ed-page"><header class="ov-hero"><span class="ed-meta">Pilot brief</span><h1 class="ed-display md">No flight yet</h1><p class="ed-lede">Add a flight in the parking lot and its brief appears here.</p></header></main>`;
+  if (!f) return `<main class="ed-page"><header class="ov-hero"><span class="ed-meta">Pilot brief</span><h1 class="ed-display md">No flight yet</h1><p class="ed-lede">Add a flight with + Add and its brief appears here.</p></header></main>`;
   const up = upstream(f.id).map(u => ({...u, n: D.byId[u.id]}));
   const bad = up.filter(u => u.n.status === 'blocked' || u.n.type === 'blocker' && !['resolved', 'done'].includes(u.n.status));
   const word = f.status === 'blocked' || bad.length ? 'No-go' : FLAG[f.status] ? 'At risk' : 'Go';
@@ -602,7 +606,7 @@ function linkPanel() {
 async function intake(text, files) {
   const fd = new FormData(); fd.append('text', text || ''); fd.append('author', ui.who);
   for (const f of files || []) fd.append('files', f);
-  try { await api('/api/intake', {method: 'POST', body: fd}); toast('Reading it now. It will appear under Parked for review.'); ui.adding = false; await refresh(); }
+  try { await api('/api/intake', {method: 'POST', body: fd}); toast('Reading it now. It will appear under Waiting to be placed.'); ui.adding = false; ui.intake = true; await refresh(); render(); }
   catch (e) { toast(e.message); }
 }
 async function accept(id) {
@@ -630,6 +634,7 @@ document.addEventListener('click', async e => {
   else if (act === 'clearsearch') { ui.search = null; ui.q = ''; render(); }
   else if (act === 'mode') { ui.mode = id; ui.view = null; render(); }
   else if (act === 'cat') { ui.off.has(id) ? ui.off.delete(id) : ui.off.add(id); ui.view = null; render(); }
+  else if (act === 'intake') { ui.intake = !ui.intake; render(); }
   else if (act === 'adding') { ui.adding = !ui.adding; ui.view = null; render(); }
   else if (act === 'zoom') { const w = $('#wrap');
     if (id === 'fit') fit(); else if (id === 'arrange') { delete ui.pos[ui.mode]; ui.view = null; render(); } else zoomAt(id === 'in' ? 1.2 : 1 / 1.2, w.clientWidth / 2, w.clientHeight / 2); }
@@ -664,11 +669,21 @@ document.addEventListener('change', async e => {
   else if (t.dataset.change === 'who') { ui.who = t.value; try { localStorage.setItem('yb.who', ui.who); } catch {} }
   else if (t.dataset.change === 'inject' && t.value) { try { await post('/api/feeds/inject/' + t.value); toast('Simulated: ' + t.value.replace(/_/g, ' ')); } catch (err) { toast(err.message); } await refresh(); render(); }
 });
-document.addEventListener('dragover', e => { const d = $('#drop'); if (d) { e.preventDefault(); d.classList.add('over'); } });
-document.addEventListener('dragleave', e => { const d = $('#drop'); if (d && !e.relatedTarget) d.classList.remove('over'); });
-document.addEventListener('drop', e => { const d = $('#drop'); if (!d) return; e.preventDefault(); d.classList.remove('over'); if (e.dataTransfer.files.length) intake('', [...e.dataTransfer.files]); });
+/* Drag and drop is native to the whole page: a file dropped on any tab is sent to intake. */
+let dragDepth = 0;
+const hasFiles = e => [...((e.dataTransfer && e.dataTransfer.types) || [])].includes('Files');
+function veil(on) {
+  let v = $('#veil');
+  if (on && !v) { v = document.createElement('div'); v.id = 'veil'; v.className = 'drop-veil'; v.innerHTML = '<span class="ed-meta">Add to project</span><span class="big">Drop to add to the project</span>'; document.body.appendChild(v); }
+  else if (!on && v) v.remove();
+}
+document.addEventListener('dragenter', e => { if (!hasFiles(e)) return; dragDepth++; veil(true); });
+document.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+document.addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) veil(false); });
+document.addEventListener('drop', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth = 0; veil(false); if (e.dataTransfer.files.length) intake('', [...e.dataTransfer.files]); });
 
-function route() { const h = location.hash.replace('#', ''); ui.tab = TABS.some(t => t[0] === h) ? h : 'overview'; ui.view = null; if (S) { render(); if (ui.tab !== 'pm') window.scrollTo(0, 0); } }
+function route() { const h = location.hash.replace('#', ''); if (h === 'data') ui.intake = true;   // old Parking lot links open the drawer
+  ui.tab = TABS.some(t => t[0] === h) ? h : 'overview'; ui.view = null; if (S) { render(); if (ui.tab !== 'pm') window.scrollTo(0, 0); } }
 window.addEventListener('hashchange', route);
 window.addEventListener('resize', () => { if (ui.tab === 'pm' && S) fit(); });
 

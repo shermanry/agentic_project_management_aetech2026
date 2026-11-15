@@ -1,4 +1,5 @@
 /* uix.js: the pieces of the UI/UX design (Leslie/) that the live page lacked, wired to the real API.
+   (The Pilot tab is labelled "Expert" in the UI; its id stays 'pilot'.)
      1 Onboarding questionnaire on the Overview, the "Suggested for you" strip and the Retake button
      2 Ask bar on the PM and Pilot tabs: plain-language question, short answer, "Go to" buttons, highlights
      3 Design brief on the Client tab: preview, copy, download .md  (GET /api/brief)
@@ -15,7 +16,7 @@ window.makeUIX = ({ui, esc, $, api, post, render, toast, inspector, loadDetail, 
     {key: 'role', q: 'What best describes you?', options: [
       ['client', 'Client', 'I want to follow the project and see what I am getting'],
       ['pm', 'Project manager', 'I keep the pieces moving and decide what happens next'],
-      ['pilot', 'Pilot or specialist', 'I plan and carry out the technical work'],
+      ['pilot', 'Expert', 'I plan and carry out the technical work'],
       ['explore', 'Just looking', 'Show me around']]},
     {key: 'goal', q: 'What would you like to do first?', options: [
       ['building', 'See the building', 'Explore it part by part'],
@@ -30,7 +31,7 @@ window.makeUIX = ({ui, esc, $, api, post, render, toast, inspector, loadDetail, 
   const ob = {saved: store.get('yb.onboarding'), step: 0, ans: {}, skipped: PRESENTER};
   function startFor(a) {
     if (a.goal === 'building') return {tab: 'client', label: 'Building explorer', why: 'See each part of the building and what is open on it.'};
-    if (a.goal === 'add') return {tab: 'data', label: 'Parking lot', why: 'Drop files or paste notes. They get sorted into the project for you to approve.'};
+    if (a.goal === 'add') return {tab: 'add', label: 'Add files', why: 'Drop files anywhere on the page, or paste a note. You approve where each one goes.'};
     if (a.goal === 'blocking') return {tab: a.role === 'pilot' ? 'pilot' : 'pm', label: a.role === 'pilot' ? 'Knowledge network' : 'Project tree',
       why: 'We will ask the guide what is still open and show you where.', question: 'What still needs checking?'};
     if (a.role === 'client') return {tab: 'client', label: 'Building explorer', why: 'The simplest way in: explore the building, then draft a brief.'};
@@ -63,6 +64,7 @@ window.makeUIX = ({ui, esc, $, api, post, render, toast, inspector, loadDetail, 
       <button class="ed-cta xl" data-uix="ob-retake">${ob.saved ? 'Retake questions' : 'Answer 3 questions'}</button></section>`;
   }
   function goTo(start) {
+    if (start.tab === 'add') { ui.intake = true; render(); return; }     // opens the + Add drawer
     location.hash = start.tab;
     if (start.tab === 'pilot') pilotMode = 'net';
     if (start.question) setTimeout(() => runGuide(start.question), 60);
@@ -152,19 +154,22 @@ window.makeUIX = ({ui, esc, $, api, post, render, toast, inspector, loadDetail, 
   function network() {
     const sel = ui.sel && D.byId[ui.sel] ? ui.sel : null;
     const toggles = [['labels', 'Labels'], ['focus', 'Focus neighborhood'], ['proposed', 'Proposed links'], ['orbit', 'Auto-orbit']];
-    return `<div class="twin net">
+    return `<div class="expert">
+      <div class="pm-search pm-add" style="padding-top:18px">${askBar('pilot')}
+        <button class="ed-cta" data-act="adding">${ui.adding ? 'Close' : '+ Add to record'}</button></div>
+      ${ui.adding ? `<form class="pm-add" data-note="1"><input name="text" placeholder="Type a note, a finding or a change. It is read and proposed, not added directly." autocomplete="off" autofocus><button class="ed-link plain">Send for review</button></form>` : ''}
+      <div class="twin net">
       <div class="twin-canvas" id="net3d"></div>
       <div class="hud">
         <div class="hud-col left">
-          <section class="glass"><div class="eyebrow">Pilot</div><h1 class="site-name">Knowledge network</h1>
+          <section class="glass"><div class="eyebrow">Expert</div><h1 class="site-name">Knowledge network</h1>
             <p class="body dim">Grouped by category. Drag to orbit, scroll to zoom, click a node.</p>
             <div class="netstats"><div><b class="mono">${S.nodes.length}</b><span>nodes</span></div><div><b class="mono">${S.edges.length}</b><span>relationships</span></div><div><b class="mono">${D.ready.length}</b><span>proposed</span></div></div></section>
           <section class="glass"><div class="glass-h"><h2>Categories</h2></div>
             <div class="chips">${CAT_ORDER.map(c => `<button class="fchip ${ui.off.has(c) ? '' : 'on'}" style="--c:${CATS[c].c}" data-act="cat" data-id="${c}"><i style="width:8px;height:8px;border-radius:50%;background:${CATS[c].c};display:inline-block"></i>${CATS[c].label} <span class="dim">${S.nodes.filter(n => D.cat[n.id] === c).length}</span></button>`).join('')}</div></section>
           <section class="glass"><div class="glass-h"><h2>Links</h2></div><div class="edge-key"><span class="k-app">approved</span><span class="k-prop">proposed</span></div></section>
         </div>
-        <div class="hud-top stack">
-          <div class="glass net-search">${askBar('pilot')}</div>
+        <div class="hud-top">
           <div class="toolbar glass" role="toolbar" aria-label="Network view"><button class="btn sm" data-uix="net-reset">Reset view</button><span class="sep"></span>
             ${toggles.map(([k, l]) => `<label class="toggle ${opt[k] ? 'on' : ''}"><input type="checkbox" data-uix-toggle="${k}" ${opt[k] ? 'checked' : ''}>${l}</label>`).join('')}
             <span class="sep"></span><button class="btn sm" data-uix="pilot-brief">Flight brief</button></div>
@@ -172,7 +177,7 @@ window.makeUIX = ({ui, esc, $, api, post, render, toast, inspector, loadDetail, 
         <div class="hud-col right"><section class="glass">${sel
           ? inspector() + `<div class="ins-act" style="margin-top:10px"><button class="ed-link" data-uix="open-canvas">Open in canvas</button><button class="ed-link dim" data-uix="net-desel">Close</button></div>`
           : '<p class="body dim">Click a node to see its category, status, summary and connections.</p>'}</section></div>
-      </div></div>`;
+      </div></div></div>`;
   }
   /* app.js hook */
   function pilotPage() { return pilotMode === 'net' ? network() : null; }
