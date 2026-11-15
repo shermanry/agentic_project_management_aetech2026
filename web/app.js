@@ -127,8 +127,9 @@ function render() {
   const y = window.scrollY, tab = ui.tab;
   const counts = {data: D.open.length, pm: D.flagged.length};
   secN = 0;
-  const page = {overview, client, pm, pilot, data: parking}[tab]();
-  $('#root').innerHTML = `<div class="app light tab-${tab} view-${tab === 'pm' ? 'pm' : 'monitor'}">
+  UIX.sync(S, D);
+  const page = UIX.page(tab) || {overview, client, pm, pilot, data: parking}[tab]();   // UIX: onboarding can stand in for the Overview
+  $('#root').innerHTML = `<div class="app light tab-${tab} view-${tab === 'pm' ? 'pm' : 'monitor'} ${UIX.inNet() ? 'net-on' : ''}">
   <header class="topbar">
     <a class="brand" href="#overview" style="text-decoration:none;display:flex;align-items:center;gap:14px">
       <img src="logo.png" alt="YBuild" style="height:26px;width:auto;display:block">
@@ -144,8 +145,10 @@ function render() {
   </header>
   ${PRESENTER ? presenterBar() : ''}
   ${page}
+  ${UIX.modal()}
   </div>`;
   if (tab === 'pm') mountCanvas(); else window.scrollTo(0, y);
+  UIX.afterRender();
 }
 const clock = () => new Date().toLocaleTimeString('en-US', {timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false});
 setInterval(() => { const c = $('#clock'); if (c) c.textContent = clock(); }, 20000);
@@ -271,6 +274,7 @@ function overview() {
   <header class="ov-hero"><span class="ed-meta">${esc(S.project.id)} · Living decision record</span>
     <h1 class="ed-display">${esc(S.project.name)}</h1>
     <div class="ov-hero-foot"><p class="ed-lede" style="max-width:44ch">${esc(lede)}</p><button class="ed-link" data-act="tab" data-id="pm">Open the knowledge canvas</button></div></header>
+  ${UIX.startStrip()}
   <section class="ed-nums">
     <div><span class="ed-num">${S.nodes.length}</span><span class="ed-meta">Nodes</span></div>
     <div><span class="ed-num">${S.edges.length}</span><span class="ed-meta">Links</span></div>
@@ -286,6 +290,7 @@ function overview() {
       return `<div class="ed-col"><span class="ed-meta">${CATS[c].label} · ${ns.length}</span>${ns.map(n => `<button class="ed-item" data-act="sel" data-id="${n.id}"><span class="t">${esc(n.title)}</span><span class="ed-meta ${FLAG[n.status] ? 'flag' : ''}">${esc(TYPE_LABEL[n.type] || n.type)} · ${esc(statusLabel(n))}</span></button>`).join('')}</div>`; }).join('')}</div>`)}
   ${section('06', 'Live feeds', feeds.html, 'Monitors that watch the outside world and raise a change when it touches the record.')}
   ${section('07', 'Rules', rulesBlock(), 'What the record has learned to watch for. Suggested by the analysis loop, approved by a person.')}
+  ${UIX.retake()}
   ${foot()}</main>`;
 }
 function feedDays() {
@@ -322,6 +327,7 @@ function upstream(id) {
   return out;
 }
 function pilot() {
+  const net3d = UIX.pilotPage(); if (net3d) return net3d;     // UIX: the design's Pilot tab is the 3D knowledge network
   const flights = S.nodes.filter(n => n.type === 'event');
   const f = flights.find(n => FLAG[n.status]) || flights[0];
   if (!f) return `<main class="ed-page"><header class="ov-hero"><span class="ed-meta">Pilot brief</span><h1 class="ed-display md">No flight yet</h1><p class="ed-lede">Add a flight in the parking lot and its brief appears here.</p></header></main>`;
@@ -338,7 +344,7 @@ function pilot() {
   return `<main class="ed-page">
   <header class="ov-hero"><span class="ed-meta">Pilot brief · ${esc(f.title)}</span><h1 class="ed-display md ${word !== 'Go' ? 'flag' + (word === 'No-go' ? ' bad' : '') : ''}">${word}</h1>
     <div class="ov-hero-foot"><p class="ed-lede" style="max-width:48ch">${esc(c ? `${c.why} Because: ${c.ev.title}.` : word === 'Go' ? 'Everything this flight rests on is in place.' : f.summary || '')}</p>
-    <button class="ed-link" data-act="sel" data-id="${f.id}">See it on the canvas</button></div></header>
+    <button class="ed-link" data-act="sel" data-id="${f.id}">See it on the canvas</button>${UIX.netLink()}</div></header>
   <section class="ed-nums">
     <div><span class="ed-num">${up.length}</span><span class="ed-meta">Things it rests on</span></div>
     <div><span class="ed-num">${up.filter(u => FLAG[u.n.status]).length}</span><span class="ed-meta">Flagged</span></div>
@@ -364,7 +370,7 @@ function client() {
       ${n.summary ? `<span class="sub">${esc(n.summary)}</span>` : ''}${c ? `<span class="sub flag">${esc(c.why)}</span>` : ''}</li>`; };
   return `<main class="ed-page">
   <header class="ov-hero"><span class="ed-meta">Client view · read only</span><h1 class="ed-display md">${esc(S.project.name)}</h1>
-    <div class="ov-hero-foot"><p class="ed-lede" style="max-width:46ch">${esc(lede)}</p></div></header>
+    <div class="ov-hero-foot"><p class="ed-lede" style="max-width:46ch">${esc(lede)}</p>${UIX.briefButton()}</div></header>
   ${(S.parts || []).length ? section('01', 'Your building', `<div style="display:grid;grid-template-columns:minmax(180px,1fr) minmax(0,2fr);gap:32px;align-items:start"><div class="ed-figure"><div class="frame" style="aspect-ratio:3/4;padding:18px">${buildingSVG()}</div></div><ul class="ed-rows">${partRows(true)}</ul></div>`, 'Each part of the building, and whether anything about it is being looked at again.') : ''}
   ${section('01', 'Your deliverables', dels.length ? `<ul class="ed-rows">${dels.map(row).join('')}</ul>` : `<p class="ed-empty">None yet.</p>`)}
   ${section('02', 'What changed', changes.length ? `<ul class="ed-rows">${changes.map(e => eventRow(e, f => D.byId[f.node_id] && show.has(D.byId[f.node_id].type))).join('')}</ul>` : `<p class="ed-empty">Nothing has changed that affects you.</p>`, 'Only changes that touch a deliverable, a flight or a decision.')}
@@ -422,7 +428,7 @@ function pm() {
   for (const id in moved) if (L.pos[id]) L.pos[id] = moved[id];
   const sel = ui.sel, near = new Set(sel ? [sel] : []);
   if (sel) for (const f of D.flow) { if (f.a === sel) near.add(f.b); if (f.b === sel) near.add(f.a); }
-  const q = ui.q.trim().toLowerCase(), hits = ui.search && ui.search.res ? new Set(ui.search.res.results.map(r => r.node.id)) : null, hit = n => hits ? hits.has(n.id) : !q || (n.title + ' ' + (n.summary || '') + ' ' + (n.tags || []).join(' ') + ' ' + n.type).toLowerCase().includes(q);
+  const q = ui.q.trim().toLowerCase(), hits = UIX.hits() || (ui.search && ui.search.res ? new Set(ui.search.res.results.map(r => r.node.id)) : null), hit = n => hits ? hits.has(n.id) : !q || (n.title + ' ' + (n.summary || '') + ' ' + (n.tags || []).join(' ') + ' ' + n.type).toLowerCase().includes(q);
   const cards = nodes.map(n => { const p = L.pos[n.id], c = D.cat[n.id], fl = FLAG[n.status], cz = fl && D.cause[n.id];
     return `<div class="card ${sel === n.id ? 'sel' : ''} ${(sel && !near.has(n.id)) || !hit(n) ? 'fade' : ''} ${c ? '' : 'uncl'} ${fl ? 'flagged' + (n.status === 'blocked' ? ' bad' : '') : ''}" data-card="${n.id}" style="left:${p.x}px;top:${p.y}px;--cat:${c ? CATS[c].c : UNCL}">
       <i class="port in"></i><i class="port out"></i>
@@ -432,7 +438,7 @@ function pm() {
       <div class="card-foot"><span class="badge t-${tone(n)}">${esc(statusLabel(n))}</span><span class="links">⇄ ${D.deg[n.id]}</span></div></div>`; }).join('');
   const modeInfo = {tree: 'Left to right: what each thing rests on, then what rests on it.', free: 'Grouped by domain. Drag cards anywhere.', dec: 'Each decision between what it rests on and what it affects.'}[ui.mode];
   return `<div class="pm"><div class="pm-main">
-    <div class="pm-search pm-add" style="padding-top:18px"><form class="ed-search" data-search="1" style="flex:1 1 320px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><input type="search" name="q" placeholder="Search the record" value="${esc(ui.q)}" autocomplete="off"></form>
+    <div class="pm-search pm-add" style="padding-top:18px">${UIX.askBar('pm')}
       <button class="ed-cta" data-act="adding">${ui.adding ? 'Close' : '+ Add to record'}</button></div>
     ${ui.adding ? `<form class="pm-add" data-note="1"><input name="text" placeholder="Type a note, a finding or a change. It is read and proposed, not added directly." autocomplete="off" autofocus><button class="ed-link plain">Send for review</button></form>` : ''}
     <div class="pm-toolbar"><div class="seg sm">${[['tree', 'Tree'], ['free', 'Freeform'], ['dec', 'Decisions']].map(([m, l]) => `<button class="${ui.mode === m ? 'on' : ''}" data-act="mode" data-id="${m}">${l}</button>`).join('')}</div><span class="mode-info dim">${modeInfo}</span></div>
@@ -520,7 +526,7 @@ function inspector() {
 /* ---- node detail (GET /api/nodes/{id}): source, what it flagged, the passages it was read from */
 async function loadDetail(id) {
   if (!id || ui.detail[id]) return;
-  try { ui.detail[id] = await api('/api/nodes/' + id + '?limit=3'); if (ui.sel === id && ui.tab === 'pm' && !ui.link) safeRender(); } catch {}
+  try { ui.detail[id] = await api('/api/nodes/' + id + '?limit=3'); if (ui.sel === id && (ui.tab === 'pm' || UIX.inNet()) && !ui.link) safeRender(); } catch {}
 }
 function detailBlock(id) {
   const d = ui.detail[id]; if (!d) return '';
@@ -618,7 +624,7 @@ document.addEventListener('click', async e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const act = b.dataset.act, id = b.dataset.id;
   if (act === 'tab') { location.hash = id; }
-  else if (act === 'sel') { ui.sel = id; ui.link = null; if (ui.tab !== 'pm') location.hash = 'pm'; else render(); loadDetail(id); }
+  else if (act === 'sel') { ui.sel = id; ui.link = null; if (UIX.inNet()) render(); else if (ui.tab !== 'pm') location.hash = 'pm'; else render(); loadDetail(id); }
   else if (act === 'unlink') { ui.link = null; render(); }
   else if (act === 'addlink') { const sg = ui.link && ui.link.res && ui.link.res.suggestions[+id]; if (sg) { b.disabled = true; addLink({source: sg.from, target: sg.to, type: sg.type, reason: sg.reason, confidence: sg.confidence, origin: 'jev'}); } }
   else if (act === 'clearsearch') { ui.search = null; ui.q = ''; render(); }
@@ -671,5 +677,6 @@ const setLive = v => { live = v; const l = $('#live'); if (l) { l.classList.togg
 es.onopen = () => setLive(true); es.onerror = () => setLive(false);
 let deb; es.onmessage = () => { clearTimeout(deb); deb = setTimeout(refresh, 150); };
 setInterval(refresh, 20000);
+const UIX = window.makeUIX({ui, esc, $, api, post, render, toast, inspector, loadDetail, CATS, CAT_ORDER, UNCL, PRESENTER});   // the UI/UX design's additions (uix.js)
 route(); refresh();
 })();

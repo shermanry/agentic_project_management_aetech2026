@@ -146,6 +146,7 @@ drop / paste / chat
 | `db/001_schema.sql` | Vendored copy of Sharare's decision-engine schema (branch `sharare/decision-engine`, commit d1d0b9d). Delete once that branch is merged and mount hers instead |
 | `db/020_search.sql` | Keyword-search and edge indexes, applied at every startup |
 | `db/010_northstar.sql` | One extra table, `intake_items`: things being processed or waiting for review |
+| `brief.py` | Design brief generator for the Client tab |
 | `links.py` | Connecting two existing nodes: signals, Jev suggestions, dry-run effects |
 | `qa.py` | Question answering over the graph with cited sources |
 | `replay.py` | The replay scenario and the Back / Forward logic |
@@ -202,6 +203,7 @@ Settings (environment or `.env`): `DATABASE_URL`, `FEEDS_ENABLED`, `MONITOR_SITE
 | GET | `/api/nodes/{id}` | Node detail: text, source, passages, links, flags, history |
 | GET | `/api/nodes/{id}/neighbours` | Graph walk: `affects`, `rests_on` or `any`, to a depth |
 | POST | `/api/edges/suggest`, `/api/edges/preview`, `/api/edges` | Suggest, dry-run and add a link between two existing nodes |
+| GET | `/api/brief` | Draft design brief in Markdown, templated from the live record (no model call). Used by the Client tab |
 | POST | `/api/ask` | `{question}` -> answer, cited sources with quotes, timings. Saves nothing |
 | POST | `/api/nodes/{id}/resolve` | Mark a blocker, discovery or constraint resolved; clears the flags it raised |
 | POST | `/api/project/new` | Working app: wipe the project and start from `template=empty`, `starter` or `full` |

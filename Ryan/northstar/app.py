@@ -19,6 +19,7 @@ from pydantic import BaseModel
 import analysis
 import effects
 import livefeeds
+import brief
 import links
 import pipeline
 import qa
@@ -492,6 +493,12 @@ def neighbours(node_id: str, direction: str = "any", depth: int = 2) -> dict:
         raise HTTPException(404, "No such node")
     depth = max(1, min(depth, 6))
     return {"node_id": node_id, "direction": direction, "depth": depth, "nodes": store.neighbours(node_id, direction, depth)}
+
+
+@app.get("/api/brief")
+def design_brief() -> dict:
+    """Draft design brief in Markdown, written from the live record (no model call). For the Client tab."""
+    return brief.build(store, parts_rollup(store.nodes(), store.edges()))
 
 
 class EdgeIn(BaseModel):
