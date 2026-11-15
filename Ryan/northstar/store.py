@@ -589,6 +589,11 @@ class Store:
                 (it["id"], self.project["id"], it["status"], it["label"], it.get("author"), Jsonb(it.get("source") or {}),
                  Jsonb(it["proposal"]) if it.get("proposal") else None, Jsonb(it["timings"]) if it.get("timings") else None, it.get("error")))
 
+    def add_answer(self, item_id: str, qa: dict) -> None:
+        """A person answered the question Jev asked about an item. Kept on the item; the item is read again."""
+        self._q("""UPDATE intake_items SET source = jsonb_set(source, '{answers}', coalesce(source->'answers', '[]'::jsonb) || %s::jsonb),
+                          status = 'processing', updated_at = now() WHERE id = %s""", (Jsonb([qa]), item_id))
+
     def delete_item(self, item_id: str) -> None:
         self._q("DELETE FROM intake_items WHERE id = %s AND node_id IS NULL", (item_id,))
 

@@ -69,6 +69,8 @@ Return ONE JSON object with exactly these keys:
 - "confidence": 0-1, how sure you are about type and links overall
 - "needs_deeper_read": true only if the material given is too thin to judge (e.g. unreadable file, no text, no image)
 - "missing_details": one short question for the user if a key fact is missing (what exactly, until when, who), else null
+A "Clarification from <person>" in the item is that person answering an earlier question of yours. Treat it as fact about
+the item: use the names it gives to choose the type and links, and do not ask again for what it already answers.
 """
 
 
@@ -193,10 +195,22 @@ def _propose(material: dict, note: str, author: str, cands: list[dict], extra: s
 
 
 # ---------------------------------------------------------------- the pipeline
+def clarifications(src: dict) -> str:
+    """Answers a person gave to Jev's questions about this item, as text for the next read."""
+    out = []
+    for a in src.get("answers") or []:
+        q = (a.get("q") or "").strip()
+        out.append(f"Clarification from {a.get('by') or 'a person'}" + (f" (asked: {q})" if q else "") + f": {a.get('a', '').strip()}")
+    return "\n".join(out)
+
+
 def process(item_id: str, store: Store, out_root: Path, notify) -> None:
     it = store.item(item_id)
     src, author = it["source"], it.get("author") or "someone"
     note = src.get("note") or ""
+    clar = clarifications(src)            # what a person answered when Jev asked about this item
+    if clar:
+        note = (note + "\n\n" + clar).strip()
     timings: dict = {}
     t_start = time.time()
 
@@ -208,6 +222,8 @@ def process(item_id: str, store: Store, out_root: Path, notify) -> None:
     try:
         t = time.time()
         material = _convert(src, out_root, author)
+        if clar and src["kind"] == "text":            # a note has no separate user note: the answers join its text
+            material["text"] = (material["text"] + "\n\n" + clar).strip()
         timings["convert"] = round(time.time() - t, 2)
 
         cands, vec, einfo = _candidates(material, note, store)

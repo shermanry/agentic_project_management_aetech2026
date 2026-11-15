@@ -94,6 +94,8 @@ A proposal can only link to what is already in the graph. So files that arrive t
 - The pages send each file's last-modified date as the `modified` form field; linked folders use the date from the folder listing. Without dates, the order is by file name.
 - It is slower than reading in parallel: about 6 seconds per file. `INTAKE_ORDERED=0` goes back to parallel reading with a review for every file.
 
+**Answering Jev's question.** When a proposal is missing a key fact, Jev asks one short question ("What specifically are the lily pads, and who owns the replacement?"). The review card shows it with a box to answer. The answer is kept with the item and the item is read again with it, so the title, type, links and effects can all change. Nothing is added to the graph until the proposal is accepted. `POST /api/items/{id}/answer` with `{answer, by}`.
+
 **Linking what is already there.** For a project whose files were read all at once and came out as loose nodes, `POST /api/relink` (or `.venv/bin/python relink.py <project id>`) walks the existing nodes oldest first, shows Jev each one with the nodes before it, and adds the links it proposes. Nodes that already have outgoing links are left alone.
 
 ## Example projects and switching between them
@@ -241,6 +243,7 @@ Settings (environment or `.env`): `DATABASE_URL`, `FEEDS_ENABLED`, `MONITOR_SITE
 | GET | `/api/nodes/{id}/neighbours` | Graph walk: `affects`, `rests_on` or `any`, to a depth |
 | POST | `/api/edges/suggest`, `/api/edges/preview`, `/api/edges` | Suggest, dry-run and add a link between two existing nodes |
 | GET | `/api/projects` | The example projects, which one this app is, and which others are running |
+| POST | `/api/items/{id}/answer` | Answer Jev's question on a proposal; the item is read again with the answer |
 | POST | `/api/relink` | Link the project's existing nodes, oldest first, with Jev at each step |
 | GET | `/api/brief` | Draft design brief in Markdown, templated from the live record (no model call). Used by the Client tab |
 | POST | `/api/ask` | `{question}` -> answer, cited sources with quotes, timings. Saves nothing |

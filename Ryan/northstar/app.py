@@ -445,6 +445,26 @@ def _approve(it: dict, type_: str, title: str, links: list[dict], by: str, reaso
     return {"node_id": node_id, "effects": fx, "revision": seq}
 
 
+class AnswerIn(BaseModel):
+    answer: str
+    by: str = "Sam"
+
+
+@app.post("/api/items/{item_id}/answer")
+def answer_item(item_id: str, a: AnswerIn) -> dict:
+    """Answer the question Jev asked about a proposal. The answer is kept with the item, and the item is read
+    again with it, so the type, links and effects can change. Nothing is added to the graph by this."""
+    it = _ready_item(item_id)
+    if it["status"] != "ready":
+        raise HTTPException(409, "Still being read; answer when it's ready")
+    text = a.answer.strip()
+    if not text:
+        raise HTTPException(400, "Type an answer")
+    store.add_answer(item_id, {"q": (it.get("proposal") or {}).get("missing_details") or "", "a": text[:1500], "by": a.by, "at": now()})
+    _start_processing(item_id)
+    return {"rereading": True}
+
+
 # One lane for incoming files: a single file waits for review; a batch is added in order of creation (ordered.py).
 lane = ordered.Lane(store, lambda item_id: pipeline.process(item_id, store, PACKAGES, notify), _approve, _start_processing, notify)
 _relinking = threading.Event()

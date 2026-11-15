@@ -345,7 +345,9 @@ function renderPanel() {
       <div>${p.tags.map(t => `<span class="pill">${esc(t)}</span>`).join("")}</div>
       ${it.source?.filename && /\.(png|jpe?g|webp|gif|bmp)$/i.test(it.source.filename) ? `<img class="prev" src="/api/items/${it.id}/image" alt="">` : ""}
       <div class="muted" style="margin-top:6px">From ${esc(it.author)} · ${esc(it.source?.filename || "message")} · proposed by ${esc(p.by||"")}${p.read_by_agent ? " after a deeper read by "+esc(p.read_by_agent) : ""} in ${it.timings?.total ?? it.timings?.first_guess ?? "?"}s</div>
-      ${p.missing_details ? `<div class="note"><b>Worth asking:</b> ${esc(p.missing_details)}</div>` : ""}
+      ${(it.source?.answers||[]).map(x => `<div class="muted" style="margin-top:6px">${esc(x.by||"Someone")} answered: ${esc(x.a)}</div>`).join("")}
+      ${p.missing_details ? `<div class="note"><b>Jev asks:</b> ${esc(p.missing_details)}
+        <div class="row"><input type="text" id="d-answer" placeholder="Answer, and it is read again" style="flex:1"><button id="d-answer-go">Answer</button></div></div>` : ""}
       ${(p.warnings||[]).length ? `<div class="note">${p.warnings.map(esc).join("<br>")}</div>` : ""}
       <h2 style="padding:14px 0 0">Connections</h2>
       ${draft.links.length ? draft.links.map((l,i) => `<div class="link"><label><input type="checkbox" data-l="${i}" ${l.on?"checked":""}> <select data-lt="${i}">${S.edge_types.map(t => `<option ${t===l.type?"selected":""}>${t}</option>`).join("")}</select> → <b>${esc(node(l.target)?.title)}</b></label>
@@ -356,6 +358,8 @@ function renderPanel() {
         : '<p class="muted">Nothing else changes. It is added as a linked record.</p>'}
       <div class="row" style="margin-top:12px"><input type="text" id="d-reason" placeholder="Reason or details (optional)" style="flex:1"></div>
       <div class="actions"><button class="primary" id="approve" ${refining?"disabled":""}>${refining?"Still reading…":"Approve and add"}</button><button id="dismiss">Dismiss</button></div>`;
+    const ago_ = $("#d-answer-go"); if (ago_) ago_.onclick = async () => { const t = $("#d-answer").value.trim(); if (!t) return;
+      try { await api(`/api/items/${it.id}/answer`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({answer: t, by: who()})}); draft = null; await refresh(); } catch (e) { toast(e.message); } };
     $("#d-title").onchange = e => { draft.title = e.target.value.trim() || draft.title; rePreview(); };
     $("#d-type").onchange = e => { draft.type = e.target.value; rePreview(); };
     el.querySelectorAll("[data-l]").forEach(c => c.onchange = () => { draft.links[c.dataset.l].on = c.checked; rePreview(); });

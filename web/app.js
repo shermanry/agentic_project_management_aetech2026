@@ -272,6 +272,9 @@ function itemRow(it, full) {
       <span class="ed-meta links">${esc(links.join(' · ') || 'no links proposed')}</span></span>
       <button class="ed-link plain" data-act="accept" data-id="${it.id}">Accept</button><button class="ed-link dim" data-act="dismiss" data-id="${it.id}">Dismiss</button></span>
     ${full && p.summary ? `<span class="sub">${esc(p.summary)}</span>` : ''}
+    ${((it.source && it.source.answers) || []).map(x => `<span class="sub dim">${esc(x.by || 'Someone')} answered: ${esc(x.a)}</span>`).join('')}
+    ${p.missing_details ? `<span class="sub"><span class="open-q" style="display:block">Jev asks: ${esc(p.missing_details)}</span></span>
+      <form class="sub" data-answer="${it.id}" style="display:flex;gap:16px;align-items:baseline;flex-wrap:wrap"><input name="a" placeholder="Answer here. It is read again with what you say, and the links can change." autocomplete="off" style="border:0;border-bottom:1px solid var(--hair);background:none;padding:6px 0;flex:1 1 320px;max-width:620px;font-size:14px"><button class="ed-link plain">Answer and read again</button></form>` : ''}
     ${fx.length ? `<span class="sub ed-meta" style="margin-top:6px">If accepted, this would change</span>${fxList(fx, full ? 8 : 3)}` : full ? `<span class="sub">Accepting this changes nothing else.</span>` : ''}
     ${full ? `<span class="sub"><input data-reason="${it.id}" placeholder="Reason for accepting (kept in the record)" style="border:0;border-bottom:1px solid var(--hair);background:none;padding:6px 0;width:min(100%,520px);font-size:14px"></span>` : ''}
   </li>`;
@@ -818,6 +821,8 @@ document.addEventListener('submit', async e => {
   const f = e.target; e.preventDefault();
   if (f.dataset.ask != null) ask(f.dataset.ask, f.q.value.trim());
   else if (f.dataset.drive) { const v = f.source.value.trim(); if (v) { f.source.value = ''; addDrive(v); } }
+  else if (f.dataset.answer) { const t = f.a.value.trim(); if (!t) return; f.a.value = '';
+    try { await post(`/api/items/${f.dataset.answer}/answer`, {answer: t, by: ui.who}); toast('Reading it again with your answer.'); dirty = false; await refresh(); render(); } catch (err) { toast(err.message); } }
   else if (f.dataset.note) { const t = f.text.value.trim(); if (t) { f.text.value = ''; intake(t); } }
   else if (f.dataset.search) { search(f.q.value); }
   else if (f.dataset.feedform) { addFeed(); }
