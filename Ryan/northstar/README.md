@@ -287,3 +287,21 @@ project has other nodes (its proposal was written before the rest of the graph e
 pause in the approvals and then has Jev link the loose nodes, oldest first, each against what came before it.
 The canvas in `/app` also shows "N items have no connections · Find connections", which runs the same pass on
 demand (`POST /api/relink`). `/api/state` reports `linking: true` while a pass is running.
+
+## East Tower's nodes come from the operator interview
+
+The working East Tower project is seeded from `seed_facade_sme.py`, built from `Polina/sme-answers.md`
+(40 nodes, 5 building parts, 5 live feeds). The presentation app keeps the whiteboard story in `seed.py`,
+because its cached replay steps link to those nodes by id. `EAST_TOWER_SEED=classic` gives the working project
+the old tables.
+
+- **Constraints** carry `data.class`: `hard` (removes the date), `soft` (penalises it) or `derate` (the date holds,
+  an estimate changes), plus `data.origin` and the flight geometry they apply to. The class is also a tag.
+- **Blockers** are things a party outside the drone team supplies: insurance proof, the owner's letter, DHS
+  approval, the named crew's release from another project.
+- **Decisions** carry who decides, approves, is consulted and is informed, and `alternatives_available` where
+  there is none (the permit dates).
+- **The dependency chain**: third-party documents -> NYPD package -> permit -> crew booking -> flight ->
+  processing -> delivery. The flight also depends on the day-before go or no-go call, which depends on every
+  hard limit, both airspace states (legal and operational) and the forecast.
+- **Start fresh** in the working project: Starter is that chain (10 nodes); Full is everything.

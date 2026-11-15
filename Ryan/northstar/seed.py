@@ -108,6 +108,15 @@ def _load_project() -> None:
     import projects
     pid = os.environ.get("NORTHSTAR_PROJECT", "").strip()
     if not pid or pid == PROJECT["id"]:
+        # The working East Tower project is built from the operator interview (seed_facade_sme.py). The presentation
+        # app keeps the tables above: its cached replay steps link to those nodes by id. EAST_TOWER_SEED=classic
+        # gives the working project the old tables too.
+        demo = os.environ.get("NORTHSTAR_MODE", "project").lower() == "demo"
+        if not demo and os.environ.get("EAST_TOWER_SEED", "sme").lower() != "classic":
+            import seed_facade_sme as m
+            g = globals()
+            for k in ("PEOPLE", "NODES", "EDGES", "PARTS", "PART_EDGES", "STARTER_REFS"):
+                g[k] = getattr(m, k)
         return
     p = projects.entry(pid)
     if not p:

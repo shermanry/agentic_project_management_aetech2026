@@ -74,6 +74,8 @@ TEMPLATES = {
 }
 if seed.SCENARIO is not None:                # another example project (projects.json) brings its own story
     SCENARIO = seed.SCENARIO
+if seed.STARTER_REFS != TEMPLATES["starter"]["refs"]:      # the working East Tower project now starts from the operator's chain
+    TEMPLATES["starter"] = {"label": "Starter: the dependency chain from documents to delivery", "refs": seed.STARTER_REFS}
 if seed.PROJECT["id"] != "east-tower":
     TEMPLATES["starter"] = {"label": "Starter: the first few project nodes", "refs": seed.STARTER_REFS}
     TEMPLATES["full"] = {"label": "Full example: every project node", "refs": None}
@@ -185,6 +187,11 @@ class Replay:
             if s["kind"] == "feeds":
                 if self.feeds:
                     self.feeds.ensure_nodes(force=True)
+                    for src, dst, typ, reason in seed.EDGES + seed.PART_EDGES:      # seed links to the feed nodes just created
+                        if src.startswith("feed_") or dst.startswith("feed_"):
+                            a, b = self.store.node_by_ref(src), self.store.node_by_ref(dst)
+                            if a and b:
+                                self.store.put_edge(a["id"], b["id"], typ, reason, 1.0, "seed")
                     self.store.log("Monitors", "feeds.connected", "Live data feeds connected", "Weather, airspace, rule changes, city events")
                 continue
             n = s["node"]
