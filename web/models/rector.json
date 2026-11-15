@@ -1,0 +1,20 @@
+{
+ "source": "380 Rector Pl_facade.3dm",
+ "units": "m",
+ "scale": 0.00767515625,
+ "size": [
+  88.83,
+  82.21000000000001,
+  134.2
+ ],
+ "groups": [
+  {
+   "name": "main",
+   "segments": 45922
+  },
+  {
+   "name": "context",
+   "segments": 5214
+  }
+ ]
+}
