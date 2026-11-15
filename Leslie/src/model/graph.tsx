@@ -141,7 +141,7 @@ function reducer(s: GraphState, a: Action): GraphState {
         summary: a.text?.trim() ? a.text.trim().slice(0, 220) : a.kind === 'note' ? 'Note added locally.' : 'File added. Its contents were not read.',
         why: 'Parked: organize it into the graph, or remove it.',
         origin: a.pkg
-          ? { kind: 'converter', name: `Converter · ${a.pkg.kind.replace(/_/g, ' ')} · ${a.pkg.chunks} chunks` }
+          ? { kind: 'converter', name: `Converter · ${a.pkg.kind.replace(/_/g, ' ')}${a.pkg.ai ? ' · AI summary' : a.pkg.chunks ? ` · ${a.pkg.chunks} chunks` : ''}` }
           : { kind: 'local', name: a.kind === 'note' ? 'Typed note' : a.offline ? 'Added by name (converter offline)' : 'Dropped file (name only)' },
         pkg: a.pkg,
         attach: a.attach,

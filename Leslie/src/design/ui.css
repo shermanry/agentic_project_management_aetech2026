@@ -425,6 +425,18 @@ html, body { background: #ffffff; color: #0a0a0a; color-scheme: light; }
 .intake-drop .ed-cta { align-self: flex-start; }
 .intake-busy, .intake-error { margin: 0; font-size: 15px; }
 .intake-error { color: #b00020; }
+/* large drops: progress, Stop, and a row per failed file */
+.intake-progress { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 20px; font-size: 15px; }
+.intake-progress .line { flex: 1 1 auto; }
+.intake-progress b { font-weight: 500; }
+.intake-progress .bar { flex: 1 0 100%; height: 2px; background: var(--hair); }
+.intake-progress .bar i { display: block; height: 100%; background: var(--ink); transition: width 0.25s ease; }
+.intake-row .sum { font-size: 14px; line-height: 1.4; color: var(--ink-2); max-width: 70ch; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.intake-row .sg.warn { color: #b00020; }
+.intake-row.fail .t { cursor: default; font-size: 17px; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.intake-row.fail .t:hover { box-shadow: none; }
+.intake-row.fail .ph { color: #b00020; font-size: 20px; }
+.intake-fails-foot { padding: 10px 0; border-bottom: 1px solid var(--ink); }
 .intake-list { display: flex; flex-direction: column; gap: 10px; }
 .intake-row { display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--hair); }
 .intake-row img, .intake-row .ph { width: 64px; height: 64px; flex: none; object-fit: cover; background: var(--tile); }

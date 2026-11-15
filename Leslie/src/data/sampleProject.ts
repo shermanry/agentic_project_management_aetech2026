@@ -46,7 +46,19 @@ export interface GraphNode {
   canvas: { x: number; y: number }
   pos3d: [number, number, number]
   /** Set when the node came from the converter service. */
-  pkg?: { id: string; kind: string; chunks: number; warnings: number; thumbnail?: string }
+  pkg?: {
+    id: string
+    kind: string
+    chunks: number
+    warnings: number
+    thumbnail?: string
+    /** The converter's reason when the AI reading did not finish (the file is still converted). */
+    warning?: string
+    /** Path inside a dropped folder, e.g. "videos/stills". */
+    folder?: string
+    /** Title and summary come from the converter's AI reading. */
+    ai?: boolean
+  }
   /** Set when the item was dropped onto something in a 3D view: the node it should attach to. */
   attach?: { id: string; label: string }
 }

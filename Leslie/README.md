@@ -35,6 +35,9 @@ Drag and drop works anywhere in the app. Dropped files are sent to the **convert
 
 - **Dropping in 3D:** on the Expert tab, drop a file onto a node and it attaches to that node (the node highlights as you drag, and the new item appears next to it). On the Client tab, drop onto a part of the building. The scene stays visible; a bar at the bottom says what the file will attach to. Elsewhere a drop opens the full-screen **+ Add** page.
 - Start the converter first (from `Minh/`): `python -m converter serve` (port 8765). In development Vite proxies `/api` and `/files` to it; set `VITE_CONVERTER_URL` to use another address.
+- **AI reading:** when the converter's AI is available (`GET /api/agent`), each file goes to `POST /api/ask` and comes back with a title and a summary; a note typed on the + Add page is sent along as the prompt. If the AI is off, files go to `POST /api/convert` (local extraction, no summary). If the AI fails on one file, the file is still added, with a warning.
+- **Folders:** drop a whole folder and every file inside is added, with its path inside the folder. Hidden files, Office lock files (`~$…`), `Thumbs.db`, `desktop.ini` and `.3dmbak .bak .tmp .part` files are skipped. The folder reader is `src/features/drop.ts`.
+- **Large drops:** files are sent one per request, two at a time. Items appear under "Waiting to be placed" as they finish, with a progress line (`done / total`, failures) and a **Stop** button that sends nothing further. A failed file gets its own error row and does not hold up the rest.
 - If the converter is not running, files are still added by name (plain-text files are read locally) and the drawer says "Converter offline".
 - The placement suggestions come from `src/features/organize.ts`, a local keyword stand-in for an LLM. The converter itself only converts; it does not decide where things belong.
 - The converter's own page (`Minh/converter/static/index.html`) uses the same YBuild look.

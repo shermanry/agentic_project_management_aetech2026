@@ -1,13 +1,44 @@
-// Drag and drop is native to the whole app: drop files anywhere and they go through the converter
-// service (Minh/converter), then wait in this drawer until someone places them in the graph.
+// Drag and drop is native to the whole app: drop files or whole folders anywhere and they go through
+// the converter service (Minh/converter), then wait in this drawer until someone places them in the graph.
+//
+// Files are sent one per request, two at a time, so a large drop keeps moving: each item joins
+// "Waiting to be placed" as it finishes, a failed file does not hold up the rest, and Stop ends the queue.
+// When the converter's AI reading is on, each file comes back with a title and a summary.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { CAT, COMPONENTS } from '../data/sampleProject'
-import { CONVERTER_PAGE, converterOnline, convertFiles, nodeKindFor } from '../features/converter'
+import { CONVERTER_PAGE, agentAvailable, converterOnline, convertOne, nodeKindFor } from '../features/converter'
+import { readDrop, type Dropped } from '../features/drop'
 import { suggestFor } from '../features/organize'
 import { isParked, useGraph, type DropHint, type Suggestion } from '../model/graph'
 import type { GraphNode } from '../data/sampleProject'
 
 const TEXT_FILE = /\.(txt|md|csv|json|log|xml|html?)$/i
+/** Requests in flight at once. */
+const PARALLEL = 2
+
+interface Job extends Dropped {
+  attach?: GraphNode['attach']
+  /** The note in the Add page when the files were dropped: the AI's prompt. */
+  prompt: string
+}
+interface Progress {
+  total: number
+  done: number
+  failed: number
+  /** Left in the queue when Stop was pressed. */
+  unsent: number
+  /** Junk and unreadable entries left out of a folder drop. */
+  skipped: number
+  running: boolean
+  stopped: boolean
+}
+interface Failure {
+  key: number
+  name: string
+  folder: string
+  message: string
+}
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 interface Props {
   open: boolean
@@ -22,9 +53,16 @@ export default function Intake({ open, setOpen, reveal, scene3d }: Props) {
   const { state, dispatch, byId } = useGraph()
   const [online, setOnline] = useState<boolean>()
   const [dragging, setDragging] = useState(false)
-  const [busy, setBusy] = useState(0)
+  const [ai, setAi] = useState(false)
+  const [progress, setProgress] = useState<Progress>()
+  const [failures, setFailures] = useState<Failure[]>([])
+  const [scanning, setScanning] = useState(false)
   const [error, setError] = useState<string>()
   const [note, setNote] = useState('')
+  const queue = useRef<Job[]>([])
+  const running = useRef(false)
+  const failKey = useRef(0)
+  const noteRef = useRef(note)
   const picker = useRef<HTMLInputElement>(null)
   const depth = useRef(0)
   const parked = state.nodes.filter(isParked)
@@ -35,6 +73,7 @@ export default function Intake({ open, setOpen, reveal, scene3d }: Props) {
   useEffect(() => {
     hintRef.current = hint
     sceneRef.current = scene3d
+    noteRef.current = note
   })
 
   /** What a drop target means in graph terms: the node to attach to. */
@@ -46,64 +85,101 @@ export default function Intake({ open, setOpen, reveal, scene3d }: Props) {
   }, [])
 
   useEffect(() => {
-    void converterOnline().then(setOnline)
+    void converterOnline().then(async (up) => {
+      setOnline(up)
+      setAi(up && (await agentAvailable()))
+    })
   }, [open])
 
-  const addFiles = useCallback(
-    async (list: FileList | File[], attach?: GraphNode['attach'], quiet = false) => {
-      const files = Array.from(list)
-      if (!files.length) return
-      // In a 3D view the scene stays visible: the new item appears where it was dropped.
-      if (!quiet) setOpen(true)
-      else setNotice(`Adding ${files.length} file${files.length === 1 ? '' : 's'}…`)
-      setError(undefined)
-      setBusy(files.length)
-      const up = await converterOnline()
-      setOnline(up)
+  /** One file through the converter (or by name when it is offline). Never throws: a failure becomes a row. */
+  const convertJob = useCallback(
+    async (job: Job, up: boolean, useAi: boolean) => {
+      const { file, folder, attach } = job
       try {
         if (up) {
-          const out = await convertFiles(files)
-          for (const c of out)
-            dispatch({
-              type: 'addNode',
-              title: c.title,
-              kind: nodeKindFor(c.kind),
-              text: c.description || c.tags.join(', '),
-              pkg: {
-                id: c.packageId,
-                kind: c.kind,
-                chunks: c.chunkCount,
-                warnings: c.warnings,
-                thumbnail: c.thumbnail,
-              },
-              attach,
-            })
+          const c = await convertOne(file, { ai: useAi, folder, prompt: job.prompt })
+          dispatch({
+            type: 'addNode',
+            title: c.title,
+            kind: nodeKindFor(c.kind),
+            text: c.description || c.tags.join(', '),
+            pkg: {
+              id: c.packageId,
+              kind: c.kind,
+              chunks: c.chunkCount,
+              warnings: c.warnings,
+              thumbnail: c.thumbnail,
+              warning: c.warning,
+              folder: folder || undefined,
+              ai: c.ai,
+            },
+            attach,
+          })
         } else {
           // Converter not running: keep the demo usable. Plain-text files are read locally; others by name only.
-          for (const f of files) {
-            const readable = (f.type.startsWith('text/') || TEXT_FILE.test(f.name)) && f.size < 200_000
-            const text = readable ? await f.text().catch(() => undefined) : undefined
-            dispatch({
-              type: 'addNode',
-              title: f.name,
-              kind: 'file',
-              text,
-              offline: true,
-              attach,
-            })
-          }
+          const readable = (file.type.startsWith('text/') || TEXT_FILE.test(file.name)) && file.size < 200_000
+          const text = readable ? await file.text().catch(() => undefined) : undefined
+          dispatch({ type: 'addNode', title: file.name, kind: 'file', text, offline: true, attach })
         }
+        setProgress((p) => p && { ...p, done: p.done + 1 })
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'The converter could not read those files.')
+        const message =
+          e instanceof TypeError ? 'The converter did not answer.' : e instanceof Error ? e.message : 'The converter could not read this file.'
+        setFailures((f) => [...f, { key: failKey.current++, name: file.name, folder, message }])
+        setProgress((p) => p && { ...p, failed: p.failed + 1 })
       }
-      setBusy(0)
+    },
+    [dispatch],
+  )
+
+  /** Work through the queue, PARALLEL requests in flight, until it is empty or stopped. */
+  const run = useCallback(
+    async (quiet: boolean, attach?: GraphNode['attach']) => {
+      running.current = true
+      const up = await converterOnline()
+      const useAi = up && (await agentAvailable())
+      setOnline(up)
+      setAi(useAi)
+      const worker = async () => {
+        for (let job = queue.current.shift(); job; job = queue.current.shift()) await convertJob(job, up, useAi)
+      }
+      // files dropped while a run is going join the same queue; loop in case they arrive as the workers finish
+      while (queue.current.length) await Promise.all(Array.from({ length: PARALLEL }, worker))
+      running.current = false
+      setProgress((p) => p && { ...p, running: false })
       if (quiet) {
         setNotice(attach ? `Added next to ${attach.label}. Open + Add to place it.` : 'Added. Open + Add to place it.')
         setTimeout(() => setNotice(undefined), 4200)
       }
     },
-    [dispatch, setOpen],
+    [convertJob],
   )
+
+  const addFiles = useCallback(
+    (list: Dropped[], attach?: GraphNode['attach'], quiet = false, skipped = 0) => {
+      if (!list.length) return
+      // In a 3D view the scene stays visible: the new item appears where it was dropped.
+      if (!quiet) setOpen(true)
+      setError(undefined)
+      const prompt = noteRef.current.trim()
+      queue.current.push(...list.map((d) => ({ ...d, attach, prompt })))
+      if (running.current) {
+        setProgress((p) => p && { ...p, total: p.total + list.length, skipped: p.skipped + skipped, stopped: false })
+        return
+      }
+      setFailures([])
+      setProgress({ total: list.length, done: 0, failed: 0, unsent: 0, skipped, running: true, stopped: false })
+      void run(quiet, attach)
+    },
+    [run, setOpen],
+  )
+
+  /** Stop: nothing more is sent. The requests already in flight finish and their items are kept. */
+  const stop = useCallback(() => {
+    const unsent = queue.current.length
+    queue.current = []
+    setProgress((p) => p && { ...p, unsent: p.unsent + unsent, stopped: true })
+  }, [])
 
   // Whole-window drop target
   useEffect(() => {
@@ -127,8 +203,23 @@ export default function Intake({ open, setOpen, reveal, scene3d }: Props) {
       depth.current = 0
       setDragging(false)
       const attach = attachFor(hintRef.current)
+      const quiet = !!sceneRef.current
       dispatch({ type: 'setDropHint', hint: undefined })
-      if (e.dataTransfer?.files.length) void addFiles(e.dataTransfer.files, attach, !!sceneRef.current)
+      if (!e.dataTransfer) return
+      // readDrop takes the dropped entries synchronously (the browser clears them once this handler returns),
+      // then reads any folders. A plain file drop resolves at once.
+      const contents = readDrop(e.dataTransfer)
+      setScanning(true)
+      void contents
+        .then((c) => {
+          if (c.files.length) addFiles(c.files, attach, quiet, c.skipped)
+          else if (c.hadFolder) {
+            setError('That folder has no files to add.')
+            if (!quiet) setOpen(true)
+          }
+        })
+        .catch(() => setError('That drop could not be read.'))
+        .finally(() => setScanning(false))
     }
     window.addEventListener('dragenter', enter)
     window.addEventListener('dragover', over)
@@ -140,7 +231,22 @@ export default function Intake({ open, setOpen, reveal, scene3d }: Props) {
       window.removeEventListener('dragleave', leave)
       window.removeEventListener('drop', drop)
     }
-  }, [addFiles, attachFor, dispatch])
+  }, [addFiles, attachFor, dispatch, setOpen])
+
+  const handled = progress ? progress.done + progress.failed : 0
+  const progressLabel = !progress
+    ? ''
+    : progress.running
+      ? progress.stopped
+        ? 'Stopping'
+        : online === false
+          ? 'Adding by name'
+          : ai
+            ? 'Reading with AI'
+            : 'Converting'
+      : progress.stopped
+        ? 'Stopped'
+        : 'Done'
 
   return (
     <>
@@ -163,7 +269,12 @@ export default function Intake({ open, setOpen, reveal, scene3d }: Props) {
           )}
         </div>
       )}
-      {notice && !dragging && (
+      {progress?.running && !open && !dragging && (
+        <div className="drop-bar on" role="status">
+          {progressLabel} · {handled} / {progress.total}
+        </div>
+      )}
+      {notice && !dragging && !progress?.running && (
         <div className="drop-bar on" role="status">
           {notice}
         </div>
@@ -174,7 +285,7 @@ export default function Intake({ open, setOpen, reveal, scene3d }: Props) {
         <header>
           <div>
             <span className="ed-meta">Add to project</span>
-            <h2>Drop files anywhere</h2>
+            <h2>Drop files or folders anywhere</h2>
           </div>
           <button className="icon-btn" onClick={() => setOpen(false)} aria-label="Close">
             ×
@@ -187,7 +298,7 @@ export default function Intake({ open, setOpen, reveal, scene3d }: Props) {
             'Checking the converter…'
           ) : online ? (
             <>
-              Converter connected
+              {ai ? 'Converter connected · AI reading on' : 'Converter connected · AI reading off, files are converted without a summary'}
               <a className="ed-link" href={CONVERTER_PAGE} target="_blank" rel="noreferrer">
                 Open converter
               </a>
@@ -208,7 +319,7 @@ export default function Intake({ open, setOpen, reveal, scene3d }: Props) {
             multiple
             hidden
             onChange={(e) => {
-              if (e.target.files) void addFiles(e.target.files)
+              if (e.target.files) addFiles(Array.from(e.target.files, (file) => ({ file, folder: '' })))
               e.target.value = ''
             }}
           />
@@ -234,15 +345,52 @@ export default function Intake({ open, setOpen, reveal, scene3d }: Props) {
           </form>
         </div>
 
-        {busy > 0 && (
+        {scanning && !progress?.running && (
           <p className="intake-busy" aria-live="polite">
-            Converting {busy} file{busy === 1 ? '' : 's'}…
+            Reading what was dropped…
           </p>
+        )}
+        {progress && (
+          <div className="intake-progress" aria-live="polite">
+            <span className="line">
+              <b>{progressLabel}</b> · {handled} / {progress.total}
+              {progress.failed > 0 && ` · ${progress.failed} failed`}
+              {progress.unsent > 0 && ` · ${progress.unsent} not sent`}
+              {progress.skipped > 0 && ` · ${plural(progress.skipped, 'junk file')} skipped`}
+            </span>
+            {progress.running && !progress.stopped && progress.total > 1 && (
+              <button className="ed-link plain" onClick={stop}>
+                Stop
+              </button>
+            )}
+            <span className="bar" aria-hidden>
+              <i style={{ width: `${progress.total ? Math.round((handled / progress.total) * 100) : 0}%` }} />
+            </span>
+          </div>
         )}
         {error && <p className="intake-error">{error}</p>}
 
         <div className="intake-list">
           <span className="ed-meta">Waiting to be placed · {parked.length}</span>
+          {failures.length > 0 && (
+            <ul className="ed-rows intake-fails">
+              {failures.map((f) => (
+                <li key={f.key} className="intake-row fail">
+                  <span className="ph">!</span>
+                  <div className="grow">
+                    <span className="t">{f.name}</span>
+                    {f.folder && <span className="ed-meta">{f.folder}</span>}
+                    <span className="sg warn">Not added: {f.message}</span>
+                  </div>
+                </li>
+              ))}
+              <li className="intake-fails-foot">
+                <button className="ed-link dim" onClick={() => setFailures([])}>
+                  Clear {plural(failures.length, 'error')}
+                </button>
+              </li>
+            </ul>
+          )}
           {parked.length ? (
             <ul className="ed-rows">
               {parked.map((n) => {
@@ -270,8 +418,11 @@ export default function Intake({ open, setOpen, reveal, scene3d }: Props) {
                       </button>
                       <span className="ed-meta">
                         {n.origin.name}
-                        {n.pkg && n.pkg.warnings > 0 ? ` · ${n.pkg.warnings} warning${n.pkg.warnings === 1 ? '' : 's'}` : ''}
+                        {n.pkg?.folder ? ` · ${n.pkg.folder}` : ''}
+                        {n.pkg && n.pkg.warnings > 0 && !n.pkg.warning ? ` · ${plural(n.pkg.warnings, 'warning')}` : ''}
                       </span>
+                      {n.pkg?.ai && n.summary && <span className="sum">{n.summary}</span>}
+                      {n.pkg?.warning && <span className="sg warn">Converted without an AI summary: {n.pkg.warning}</span>}
                       <span className="sg" title={sg.reason}>
                         {target ? `Dropped on ${n.attach!.label}: ` : 'Suggested: '}
                         <b>{CAT[sg.category].label}</b> {Math.round(sg.confidence * 100)}%
@@ -304,7 +455,7 @@ export default function Intake({ open, setOpen, reveal, scene3d }: Props) {
           )}
         </div>
 
-        <footer className="ed-meta">Suggestions are local sample logic, not a live AI. You decide what is placed.</footer>
+        <footer className="ed-meta">Titles and summaries come from the converter. Where things go is suggested by local sample logic, not a live AI. You decide what is placed.</footer>
       </aside>
     </>
   )
