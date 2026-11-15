@@ -195,7 +195,7 @@
 .app.light.tab-client, .app.light.tab-client .ed-page { background: transparent; }
 
 /* ---------- PM tab: what was just added is reviewed right under the note field ---------- */
-.review-here { max-height: 46vh; overflow: auto; margin: 8px 0 0; padding: 0 var(--gutter, 26px); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--hair); }
+.review-here { overflow: auto; margin: 8px 0 0; padding: 0 var(--gutter, 26px); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--hair); }
 .review-here .ed-rows { margin: 0; }
 .review-here .pk-row { grid-template-columns: 1fr; }
 .review-here .pk-row .side { justify-content: flex-start; flex-wrap: wrap; }
@@ -214,3 +214,8 @@
 /* ---------- Expert network: long titles are shortened so labels overlap less; the full title shows on hover or when selected ---------- */
 #net3d-labels .node-chip { max-width: 24ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #net3d-labels .node-chip:hover, #net3d-labels .node-chip.on, #net3d-labels .node-chip.drop-on { max-width: none; z-index: 3; }
+
+/* the bar under the PM review list: drag it to resize the list */
+.review-grip { height: 14px; display: flex; align-items: center; justify-content: center; cursor: ns-resize; touch-action: none; border-bottom: 1px solid var(--hair); }
+.review-grip i { width: 44px; height: 3px; background: var(--ink-3); }
+.review-grip:hover i { background: var(--ink); }

@@ -437,8 +437,20 @@ async function addFeed() {
 const inPlace = () => ui.tab === 'pm';
 function reviewHere() {
   if (!D.open.length) return '';
-  return `<div class="review-here" aria-label="Waiting for your review">${batchBar()}<ul class="ed-rows">${D.open.map(i => itemRow(i, true)).join('')}</ul></div>`;
+  return `<div class="review-wrap"><div class="review-here" aria-label="Waiting for your review" style="max-height:${revH()}px">${batchBar()}<ul class="ed-rows">${D.open.map(i => itemRow(i, true)).join('')}</ul></div>
+    <div class="review-grip" data-grip="1" role="separator" aria-orientation="horizontal" aria-label="Drag to resize the review list" title="Drag to make the review list taller or shorter"><i></i></div></div>`;
 }
+/* The review list is kept short so the canvas below stays in view; drag the bar under it to resize. The height is remembered. */
+const revH = () => { let h = ui.revH; if (!h) { try { h = +localStorage.getItem('yb.revH'); } catch {} } return Math.round(Math.max(72, Math.min(innerHeight * 0.8, h || innerHeight * 0.24))); };
+document.addEventListener('pointerdown', e => {
+  const g = e.target.closest('[data-grip]'); if (!g) return;
+  e.preventDefault();
+  const box = g.parentElement.querySelector('.review-here'), y0 = e.clientY, h0 = box.getBoundingClientRect().height;
+  const move = ev => { ui.revH = Math.max(72, Math.min(innerHeight * 0.8, h0 + ev.clientY - y0)); box.style.maxHeight = box.style.height = ui.revH + 'px'; };
+  const up = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up);
+    try { localStorage.setItem('yb.revH', String(Math.round(ui.revH || h0))); } catch {} ui.view = null; render(); };   // the canvas refits to the room it now has
+  document.addEventListener('pointermove', move); document.addEventListener('pointerup', up);
+});
 /* Items with no connections (a project loaded all at once, or approved before the rest existed): say so on the
    canvas and offer to find them. Jev takes the items oldest first and links each to what came before it. */
 function linkUp() {
@@ -607,11 +619,11 @@ function fit() {
   const w = $('#wrap'); if (!w || !L) return;
   const ps = Object.values(L.pos); if (!ps.length) { ui.view = {x: 0, y: 0, k: 1}; return applyView(); }
   const x0 = Math.min(...ps.map(p => p.x)) - 40, y0 = Math.min(...ps.map(p => p.y)) - 50, x1 = Math.max(...ps.map(p => p.x)) + CW + 40, y1 = Math.max(...ps.map(p => p.y)) + CH + 110;
-  const k = Math.max(.3, Math.min(1, w.clientWidth / (x1 - x0), w.clientHeight / (y1 - y0)));
+  const k = Math.max(.12, Math.min(1, w.clientWidth / (x1 - x0), w.clientHeight / (y1 - y0)));   // small enough that a tall tree still fits whole
   ui.view = {k, x: (w.clientWidth - (x1 - x0) * k) / 2 - x0 * k, y: (w.clientHeight - (y1 - y0) * k) / 2 - y0 * k};
   applyView();
 }
-function zoomAt(f, cx, cy) { const v = ui.view, k = Math.max(.3, Math.min(2, v.k * f)); v.x = cx - (cx - v.x) * k / v.k; v.y = cy - (cy - v.y) * k / v.k; v.k = k; applyView(); }
+function zoomAt(f, cx, cy) { const v = ui.view, k = Math.max(.12, Math.min(2, v.k * f)); v.x = cx - (cx - v.x) * k / v.k; v.y = cy - (cy - v.y) * k / v.k; v.k = k; applyView(); }
 function mountCanvas() {
   const w = $('#wrap'); if (!w) return;
   drawEdges(); if (!ui.view) fit(); else applyView();
