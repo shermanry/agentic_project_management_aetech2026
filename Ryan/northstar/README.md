@@ -226,3 +226,16 @@ Settings (environment or `.env`): `DATABASE_URL`, `FEEDS_ENABLED`, `MONITOR_SITE
 - **One project, no login.** "You are" is a dropdown.
 - **Slack intake is not wired.** The chat box stands in for it; `/api/intake` is what a Slack bot would call.
 - **Jev is a router,** so speed varies per call (2.7 to 6.4 seconds seen). Pin `JEV_MODEL` to one fast model if the demo needs consistency.
+
+## Adding a whole folder (Minh's linked folders, wired into intake)
+
+In `/app`, **+ Add** is a menu: Files, A folder, Google Drive folder, A note, and the review tray.
+
+- **A folder** (or a folder dropped anywhere on the page): the browser opens it and sends every file to `POST /api/intake`
+  as its own item, two at a time, with its folder as the note. System, lock, backup and temp files are left out.
+- **Google Drive folder**: `POST /api/intake/folder` (form: `source`, `author`, `text`) lists and downloads the folder with
+  `Minh/converter/sources.py` and adds each file to intake. `source` can also be the path of a folder on the server.
+  `GET /api/intake/folder/{id}` gives progress; `POST /api/intake/folder/{id}/stop` stops it.
+  The Drive folder must be shared "Anyone with the link". Without `GOOGLE_API_KEY` in `.env`, 50 files per folder at most.
+- Limits: `FOLDER_MAX_FILES` (default 40 per folder, one Jev call each), `INTAKE_PARALLEL` (default 4 files read at once).
+- Needs `gdown` (in `Minh/converter/requirements.txt`).

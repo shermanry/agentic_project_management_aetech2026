@@ -42,7 +42,7 @@ let S = null;            // last /api/state
 let D = null;            // derived from S
 let live = false, dirty = false;
 const ui = {tab: 'overview', sel: null, mode: 'tree', off: new Set(), q: '', view: null, pos: {}, ask: {}, who: 'Mary', adding: false,
-            search: null, link: null, detail: {}, busy: false, intake: false, feed: null};
+            search: null, link: null, detail: {}, busy: false, intake: false, feed: null, addMenu: false, jobs: []};
 try { ui.who = localStorage.getItem('yb.who') || 'Mary'; } catch {}
 
 /* ------------------------------------------------------------------ data */
@@ -138,7 +138,14 @@ function render() {
     <nav class="crumbs"><span>Projects</span><span class="sl">›</span><b>${esc(S.project.name)}</b><span class="sl">›</span><span>${CRUMB[tab]}</span></nav>
     <nav class="seg views">${TABS.map(([id, l]) => `<button class="${id === tab ? 'on' : ''}" data-act="tab" data-id="${id}">${l}${counts[id] ? `<sup class="tab-count">${counts[id]}</sup>` : ''}</button>`).join('')}</nav>
     <div class="status-area">
-      <button class="add-btn" data-act="intake" aria-haspopup="dialog">+ Add${D.open.length ? `<sup class="tab-count">${D.open.length}</sup>` : ''}</button>
+      <div class="add-wrap"><button class="add-btn" data-act="addmenu" aria-haspopup="menu" aria-expanded="${ui.addMenu ? 'true' : 'false'}">+ Add${D.open.length ? `<sup class="tab-count">${D.open.length}</sup>` : ''} <span class="caret">▾</span></button>
+        ${ui.addMenu ? `<div class="add-menu${ui.addLeft ? ' from-left' : ''}" role="menu">
+          <button role="menuitem" data-act="pickfiles"><b>Files</b><small>One or more files from this computer</small></button>
+          <button role="menuitem" data-act="pickdir"><b>A folder</b><small>Every file inside becomes its own item</small></button>
+          <button role="menuitem" data-act="drive"><b>Google Drive folder</b><small>Paste a link to a shared folder</small></button>
+          <button role="menuitem" data-act="intake"><b>A note</b><small>Type or paste text</small></button>
+          <button role="menuitem" data-act="intake" class="sep"><b>Waiting to be placed${D.open.length ? ` · ${D.open.length}` : ''}</b><small>Review what has been read</small></button>
+        </div>` : ''}</div>
       <span class="live ${live ? '' : 'off'}" id="live"><i></i>${live ? 'Live' : 'Offline'}</span>
       <label class="who">As <select data-change="who">${S.people.filter(p => p.role !== 'client').map(p => `<option ${p.name === ui.who ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
       <div class="clock"><span class="clock-t" id="clock">${clock()}</span><span class="clock-z">New York</span></div>
@@ -354,8 +361,10 @@ function intakeDrawer() {
   <aside class="intake ${ui.intake ? 'open' : ''}" aria-label="Add to project" ${ui.intake ? '' : 'aria-hidden="true"'}>
     <header><div><span class="ed-meta">Add to project</span><h2>Drop files anywhere</h2></div><button class="icon-btn" data-act="intake" aria-label="Close">×</button></header>
     <p class="intake-status on"><i></i>An email, a site note, a permit, a photo. It is read, a place is proposed with what it would change, and you decide.</p>
-    <div class="intake-drop" id="drop"><button class="ed-cta" data-act="browse">Choose files</button><input type="file" id="file" multiple hidden>
-      <form class="pk-note" data-note="1"><input name="text" placeholder="or paste a note" autocomplete="off"><button class="ed-link plain">Add</button></form></div>
+    <div class="intake-drop" id="drop"><span class="intake-pick"><button class="ed-cta" data-act="pickfiles">Choose files</button><button class="ed-link plain" data-act="pickdir">or a folder</button></span>
+      <form class="pk-note" data-note="1"><input name="text" placeholder="or paste a note" autocomplete="off"><button class="ed-link plain">Add</button></form>
+      ${S.config && S.config.folders ? `<form class="pk-note" data-drive="1"><input name="source" id="drive-src" placeholder="or a Google Drive folder link (shared with anyone with the link)" autocomplete="off"><button class="ed-link plain">Add folder</button></form>` : ''}</div>
+    ${folderJobs()}
     <div class="intake-list"><span class="ed-meta">Waiting to be placed · ${D.open.length}</span>
       ${D.open.length ? `<ul class="ed-rows">${D.open.map(i => itemRow(i, true)).join('')}</ul>` : '<p class="ed-empty">Nothing waiting. Everything is placed in the record.</p>'}</div>
   </aside>`;
@@ -640,6 +649,76 @@ function linkPanel() {
 }
 
 /* ------------------------------------------------------------------ actions */
+/* Folders (Minh's converter work, wired into this intake). Three ways in:
+   a folder picked or dropped here  -> each file is sent to POST /api/intake as its own item, with its folder as the note
+   a Google Drive folder link       -> POST /api/intake/folder; the server lists and downloads it (Minh/converter/sources.py) */
+const JUNK = /^(\.|~\$|thumbs\.db$|desktop\.ini$)|\.(3dmbak|bak|tmp|temp|rhl|swp|crdownload|part)$|~$/i;   // same skip rules as the converter
+const relOf = f => f._rel || f.webkitRelativePath || '';
+const folderOf = f => relOf(f).split('/').slice(0, -1).join('/');
+function pick(dir) {                 // a file input outside #root, so a re-render cannot lose the choice
+  const inp = document.createElement('input'); inp.type = 'file'; inp.multiple = true; inp.hidden = true;
+  if (dir) inp.webkitdirectory = true;
+  inp.onchange = () => { const fs = [...inp.files]; inp.remove(); if (!fs.length) return; dir || fs.some(folderOf) ? addFolder(fs) : intake('', fs); };
+  document.body.appendChild(inp); inp.click();
+}
+async function filesFromDrop(dt) {   // a dropped folder arrives as a placeholder: open it and collect every file inside
+  const entries = [...(dt.items || [])].filter(i => i.kind === 'file').map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  if (!entries.some(e => e.isDirectory)) return [...(dt.files || [])];
+  const out = [];
+  const walk = async (entry, prefix) => {
+    if (entry.isFile) { const f = await new Promise((res, rej) => entry.file(res, rej)); f._rel = prefix + f.name; out.push(f); }
+    else if (entry.isDirectory) { const reader = entry.createReader();
+      for (;;) { const batch = await new Promise((res, rej) => reader.readEntries(res, rej)); if (!batch.length) break;
+        for (const e of batch) await walk(e, prefix + entry.name + '/'); } }
+  };
+  for (const e of entries) await walk(e, '');
+  return out;
+}
+async function addFolder(all, extraNote, quiet) {
+  const max = (S.config && S.config.folder_max) || 40;
+  let files = all.filter(f => !relOf(f).split('/').concat(f.name).some(part => JUNK.test(part)));
+  if (!files.length) { toast('That folder has no files to add.'); return; }
+  const roots = [...new Set(files.map(f => relOf(f).split('/')[0]).filter(Boolean))], name = roots.join(', ') || 'the folder';
+  if (files.length > max && !confirm(`${name} has ${files.length} files. Add the first ${max}? Each one is read and proposed separately.`)) return;
+  files = files.slice(0, max);
+  const job = {id: 'up_' + Date.now(), local: true, root_name: name, kind: 'upload', status: 'running', total: files.length, done: 0, failed: 0, errors: []};
+  ui.jobs.push(job); if (!quiet) ui.intake = true; render();
+  let i = 0;
+  const worker = async () => { while (i < files.length && job.status === 'running') { const f = files[i++], dir = folderOf(f);
+    const fd = new FormData(); fd.append('author', ui.who); fd.append('files', f, f.name);
+    fd.append('text', [dir ? `From the folder "${dir}".` : '', extraNote || ''].filter(Boolean).join(' '));
+    try { await api('/api/intake', {method: 'POST', body: fd}); job.done++; } catch (e) { job.failed++; job.errors.push(`${f.name}: ${e.message}`); }
+    safeRender(); } };
+  await Promise.all([worker(), worker()]);
+  if (job.status === 'running') job.status = 'done';
+  toast(`${job.done} file${job.done === 1 ? '' : 's'} from ${name} ${job.done === 1 ? 'is' : 'are'} being read${job.failed ? `; ${job.failed} could not be sent` : ''}.`);
+  await refresh(); render();
+}
+async function addDrive(source) {
+  const fd = new FormData(); fd.append('source', source); fd.append('author', ui.who);
+  try { const j = await api('/api/intake/folder', {method: 'POST', body: fd}); ui.jobs.push(j); ui.intake = true; render(); pollJobs(); }
+  catch (e) { toast(e.message); }
+}
+let jobTimer = null;
+function pollJobs() {
+  if (jobTimer) return;
+  jobTimer = setInterval(async () => {
+    const live = ui.jobs.filter(j => !j.local && ['listing', 'running'].includes(j.status));
+    if (!live.length) { clearInterval(jobTimer); jobTimer = null; return; }
+    for (const j of live) { try { Object.assign(j, await api(`/api/intake/folder/${j.id}`)); } catch { j.status = 'error'; j.errors = ['Lost contact with the server']; } }
+    safeRender();
+  }, 1500);
+}
+function folderJobs() {
+  if (!ui.jobs.length) return '';
+  const word = {listing: 'Reading the folder', running: 'Adding', done: 'Added', stopped: 'Stopped', error: 'Could not be read'};
+  return `<div class="intake-list"><span class="ed-meta">Folders</span><ul class="ed-rows">${ui.jobs.slice().reverse().map(j => {
+    const live = ['listing', 'running'].includes(j.status), extra = [j.failed ? `${j.failed} failed` : '', j.already ? `${j.already} added before` : '', j.over_limit ? `${j.over_limit} left out (limit ${(S.config && S.config.folder_max) || 40})` : ''].filter(Boolean).join(' · ');
+    return `<li class="ed-row" style="cursor:default"><span class="t">${esc(j.root_name || j.source || 'Folder')}</span>
+      <span class="ed-meta ${live ? 'reading' : ''}">${j.kind === 'gdrive' ? 'Google Drive · ' : ''}${word[j.status] || j.status}${j.status === 'listing' ? '' : ` · ${j.done} of ${j.total}`}${extra ? ' · ' + extra : ''}</span>
+      <span>${live ? `<button class="ed-link dim" data-act="jobstop" data-id="${esc(j.id)}">Stop</button>` : `<button class="ed-link dim" data-act="jobclear" data-id="${esc(j.id)}">Clear</button>`}</span>
+      ${(j.errors || []).length ? `<span class="sub">${esc(j.errors.slice(0, 3).join(' · '))}</span>` : ''}</li>`; }).join('')}</ul></div>`;
+}
 async function intake(text, files, quiet, onTitle) {      // quiet: stay in the 3D view; the item shows up under + Add
   const fd = new FormData(); fd.append('text', text || ''); fd.append('author', ui.who);
   for (const f of files || []) fd.append('files', f);
@@ -662,9 +741,17 @@ async function ask(key, q) {
   render();
 }
 document.addEventListener('click', async e => {
-  const b = e.target.closest('[data-act]'); if (!b) return;
+  const b = e.target.closest('[data-act]');
+  if (ui.addMenu && !(b && b.dataset.act === 'addmenu')) { ui.addMenu = false; if (!b) { render(); return; } }   // any click closes the + Add menu
+  if (!b) return;
   const act = b.dataset.act, id = b.dataset.id;
-  if (act === 'tab') { location.hash = id; }
+  if (act === 'addmenu') { ui.addMenu = !ui.addMenu; ui.addLeft = b.getBoundingClientRect().right < 300; render(); }   // near the left edge the menu opens rightwards
+  else if (act === 'pickfiles') { e.preventDefault(); render(); pick(false); }
+  else if (act === 'pickdir') { e.preventDefault(); render(); pick(true); }
+  else if (act === 'drive') { ui.intake = true; render(); const d = $('#drive-src'); if (d) d.focus(); else toast('Folder links need the converter installed on the server.'); }
+  else if (act === 'jobstop') { const j = ui.jobs.find(x => x.id === id); if (j) { if (j.local) j.status = 'stopped'; else { try { Object.assign(j, await post(`/api/intake/folder/${id}/stop`)); } catch (err) { toast(err.message); } } render(); } }
+  else if (act === 'jobclear') { ui.jobs = ui.jobs.filter(x => x.id !== id); render(); }
+  else if (act === 'tab') { location.hash = id; }
   else if (act === 'sel') { ui.sel = id; ui.link = null; if (UIX.inNet()) render(); else if (ui.tab !== 'pm') location.hash = 'pm'; else render(); loadDetail(id); }
   else if (act === 'unlink') { ui.link = null; render(); }
   else if (act === 'addlink') { const sg = ui.link && ui.link.res && ui.link.res.suggestions[+id]; if (sg) { b.disabled = true; addLink({source: sg.from, target: sg.to, type: sg.type, reason: sg.reason, confidence: sg.confidence, origin: 'jev'}); } }
@@ -677,7 +764,6 @@ document.addEventListener('click', async e => {
     if (id === 'fit') fit(); else if (id === 'arrange') { delete ui.pos[ui.mode]; ui.view = null; render(); } else zoomAt(id === 'in' ? 1.2 : 1 / 1.2, w.clientWidth / 2, w.clientHeight / 2); }
   else if (act === 'accept') { b.disabled = true; accept(id); }
   else if (act === 'dismiss') { try { await post(`/api/items/${id}/dismiss`, {by: ui.who, reason: ''}); dirty = false; await refresh(); render(); } catch (err) { toast(err.message); } }
-  else if (act === 'browse') { e.preventDefault(); $('#file').click(); }
   else if (act === 'replay') { b.disabled = true; try { await post('/api/replay/' + id); } catch (err) { toast(err.message); } await refresh(); render(); }
   else if (act === 'goto') { b.disabled = true; try { await api('/api/replay/goto?to=' + id, {method: 'POST'}); ui.sel = null; ui.view = null; } catch (err) { toast(err.message); } await refresh(); render(); }
   else if (act === 'feedform') { ui.feed = ui.feed ? null : {kind: 'weather', depends: (S.nodes.find(n => n.type === 'event') || {}).id || ''}; render(); }
@@ -694,6 +780,7 @@ document.addEventListener('click', async e => {
 document.addEventListener('submit', async e => {
   const f = e.target; e.preventDefault();
   if (f.dataset.ask != null) ask(f.dataset.ask, f.q.value.trim());
+  else if (f.dataset.drive) { const v = f.source.value.trim(); if (v) { f.source.value = ''; addDrive(v); } }
   else if (f.dataset.note) { const t = f.text.value.trim(); if (t) { f.text.value = ''; intake(t); } }
   else if (f.dataset.search) { search(f.q.value); }
   else if (f.dataset.feedform) { addFeed(); }
@@ -707,8 +794,7 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', async e => {
   const t = e.target;
-  if (t.id === 'file' && t.files.length) intake('', [...t.files]);
-  else if (t.closest('[data-feedform]') && ui.feed && t.name) { ui.feed[t.name] = t.value; if (t.name === 'kind') render(); }
+  if (t.closest('[data-feedform]') && ui.feed && t.name) { ui.feed[t.name] = t.value; if (t.name === 'kind') render(); }
   else if (t.dataset.change === 'who') { ui.who = t.value; try { localStorage.setItem('yb.who', ui.who); } catch {} }
   else if (t.dataset.change === 'inject' && t.value) { try { await post('/api/feeds/inject/' + t.value); toast('Simulated: ' + t.value.replace(/_/g, ' ')); } catch (err) { toast(err.message); } await refresh(); render(); }
 });
@@ -756,7 +842,9 @@ document.addEventListener('dragover', e => { if (!hasFiles(e)) return; e.prevent
 document.addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) { veil(false); dropBar(null); clearDropOn(); } });
 document.addEventListener('drop', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth = 0; veil(false); dropBar(null);
   const on = dropOn && D.byId[dropOn], spot = dropSpot(); clearDropOn();
-  if (e.dataTransfer.files.length) intake(on ? (spot === 'bld' ? `Dropped onto "${on.title}" on the building. It relates to that part.` : `Dropped onto "${on.title}" in the knowledge network. It relates to that node.`) : '', [...e.dataTransfer.files], !!spot, on ? on.title : ''); });
+  const note = on ? (spot === 'bld' ? `Dropped onto "${on.title}" on the building. It relates to that part.` : `Dropped onto "${on.title}" in the knowledge network. It relates to that node.`) : '';
+  filesFromDrop(e.dataTransfer).then(fs => { if (!fs.length) { toast('That folder is empty.'); return; }
+    if (fs.some(folderOf)) addFolder(fs, note, !!spot); else intake(note, fs, !!spot, on ? on.title : ''); }).catch(err => toast(err.message)); });
 
 function route() { const h = location.hash.replace('#', ''); if (h === 'data') ui.intake = true;   // old Parking lot links open the drawer
   ui.tab = TABS.some(t => t[0] === h) ? h : 'overview'; ui.view = null; if (S) { render(); if (ui.tab !== 'pm') window.scrollTo(0, 0); } }

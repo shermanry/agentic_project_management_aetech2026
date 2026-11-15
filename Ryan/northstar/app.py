@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 import analysis
 import effects
+import folders
 import livefeeds
 import brief
 import links
@@ -138,7 +139,7 @@ def state() -> dict:
     return {"project": seed.PROJECT, "people": seed.PEOPLE, "node_types": NODE_TYPES, "edge_types": EDGE_TYPES,
             "nodes": nodes, "edges": edges, "parts": parts_rollup(nodes, edges), "items": [_public_item(i) for i in store.items()],
             "events": store.events(), "replay": replay.status(),
-            "config": {**pipeline.available(), "seed_warning": _seed_warning, "mode": MODE, "demo_url": DEMO_URL if MODE != "demo" else None},
+            "config": {**pipeline.available(), "seed_warning": _seed_warning, "mode": MODE, "folders": folders.available(), "folder_max": folders.max_files(), "demo_url": DEMO_URL if MODE != "demo" else None},
             "feeds": feeds.snapshot() if feeds else None, "rules": store.rules(),
             "analysis": {"model": analysis.model(), "running": _analysis_running.is_set()}}
 
@@ -307,9 +308,55 @@ def _new_text_item(text: str, author: str) -> str:
     return item_id
 
 
+_reading = threading.BoundedSemaphore(int(os.environ.get("INTAKE_PARALLEL", "4")))   # a folder can bring dozens of files
+
+
 def _start_processing(item_id: str) -> None:
     notify({"type": "item", "id": item_id, "status": "processing"})
-    threading.Thread(target=pipeline.process, args=(item_id, store, PACKAGES, notify), daemon=True).start()
+
+    def run() -> None:
+        with _reading:
+            pipeline.process(item_id, store, PACKAGES, notify)
+    threading.Thread(target=run, daemon=True).start()
+
+
+# ---------------------------------------------------------------- a whole folder (Minh's linked folders, into this intake)
+def _add_file_from_path(path: Path, filename: str, note: str, author: str, extra: dict) -> str:
+    item_id = new_id("it")
+    dest = UPLOADS / f"{item_id}_{Path(filename).name}"
+    shutil.copyfile(path, dest)
+    store.put_item({"id": item_id, "status": "processing", "label": filename, "author": author,
+                    "source": {"kind": "file", "filename": filename, "path": str(dest), "note": note, **extra},
+                    "created_at": now()})
+    _start_processing(item_id)
+    return item_id
+
+
+@app.post("/api/intake/folder")
+async def intake_folder(source: str = Form(...), author: str = Form("Sam"), text: str = Form("")) -> dict:
+    """A Google Drive folder link, or the path of a folder on this machine: every file inside becomes its own item."""
+    try:
+        return folders.start(source, author, text, _add_file_from_path).public()
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except RuntimeError as e:
+        raise HTTPException(503, str(e))
+
+
+@app.get("/api/intake/folder/{job_id}")
+async def intake_folder_status(job_id: str) -> dict:
+    job = folders.JOBS.get(job_id)
+    if not job:
+        raise HTTPException(404, "No such folder")
+    return job.public()
+
+
+@app.post("/api/intake/folder/{job_id}/stop")
+async def intake_folder_stop(job_id: str) -> dict:
+    job = folders.stop(job_id)
+    if not job:
+        raise HTTPException(404, "No such folder")
+    return job.public()
 
 
 def submit_text(text: str, author: str) -> str:
